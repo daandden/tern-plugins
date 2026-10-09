@@ -1,0 +1,6 @@
+schema = 1
+id = "zellij-keys"
+name = "Zellij keys"
+version = "0.1.0"
+description = "Zellij actions that Tern has no built-in command for: floating tools and breaking a pane out to a tab."
+window = "window.luau"

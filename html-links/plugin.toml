@@ -1,0 +1,6 @@
+schema = 1
+id = "html-links"
+name = "HTML links"
+version = "0.2.0"
+description = "A click on a link to a local .html file opens the rendered page in a browser pane beside it. Other file:// links open the file in Tern."
+window = "window.luau"
