@@ -1,6 +1,6 @@
 schema = 1
 id = "html-links"
 name = "HTML links"
-version = "0.2.0"
-description = "A click on a link to a local .html file opens the rendered page in a browser pane beside it. Other file:// links open the file in Tern."
+version = "0.5.0"
+description = "Every local .html file opens as the rendered page in a browser pane beside its opener pane: clicks, the Files pane, `tern open`, bin/open and `open -a Tern`. Other file:// links open the file in Tern. A web link that Tern opens stays in Tern only when it goes to this machine, and other web links open in Microsoft Edge. Cmd+R reloads the page."
 window = "window.luau"
