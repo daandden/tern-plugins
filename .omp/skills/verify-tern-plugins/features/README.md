@@ -40,7 +40,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 ## Features
 
 - [Go to picker](./goto.md) covers opening the picker, the agents-only and all-panes views, search, jump numbers, Enter and Esc.
-- [Zellij floats and panes](./zellij-keys.md) covers floating shells, float size, hiding floats, floating and docking a pane, breaking a pane to a tab, and the `reduce_motion` restore.
+- [Zellij floats and panes](./zellij-keys.md) covers floating shells, the cascade of shown floats, hiding floats on Alt+F and on a focus change, a float close, the Go to picker over floats, floating and docking a pane, breaking a pane to a tab, and the `reduce_motion` restore.
 - [HTML pages](./html-links.md) covers HTML files that open as rendered pages beside their opener, from `tern open`, `bin/open` and the Files pane, and the Cmd+R reload.
 - [Neovim files](./nvim-files.md) covers text files that open in a Neovim pane, the reuse of that pane, and the files that stay in Tern.
 - [Reader terminal text](./reader-terminal-text.md) covers the terminal font size, row height and UI font of omp's composer in the Reader chat style, and the hidden placeholder.
