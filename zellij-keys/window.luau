@@ -1,5 +1,54 @@
 -- Zellij actions with no Tern built-in. settings.json binds them as plugin.zellij-keys.<id>.
 
+-- Zellij floating panes: a focused floating pane fills the middle 75% of the tab, as zellij centers
+-- its floats. Tern sets a float's position and size inline, so the rule needs !important; the
+-- terminal inside resizes to the new box. Unfocused (glance) and hidden floats keep Tern's corner.
+tern.css("float-size", [[
+:root:root .tn-stage > .tn-pane.pip.pip-focus {
+	inset: 12.5% !important;
+	width: auto !important;
+	height: auto !important;
+}
+]])
+
+-- Tern animates a floating pane as it grows into focus, shrinks back or slides away, and CSS cannot
+-- stop it: only the global reduce_motion setting does. So before a command here changes a float,
+-- reduce_motion goes "on" for 400 ms, then back to the user's value. The user's value waits in
+-- tern.kv meanwhile, so a reload or crash in between restores it at the next window start.
+-- Floats focused or unfocused with the mouse still animate: no hook runs before those.
+local MOTION_KEY = "reduce_motion_before_float"
+local motion_timer = nil
+
+local function restore_motion(cx)
+	local saved = tern.kv.get(MOTION_KEY)
+	if saved ~= nil then
+		cx.settings:set("reduce_motion", saved)
+		tern.kv.set(MOTION_KEY, nil)
+	end
+end
+
+local function quiet_float_motion(cx)
+	if tern.kv.get(MOTION_KEY) == nil then
+		local current = cx.settings:get("reduce_motion")
+		if current == "on" then
+			return
+		end
+		tern.kv.set(MOTION_KEY, current)
+		cx.settings:set("reduce_motion", "on")
+	end
+	if motion_timer then
+		motion_timer:cancel()
+	end
+	motion_timer = tern.timer(400, function(later)
+		motion_timer = nil
+		if later then
+			restore_motion(later)
+		end
+	end)
+end
+
+tern.on("window_start", restore_motion)
+
 local function current_tab(cx, pane)
 	local tab_id = cx.session:tab_of(pane)
 	for _, tab in cx.session:tabs() do
@@ -62,6 +111,7 @@ local function step_float_focus(cx, focused, step)
 	local floats = tab_floats(cx, focused)
 	for i, float in floats do
 		if float.pane == focused and #floats > 1 then
+			quiet_float_motion(cx)
 			focus_pane(cx, floats[(i - 1 + step) % #floats + 1].pane)
 		end
 	end
@@ -90,6 +140,7 @@ local function open_float(cx, command)
 		return
 	end
 	local owner = tiled_owner(cx, focused)
+	quiet_float_motion(cx)
 	local launch = if command then { command = command } else nil
 	local pane = cx.layout:split(owner, "right", launch)
 	if pane == nil then
@@ -154,6 +205,7 @@ tern.command({
 			return
 		end
 		local info = cx.session:pane(focused)
+		quiet_float_motion(cx)
 		if info and info.floating then
 			cancel_pending_focus()
 			cx:command("pip_stash_all")
@@ -178,6 +230,7 @@ tern.command({
 			return
 		end
 		local info = cx.session:pane(focused)
+		quiet_float_motion(cx)
 		local ok, why
 		if info and info.floating then
 			ok, why = cx.layout:dock(focused)
