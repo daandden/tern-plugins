@@ -146,9 +146,9 @@ tern.css("reader-terminal-text", [[
 	padding: 0;
 }
 
-/* Table rows one row tall: the row rules are inset shadows, which take no height. */
+/* Table rows a little over one row tall: 3px above and below the text. The row rules are inset shadows, which take no height. */
 :root:root .sf-chat-reader .sf-md .md :is(th, td) {
-	padding: 0 16px 0 0;
+	padding: 3px 16px 3px 0;
 	border-bottom: 0;
 	box-shadow: inset 0 -1px 0 var(--l1);
 	font-size: inherit;
