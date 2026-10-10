@@ -1,0 +1,42 @@
+#!/bin/sh
+# In a Tern pane, `open FILE...` shows local files in Tern beside the pane that ran it, in that
+# pane's tab. macOS open sends a file to the tab that has the focus, because its request to Tern
+# names no pane. Every other call (no Tern pane, an option, a URL, a directory, an app) goes to
+# /usr/bin/open.
+#
+# `tern open` puts a file block beside the pane that runs it, but Tern does not tell a plugin's
+# open route which pane that is. So for each file, this script writes the file's real path into a
+# handoff file named after the pane, then runs `tern open`. A plugin of this repo that opens the
+# file itself (html-links, nvim-files) reads the pane from the handoff file and removes the file.
+# `tern open` then fails with "cannot open in a file block", because no file block opened, so a
+# removed handoff file means that the file opened.
+
+TERN=$(command -v tern)
+if [ -z "$TERN_PANE" ] || [ -z "$TERN" ] || [ $# -eq 0 ]; then
+	exec /usr/bin/open "$@"
+fi
+for arg in "$@"; do
+	case $arg in
+	-*) exec /usr/bin/open "$@" ;;
+	esac
+	[ -f "$arg" ] || exec /usr/bin/open "$@"
+done
+
+handoffs="$HOME/.cache/tern/open-owners"
+mkdir -p "$handoffs" || exec /usr/bin/open "$@"
+handoff="$handoffs/$TERN_PANE.$$"
+trap 'rm -f "$handoff"' EXIT
+trap 'exit 130' INT TERM
+
+status=0
+for arg in "$@"; do
+	real=$(/bin/realpath "$arg") || { status=1; continue; }
+	printf '%s\n' "$real" >"$handoff"
+	err=$("$TERN" open "$real" 2>&1 >/dev/null)
+	code=$?
+	if [ -e "$handoff" ]; then
+		[ -n "$err" ] && printf '%s\n' "$err" >&2
+		[ "$code" -ne 0 ] && status=$code
+	fi
+done
+exit "$status"

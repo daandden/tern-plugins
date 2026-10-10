@@ -1,0 +1,6 @@
+schema = 1
+id = "nvim-files"
+name = "Neovim files"
+version = "0.2.0"
+description = "Text and code files open in Neovim in a terminal pane, not in Tern's code view."
+window = "window.luau"
