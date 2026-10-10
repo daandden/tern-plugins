@@ -1,0 +1,13 @@
+schema = 1
+id = "goto"
+name = "Go to"
+version = "0.1.0"
+description = "A picker of sessions, tabs and agent panes: type to search, a jump number goes there, ctrl+; then a shows all panes."
+window = "window.luau"
+host = "host.luau"
+
+[[blocks]]
+id = "picker"
+title = "Go to"
+# plugin.goto.open opens it with the list of sessions, tabs and panes.
+palette = false
