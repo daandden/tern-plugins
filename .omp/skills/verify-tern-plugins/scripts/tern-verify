@@ -1,0 +1,179 @@
+#!/bin/sh
+# Runs one isolated Tern window that loads the plugins of one tern-plugins checkout, and drives it.
+# Every command takes the run dir first. The instance keeps all of its state in RUN/data: its own
+# configuration dir, daemon socket and control socket, so it never touches the Tern that you use.
+#
+#   tern-verify start  RUN            link the plugins, copy settings.json, open the window, wait
+#   tern-verify doctor RUN            read-only check of the instance
+#   tern-verify ctl    RUN ARGS...    `tern ctl` on the instance's control socket
+#   tern-verify tern   RUN ARGS...    any `tern` CLI command against the instance
+#   tern-verify type   RUN LINE       types LINE and Enter into the focused pane
+#   tern-verify shot   RUN NAME       RUN/NAME.webp (lossless) and RUN/NAME.layout.json
+#   tern-verify stop   RUN            close the window, stop its daemon, remove RUN/data
+#
+# TERN_PLUGINS_REPO overrides the checkout whose plugins load (default: the checkout of this file).
+
+set -eu
+
+die() {
+	printf 'tern-verify: %s\n' "$*" >&2
+	exit 1
+}
+
+[ $# -ge 2 ] || die "usage: tern-verify start|doctor|ctl|tern|type|shot|stop RUN [ARGS...]"
+cmd=$1
+case $2 in
+/*) run=$2 ;;
+*) run=$(pwd)/$2 ;;
+esac
+shift 2
+
+data=$run/data
+cfg=$data/config
+ctl_sock=$data/ctl.sock
+daemon_sock=$data/daemon.sock
+script_dir=$(cd "$(dirname "$0")" && pwd -P)
+repo=${TERN_PLUGINS_REPO:-$(git -C "$script_dir" rev-parse --show-toplevel)}
+
+# A tern command against this instance only. With the TERN_PANE* and TERN_WINDOW* variables of the
+# calling pane, a CLI command goes to the window of that pane.
+iso() {
+	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
+		TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" "$@"
+}
+
+ctl() {
+	iso tern ctl --control "$ctl_sock" "$@"
+}
+
+# The pid that holds a socket file open, or nothing.
+socket_owner() {
+	[ -S "$1" ] && lsof -t "$1" 2>/dev/null | head -n 1 || true
+}
+
+# The omp session dir of a pane that ran omp in RUN/data, as omp names it.
+omp_session_dir() {
+	rel=${data#"$HOME"/}
+	printf '%s/.omp/agent/sessions/-%s\n' "$HOME" "$(printf %s "$rel" | tr / -)"
+}
+
+case $cmd in
+start)
+	[ ! -e "$data" ] || die "$data exists: use a new run dir"
+	mkdir -p "$cfg"
+	if [ -f "$HOME/.config/tern/settings.json" ]; then
+		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
+	fi
+	for manifest in "$repo"/*/plugin.toml; do
+		iso tern plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
+			die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
+	done
+	cd "$data"
+	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
+		TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" \
+		tern --control "$ctl_sock" "$data" >"$run/window.log" 2>&1 </dev/null &
+	echo $! >"$data/window.pid"
+	tries=0
+	until [ -S "$ctl_sock" ] && ctl css 2>/dev/null | grep -q '"plugin:local:'; do
+		tries=$((tries + 1))
+		[ $tries -le 60 ] || die "no plugin sheets after 30 s, see $run/window.log"
+		sleep 0.5
+	done
+	socket_owner "$daemon_sock" >"$data/daemon.pid"
+	printf 'ready: window pid %s, daemon pid %s, repo %s\n' \
+		"$(cat "$data/window.pid")" "$(cat "$data/daemon.pid")" "$repo"
+	;;
+doctor)
+	status=0
+	window_pid=$(cat "$data/window.pid" 2>/dev/null || true)
+	printf 'run:        %s\n' "$run"
+	printf 'repo:       %s (%s)\n' "$repo" "$(git -C "$repo" rev-parse --short HEAD)"
+	printf 'tern:       %s\n' "$(tern --version)"
+	if [ -n "$window_pid" ] && kill -0 "$window_pid" 2>/dev/null; then
+		printf 'window:     pid %s alive\n' "$window_pid"
+	else
+		printf 'window:     NOT RUNNING (pid %s)\n' "${window_pid:-none}"
+		status=1
+	fi
+	printf 'ctl.sock:   owner %s\n' "$(socket_owner "$ctl_sock")"
+	printf 'daemon:     pid %s (started as %s)\n' "$(socket_owner "$daemon_sock")" \
+		"$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
+	if ! ctl state >"$data/doctor-state.json" 2>&1; then
+		printf 'ctl state:  FAILED: %s\n' "$(cat "$data/doctor-state.json")"
+		status=1
+	else
+		printf 'sessions:   %s\n' "$(jq -c '[.sessions[] | {name, tabs}]' "$data/doctor-state.json")"
+		printf 'focused:    %s\n' "$(jq -c '.focused | {id, label}' "$data/doctor-state.json")"
+	fi
+	printf 'plugins:\n'
+	iso tern plugin list | sed 's/^/  /'
+	if iso tern plugin list | grep -qv ' ready$'; then status=1; fi
+	for link in "$cfg"/plugins/*.path; do
+		target=$(cat "$link")
+		case $target in
+		"$repo"/*) ;;
+		*)
+			printf 'LINK OUTSIDE REPO: %s -> %s\n' "$link" "$target"
+			status=1
+			;;
+		esac
+	done
+	printf 'sheets:     %s\n' "$(ctl css | jq -r '[.sheets[].name | select(startswith("plugin:"))] | join(" ")')"
+	account=$(ctl a11y | jq -r '[.. | objects | select(.role == "Button") | .name // empty
+		| select(startswith("Signed in to Stencil"))][0] // "NOT SIGNED IN"')
+	printf 'account:    %s\n' "$account"
+	[ "$account" != "NOT SIGNED IN" ] || status=1
+	exit $status
+	;;
+ctl)
+	ctl "$@"
+	;;
+tern)
+	iso tern "$@"
+	;;
+type)
+	[ $# -eq 1 ] || die "usage: tern-verify type RUN 'command line'"
+	case $1 in *'"'*) die "the command line cannot hold a double quote" ;; esac
+	ctl run "\"$1\""
+	;;
+shot)
+	[ $# -eq 1 ] || die "usage: tern-verify shot RUN NAME"
+	name=$1
+	reply=$(ctl shot "$name")
+	png=$data/$(printf %s "$reply" | jq -r .png)
+	layout=$data/$(printf %s "$reply" | jq -r .layout)
+	bun -e 'const [png, out] = process.argv.slice(1);
+await Bun.write(out, await new Bun.Image(await Bun.file(png).bytes()).webp({ lossless: true }).bytes());' \
+		"$png" "$run/$name.webp"
+	mv "$layout" "$run/$name.layout.json"
+	rm -f "$png"
+	printf '%s\n%s\n' "$run/$name.webp" "$run/$name.layout.json"
+	;;
+stop)
+	window_pid=$(cat "$data/window.pid" 2>/dev/null || true)
+	daemon_pid=$(socket_owner "$daemon_sock")
+	[ -n "$daemon_pid" ] || daemon_pid=$(cat "$data/daemon.pid" 2>/dev/null || true)
+	if [ -S "$ctl_sock" ]; then ctl quit >/dev/null 2>&1 || true; fi
+	# `ctl quit` closes the window. The daemon keeps running, and its panes end when it stops.
+	# The window gets 2 s to close by itself, the daemon gets SIGTERM at once.
+	for pid in $window_pid $daemon_pid; do
+		[ "$pid" = "$daemon_pid" ] && kill "$pid" 2>/dev/null || true
+		tries=0
+		while kill -0 "$pid" 2>/dev/null && [ $tries -lt 20 ]; do
+			if [ $tries -eq 8 ]; then kill "$pid" 2>/dev/null || true; fi
+			tries=$((tries + 1))
+			sleep 0.25
+		done
+		if kill -0 "$pid" 2>/dev/null; then
+			printf 'pid %s still runs after SIGTERM, sending SIGKILL\n' "$pid"
+			kill -9 "$pid" 2>/dev/null || true
+		fi
+	done
+	rm -rf "$(omp_session_dir)" "$data"
+	printf 'stopped window %s and daemon %s; kept:\n' "${window_pid:-none}" "${daemon_pid:-none}"
+	ls -1 "$run"
+	;;
+*)
+	die "unknown command: $cmd"
+	;;
+esac
