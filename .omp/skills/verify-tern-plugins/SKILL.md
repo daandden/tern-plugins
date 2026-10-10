@@ -99,7 +99,7 @@ Each run keeps its proof at the top level of `RUN` (`<Scratch dir>/verify/tern-p
 
 - Capture the state before and after each action, not only the final screen. Save the command output with `| tee "$RUN/<feature>-<step>.json"` or `.txt`.
 - A shot: `"$V" shot "$RUN" <feature>-<step>`. It renders the window at full resolution (2560 by 1600 for the default 1280 by 800 window) and converts the PNG to lossless WebP without a resize. Read the `.webp` path to look at it.
-- Prove side effects as well: `RUN/data/config/settings.json`, `RUN/data/config/plugin-data/<id>/kv.json`, the files in `~/.cache/tern/open-owners`, the exit code and output of a typed command (`"$V" tern "$RUN" capture ID`).
+- Prove side effects as well: `RUN/data/config/settings.json`, `RUN/data/config/plugin-data/<id>/kv.json`, the panes in `"$V" tern "$RUN" ls`, and the exit code and output of a typed command (`"$V" tern "$RUN" capture ID`).
 - Write `RUN/notes.md`: the commit under test, each feature ID and entry point you drove, the evidence file of each, and each skipped entry point with the reason.
 
 ## Cleanup

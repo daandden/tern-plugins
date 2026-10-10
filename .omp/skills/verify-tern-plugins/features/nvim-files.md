@@ -29,7 +29,7 @@ Preconditions:
 - Pane store. Read `RUN/data/config/plugin-data/nvim-files/kv.json`. It holds `{"panes": [ID]}`.
 - Second file. Focus pane 5 and run `"$V" type "$RUN" 'tern open second.txt; echo EXIT=$status'`. `tern ls` lists no new pane. `capture ID` of the Neovim pane shows the first line of `second.txt` and its path in the status line.
 - Line. Focus pane 5 with `"$V" tern "$RUN" focus 5` and run `"$V" type "$RUN" 'tern open notes.txt:3'` with a file of three lines or more. The status line of Neovim ends with `3:1`.
-- bin/open. Focus pane 5 and run `"$V" type "$RUN" '<checkout>/bin/open notes.txt; echo EXIT=$status'`. `capture 5` shows `EXIT=0`, and `~/.cache/tern/open-owners` holds no file of this run.
+- bin/open. Focus pane 5 and run `"$V" type "$RUN" '<checkout>/bin/open second.txt; echo EXIT=$status'`. `capture 5` shows `EXIT=0`. `tern ls` lists no new pane and no file block, and `capture ID` of the Neovim pane shows `second.txt` in its status line.
 - Files pane. Focus pane 5, press `key ctrl+cmd+e`, then run `"$V" ctl "$RUN" files focus`, `"$V" ctl "$RUN" files cursor notes.txt` and `"$V" ctl "$RUN" key enter`. The file opens in the Neovim pane of the tab, or in a new one when the tab has none.
 - Skip. Focus pane 5 and run `"$V" type "$RUN" 'tern open readme.md; echo EXIT=$status'`. `tern ls` lists no Neovim pane for it, `capture 5` shows `EXIT=0`, and Tern shows the Markdown in its own block.
 - Proof. Run `"$V" shot "$RUN" nvim-<step>` and keep the `capture` output of the Neovim pane in `RUN/nvim-<step>.txt`.

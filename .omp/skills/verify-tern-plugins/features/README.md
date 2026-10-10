@@ -16,7 +16,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 - Prefer a key press from `keybinds.html` or the command palette. They are the user paths. `plugins run` skips the key binding and proves only the command.
 - Get pane ids from `"$V" tern "$RUN" ls`. A pane id is stable for the life of the pane. A pane number in the goto picker or a position in the window is not.
 - Wait for a result by polling a handle (`tree`, `dump`, `tern ls`) in a loop with a limit, not by one fixed sleep. Each step below names the handle.
-- After a mutation, read the stored result a second way: `settings.json` or `kv.json` under `RUN/data/config`, the files in `~/.cache/tern/open-owners`, or the pane output through `"$V" tern "$RUN" capture ID`.
+- After a mutation, read the stored result a second way: `settings.json` or `kv.json` under `RUN/data/config`, the panes in `"$V" tern "$RUN" ls`, or the pane output through `"$V" tern "$RUN" capture ID`.
 
 ## Proof and skip reporting
 

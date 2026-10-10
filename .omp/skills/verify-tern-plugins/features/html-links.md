@@ -29,7 +29,7 @@ Preconditions:
 - Read the focused page with `"$V" ctl "$RUN" webcall '.tn-pane.on .kit-web-page' '{"op":"eval","function":"() => document.title + \" | \" + document.querySelector(\"h1\").textContent"}'`. Focus the page pane first with `"$V" tern "$RUN" focus ID`.
 
 - tern open. Run `"$V" type "$RUN" 'tern open page.html; echo EXIT=$status'`. `"$V" tern "$RUN" ls` lists a new pane `file:///.../data/page.html`, focused, right after pane 5. `"$V" tern "$RUN" capture 5` shows `cannot open in a file block` and `EXIT=1`. The webcall prints the title and heading of the file.
-- bin/open from a float. Press `key alt+f` for a floating shell, then run `"$V" type "$RUN" '<checkout>/bin/open page2.html; echo EXIT=$status; ls ~/.cache/tern/open-owners | wc -l'`. The float shows `EXIT=0` and `0`. `tern ls` lists `file:///.../page2.html` as a tiled pane, not a float.
+- bin/open from a float. Press `key alt+f` for a floating shell, then run `"$V" type "$RUN" '<checkout>/bin/open page2.html; echo EXIT=$status'`. The float shows `EXIT=0` and no `cannot open in a file block`. `tern ls` lists `file:///.../page2.html` as a tiled browser pane, not a float and not a file block, and the webcall on that pane prints the title and heading of `page2.html`.
 - Files pane. Focus pane 5, press `key ctrl+cmd+e`, then run `"$V" ctl "$RUN" files focus`, `"$V" ctl "$RUN" files cursor page.html` and `"$V" ctl "$RUN" key enter`. `tern ls` lists one more `file:///.../page.html` pane.
 - Reload. Change the `<h1>` of the file with `printf` into `RUN/data/page.html`, focus the page pane with `"$V" tern "$RUN" focus ID`, and run `"$V" ctl "$RUN" key cmd+r`. The webcall prints the new heading. Before the key, it prints the old one.
 - Reload from a shell. Focus the shell pane beside the page, change the file again, and press `key cmd+r`. Then focus the page pane and run the webcall. It prints the new heading.
@@ -40,7 +40,7 @@ Preconditions:
 
 - `tern open` exits 1 with `cannot open in a file block` when the plugin opened the page. That is the expected result. `bin/open` hides this message and exits 0.
 - In fish, `open` runs `bin/open` of the main checkout. To test the checkout under test, call `<checkout>/bin/open` by its path.
-- The handoff files of `bin/open` are in `~/.cache/tern/open-owners`, shared with your own Tern. A file left there after a run means that no plugin took the open.
+- `bin/open` exits 0 and removes its handoff file in `~/.cache/tern/open-owners` also when no plugin took the file, because Tern then opens a file block. Neither the exit code nor that dir proves the plugin. The proof is the browser pane in `tern ls` and its rendered page.
 - The Files pane follows the focused pane. With a browser pane focused, `files cursor` finds no file and still prints `{"ok":true}`.
 - A clicked link and macOS open have no stable handle in `tern ctl`. Report them as skipped unless you drive them by hand.
 - `"$V" type` cannot send a double quote. Use the `webcall` and `printf` steps in your own shell, not in the pane.
