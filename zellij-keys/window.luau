@@ -230,6 +230,8 @@ end
 -- The floating pane or Go to picker that has focus, else nil: { pane, tab, over, order }. `over` is
 -- the tiled pane under it, and `order` lists the floating panes of its tab by open order.
 local focused_float = nil
+-- The tab of the last focus that focus_moved saw. A focus in another tab is a tab or session switch.
+local focus_tab = nil
 
 -- Zellij floating panes: a floating pane gets focus. It becomes the last used floating pane of its
 -- tab, and the floats of that tab count as shown. The Go to picker changes neither.
@@ -245,19 +247,25 @@ local function note_float_focus(cx, info, tab)
 	end
 end
 
--- Zellij floating panes: focus moved to `pane` in `tab`. When it is a tiled pane, the shown floats of
--- the tab hide. While focus_pane waits to focus a float again, a key press handed focus back to a
--- tiled pane for a moment, and that hides nothing.
+-- Zellij floating panes: focus moved to `pane` in `tab`. When it is a tiled pane and the last focus
+-- was in the same tab, the shown floats of the tab hide. A tab or session switch hides nothing, also
+-- when it lands on a tiled pane of a tab whose floats are shown. While focus_pane waits to focus a
+-- float again, a key press handed focus back to a tiled pane for a moment, and that hides nothing.
 local function focus_moved(cx, pane, tab)
 	local info = cx.session:pane(pane)
 	if info == nil or tab == nil then
 		return
 	end
+	local from_tab = focus_tab
+	focus_tab = tab
 	if info.floating then
 		note_float_focus(cx, info, tab)
 		return
 	end
 	focused_float = nil
+	if from_tab ~= tab then
+		return
+	end
 	if pending_focus == nil and tab_value(SHOWN_KEY, tab) == true then
 		if #tab_floats(cx, tab) > 0 then
 			hide_floats(cx, tab)
@@ -333,13 +341,16 @@ tern.on("tab_closed", function(ev, _cx)
 	set_tab_value(SHOWN_KEY, ev.tab, nil)
 end)
 
--- Zellij floating panes: a reload resets focused_float while a float has focus, so a timer started
--- when this script loads notes the focused float again. window_start does not run after a reload.
+-- Zellij floating panes: a reload resets focused_float and focus_tab, so a timer started when this
+-- script loads notes the focused pane again. window_start does not run after a reload.
 tern.timer(0, function(cx)
 	local pane = if cx then cx.session:focused() else nil
 	local info = if pane then cx.session:pane(pane) else nil
-	if info and info.floating then
-		note_float_focus(cx, info, cx.session:tab_of(pane))
+	if info then
+		focus_tab = cx.session:tab_of(pane)
+		if info.floating then
+			note_float_focus(cx, info, focus_tab)
+		end
 	end
 end)
 
