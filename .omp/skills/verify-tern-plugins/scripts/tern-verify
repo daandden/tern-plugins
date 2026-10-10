@@ -59,8 +59,10 @@ omp_session_dir() {
 
 case $cmd in
 start)
-	[ ! -e "$data" ] || die "$data exists: use a new run dir"
-	mkdir -p "$cfg"
+	[ -d "$run" ] || die "$run does not exist: make it with mktemp -d"
+	# mkdir without -p fails when the dir exists, so two starts on one run dir cannot both pass.
+	mkdir "$data" 2>/dev/null || die "$data exists: another run owns $run, so do not stop it"
+	mkdir "$cfg"
 	if [ -f "$HOME/.config/tern/settings.json" ]; then
 		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
 	fi

@@ -49,16 +49,18 @@ Every command takes the run dir first:
 ## Launch
 
 1. Get the Scratch dir with `bun "$(realpath skill://vstack-tmp/scripts/path.ts)"` from inside the repo.
-2. Make the run dir:
+2. Make the run dir. `mktemp -d` creates a new dir with a random name in one step, so two runs never get the same dir, also when they start in the same second or from two worktrees:
 
    ```sh
-   RUN=<Scratch dir>verify/tern-plugins-$(date +%Y%m%d-%H%M%S)
-   mkdir -p "$RUN"
+   mkdir -p "<Scratch dir>verify"
+   RUN=$(mktemp -d "<Scratch dir>verify/tern-plugins-XXXXXX")
    ```
 
 3. Run `"$V" start "$RUN"`. It is ready when it prints `ready: window pid N, daemon pid M, repo <checkout>`. The window opens on screen and can take the keyboard focus from you. `ctl` sends input to it either way.
 
 If `start` stops with `no plugin sheets after 30 s`, read `RUN/window.log`, run `"$V" stop "$RUN"`, and report the failure.
+
+If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `stop` or any other command on it. Make a new `RUN` with `mktemp -d` and start again.
 
 ## Doctor
 
@@ -102,7 +104,7 @@ Each run keeps its proof at the top level of `RUN` (`<Scratch dir>/verify/tern-p
 
 ## Cleanup
 
-Run `"$V" stop "$RUN"` after every run, also after a failed one. It:
+Run `"$V" stop "$RUN"` after every run, also after a failed one. The one exception is a `start` that stopped with `RUN/data exists`: that dir belongs to another run. `stop`:
 
 1. Closes the window with `ctl quit`, and sends SIGTERM to the window pid of this run if the window is still open after 2 s.
 2. Sends SIGTERM to the daemon pid that owns `RUN/data/daemon.sock`. Its panes (shells, Neovim, omp) end with it.
