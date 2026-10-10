@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tern keys migrated from zellij</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; min-width: 0; }
+:root {
+  color-scheme: light dark;
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  --bg: light-dark(oklch(98.5% 0 none), oklch(21% 0.02 284));
+  --surface: light-dark(oklch(100% 0 none), oklch(25% 0.025 284));
+  --fg: light-dark(oklch(22% 0.02 284), oklch(90% 0.02 284));
+  --muted: light-dark(oklch(48% 0.02 284), oklch(70% 0.03 284));
+  --border: light-dark(oklch(90% 0.01 284), oklch(34% 0.03 284));
+  --accent: light-dark(oklch(52% 0.2 300), oklch(80% 0.11 305));
+  --plugin: light-dark(oklch(55% 0.13 155), oklch(84% 0.12 145));
+  --accent-subtle: color-mix(in oklch, var(--accent) 12%, transparent);
+  --plugin-subtle: color-mix(in oklch, var(--plugin) 14%, transparent);
+  --text-body: clamp(0.95rem, 0.9rem + 0.2vw, 1.05rem);
+  --text-h1: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  --space-section: clamp(2rem, 1.2rem + 3vw, 3.5rem);
+  --mono: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--fg);
+  font: var(--text-body)/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+h1, h2 { text-wrap: balance; line-height: 1.2; }
+h1 { font-size: var(--text-h1); margin-block: 0 0.5rem; }
+h2 { font-size: 1.3rem; margin-block: 0 0.5rem; }
+main {
+  --gutter: 1.25rem;
+  --content: 72rem;
+  display: grid;
+  grid-template-columns: [full-start] minmax(var(--gutter), 1fr) [content-start] min(100% - var(--gutter) * 2, var(--content)) [content-end] minmax(var(--gutter), 1fr) [full-end];
+  padding-block: var(--space-section);
+  row-gap: var(--space-section);
+}
+main > * { grid-column: content; }
+p { margin-block: 0 0.75rem; max-inline-size: 70ch; }
+.lead { color: var(--muted); }
+.legend {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+.card h3 { font-size: 1rem; margin-block: 0 0.5rem; }
+.card p:last-child { margin-block-end: 0; }
+nav {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 0.75rem;
+  background: color-mix(in oklch, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-block-end: 1px solid var(--border);
+}
+nav a {
+  color: var(--fg);
+  text-decoration: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  touch-action: manipulation;
+  flex: none;
+}
+nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+nav a:active { background: var(--accent-subtle); }
+@media (hover: hover) and (pointer: fine) {
+  nav a:hover { border-color: var(--accent); }
+}
+section { scroll-margin-block-start: 4.5rem; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { inline-size: 100%; border-collapse: collapse; }
+th, td { text-align: start; vertical-align: top; padding: 0.6rem 0.9rem; border-block-end: 1px solid var(--border); }
+tbody tr:last-child td { border-block-end: none; }
+th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+td.keys { min-inline-size: 13rem; }
+td.zj { color: var(--muted); font-family: var(--mono); font-size: 0.85em; }
+.seq { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.chord { display: inline-flex; gap: 0.15rem; }
+.then::before { content: "›"; color: var(--muted); }
+.then { font-size: 0; }
+.then::before { font-size: var(--text-body); }
+.or { color: var(--muted); font-size: 0.85em; margin-inline: 0.2rem; }
+kbd {
+  display: inline-block;
+  min-inline-size: 1.7em;
+  padding: 0.05rem 0.4rem;
+  font: 600 0.85em/1.5 var(--mono);
+  text-align: center;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-block-end-width: 2px;
+  border-radius: 6px;
+}
+.src { font-size: 0.8em; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+.src-tern { color: var(--accent); background: var(--accent-subtle); }
+.src-plugin { color: var(--plugin); background: var(--plugin-subtle); }
+ul { margin-block: 0; padding-inline-start: 1.25rem; }
+li + li { margin-block-start: 0.4rem; }
+code { font-family: var(--mono); font-size: 0.9em; }
+footer { color: var(--muted); font-size: 0.85rem; }
+
+.table-wrap { container-type: inline-size; }
+@container (width < 40rem) {
+  thead { display: none; }
+  table, tbody, tr, td { display: block; }
+  tr { padding-block: 0.75rem; border-block-end: 1px solid var(--border); }
+  tbody tr:last-child { border-block-end: none; }
+  td { border: none; padding-block: 0.15rem; }
+  td.keys { min-inline-size: 0; padding-block-end: 0.4rem; }
+  td.zj, td.from { display: inline-block; padding-block-start: 0.3rem; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Tern keys migrated from zellij</h1>
+<p class="lead">Every key in this guide comes from the <code>keybinds</code> in <code>~/.config/tern/settings.json</code> (83 keys). Keys marked Plugin run commands from the <code>zellij-keys</code>, <code>html-links</code> and <code>goto</code> plugins in this repo.</p>
+</header>
+<div class="legend">
+<div class="card"><h3>Read a key</h3><p><kbd>⌃</kbd><kbd>G</kbd> <span class="then" aria-hidden="true"></span> <kbd>P</kbd> <span class="then" aria-hidden="true"></span> <kbd>R</kbd> means: press Ctrl+G, let go, press P, then press R. Tern has no sticky modes. Press the whole sequence for each action.</p></div>
+<div class="card"><h3>Alt is the left Option key</h3><p><code>option_as_alt</code> is <code>left</code>. Hold the left Option key for the <kbd>⌥</kbd> keys. The right Option key still types special characters.</p></div>
+<div class="card"><h3>Floating panes</h3><p>A focused floating pane fills the middle 75% of the tab. An unfocused one shrinks to a small preview in a corner and needs a double-click to focus. <kbd>⌥</kbd><kbd>F</kbd> from a normal pane focuses the newest one again.</p></div>
+</div>
+<nav aria-label="Sections"><a href="#always">Always on</a><a href="#fkeys">Function keys</a><a href="#pane">Pane</a><a href="#tab">Tab</a><a href="#resize">Resize</a><a href="#move">Move</a><a href="#scroll">Scroll</a><a href="#session">Session</a><a href="#other">Other</a><a href="#not-migrated">Not migrated</a></nav>
+<section id="always">
+<h2>Always on</h2>
+<p>Press these keys at any time. Alt is the left Option key.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>H</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd title="Left arrow">←</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane on the left. At the left edge, go to the previous tab. In a floating pane, go to the previous floating pane.</td><td class="zj" data-label="Zellij action">MoveFocusOrTab left</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>L</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd title="Right arrow">→</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane on the right. At the right edge, go to the next tab. In a floating pane, go to the next floating pane.</td><td class="zj" data-label="Zellij action">MoveFocusOrTab right</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>K</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd title="Up arrow">↑</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane above. In a floating pane, go to the previous floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus up</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>J</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd title="Down arrow">↓</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane below. In a floating pane, go to the next floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus down</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>N</kbd></span></span></td><td class="what" data-label="What it does">New pane. From a normal pane, split to the right. From a floating pane, open another floating shell.</td><td class="zj" data-label="Zellij action">NewPane</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>F</kbd></span></span></td><td class="what" data-label="What it does">Floating panes. No floating pane: open a floating shell. In a floating pane: hide all of them. In a normal pane: move them over this pane, show them and focus the newest.</td><td class="zj" data-label="Zellij action">ToggleFloatingPanes</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>I</kbd></span></span></td><td class="what" data-label="What it does">Move the tab one place to the left.</td><td class="zj" data-label="Zellij action">MoveTab left</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>O</kbd></span></span></td><td class="what" data-label="What it does">Move the tab one place to the right.</td><td class="zj" data-label="Zellij action">MoveTab right</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>T</kbd></span></span></td><td class="what" data-label="What it does">New tab.</td><td class="zj" data-label="Zellij action">NewTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Option (left)">⌥</kbd><kbd>X</kbd></span></span></td><td class="what" data-label="What it does">Close the pane.</td><td class="zj" data-label="Zellij action">CloseFocus</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="fkeys">
+<h2>Function keys</h2>
+
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd>F2</kbd></span></span></td><td class="what" data-label="What it does">Open yazi in a floating pane. It closes when yazi exits.</td><td class="zj" data-label="Zellij action">Run yazi, floating</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd>F3</kbd></span></span></td><td class="what" data-label="What it does">Open lazygit in a floating pane. It closes when lazygit exits.</td><td class="zj" data-label="Zellij action">Run lazygit, floating</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd>F4</kbd></span></span></td><td class="what" data-label="What it does">Open btop in a floating pane. It closes when btop exits.</td><td class="zj" data-label="Zellij action">Run btop, floating</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd>F1</kbd></span></span></td><td class="what" data-label="What it does">Open the Go to picker, or close it. On top, the panes waiting on you (needs input, error, alert, done; not the pane you are in), with the cursor on the first, then a thin line. Below, every session and its tabs and panes as a tree, with agent panes only. Each row starts with a jump number and a status mark (moving while an agent works, compacts, retries or runs jobs; still when it waits for you), then the name. Type letters to search at once: the tree filters and the matching letters light up. Type a number to go to its row (the first digit lights up in the numbers it can reach), or move with Up and Down and press Enter. Esc clears the first digit, then the search, then closes. Ctrl+; then A shows all panes (again for agents only); Ctrl+; then I adds idle agents to the group (again to hide them), and the picker keeps that choice.</td><td class="zj" data-label="Zellij action">session-manager</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd>F6</kbd></span></span></td><td class="what" data-label="What it does">Open the inbox of panes that need your attention.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="pane">
+<h2>Pane: Ctrl+G, then P</h2>
+<p>Zellij&#x27;s pane mode.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>K</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Up arrow">↑</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane above. In a floating pane, go to the previous floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus up</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>J</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Down arrow">↓</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane below. In a floating pane, go to the next floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus down</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>H</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Left arrow">←</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane on the left. In a floating pane, go to the previous floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus left</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>L</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Right arrow">→</kbd></span></span></td><td class="what" data-label="What it does">Focus the pane on the right. In a floating pane, go to the next floating pane.</td><td class="zj" data-label="Zellij action">MoveFocus right</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>N</kbd></span></span></td><td class="what" data-label="What it does">New pane. From a normal pane, split to the right. From a floating pane, open another floating shell.</td><td class="zj" data-label="Zellij action">NewPane</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>W</kbd></span></span></td><td class="what" data-label="What it does">Floating panes. No floating pane: open a floating shell. In a floating pane: hide all of them. In a normal pane: move them over this pane, show them and focus the newest.</td><td class="zj" data-label="Zellij action">ToggleFloatingPanes</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>E</kbd></span></span></td><td class="what" data-label="What it does">Float the focused pane, or put a floating pane back into the split.</td><td class="zj" data-label="Zellij action">TogglePaneEmbedOrFloating</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>D</kbd></span></span></td><td class="what" data-label="What it does">Split down.</td><td class="zj" data-label="Zellij action">NewPane down</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span></span></td><td class="what" data-label="What it does">Split right.</td><td class="zj" data-label="Zellij action">NewPane right</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>F</kbd></span></span></td><td class="what" data-label="What it does">Zoom the pane to fill the tab, or unzoom it.</td><td class="zj" data-label="Zellij action">ToggleFocusFullscreen</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>X</kbd></span></span></td><td class="what" data-label="What it does">Close the pane.</td><td class="zj" data-label="Zellij action">CloseFocus</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>P</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Tab">⇥</kbd></span></span></td><td class="what" data-label="What it does">Focus the next pane.</td><td class="zj" data-label="Zellij action">SwitchFocus</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="tab">
+<h2>Tab: Ctrl+G, then T</h2>
+<p>Zellij&#x27;s tab mode.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>B</kbd></span></span></td><td class="what" data-label="What it does">Move the focused pane to a new tab.</td><td class="zj" data-label="Zellij action">BreakPane</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>[</kbd></span></span></td><td class="what" data-label="What it does">Move the focused pane to the tab on the left, or to a new first tab.</td><td class="zj" data-label="Zellij action">BreakPaneLeft</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>]</kbd></span></span></td><td class="what" data-label="What it does">Move the focused pane to the tab on the right, or to a new last tab.</td><td class="zj" data-label="Zellij action">BreakPaneRight</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>1</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 1.</td><td class="zj" data-label="Zellij action">GoToTab 1</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>H</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>K</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Left arrow">←</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Up arrow">↑</kbd></span></span></td><td class="what" data-label="What it does">Previous tab.</td><td class="zj" data-label="Zellij action">GoToPreviousTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>J</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>L</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Down arrow">↓</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Right arrow">→</kbd></span></span></td><td class="what" data-label="What it does">Next tab.</td><td class="zj" data-label="Zellij action">GoToNextTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>N</kbd></span></span></td><td class="what" data-label="What it does">New tab.</td><td class="zj" data-label="Zellij action">NewTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span></span></td><td class="what" data-label="What it does">Rename the tab.</td><td class="zj" data-label="Zellij action">TabNameInput</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>X</kbd></span></span></td><td class="what" data-label="What it does">Close the tab.</td><td class="zj" data-label="Zellij action">CloseTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Tab">⇥</kbd></span></span></td><td class="what" data-label="What it does">Go back to the tab you were on before.</td><td class="zj" data-label="Zellij action">ToggleTab</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>2</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 2.</td><td class="zj" data-label="Zellij action">GoToTab 2</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>3</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 3.</td><td class="zj" data-label="Zellij action">GoToTab 3</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>4</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 4.</td><td class="zj" data-label="Zellij action">GoToTab 4</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>5</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 5.</td><td class="zj" data-label="Zellij action">GoToTab 5</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>6</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 6.</td><td class="zj" data-label="Zellij action">GoToTab 6</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>7</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 7.</td><td class="zj" data-label="Zellij action">GoToTab 7</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>8</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 8.</td><td class="zj" data-label="Zellij action">GoToTab 8</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>T</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>9</kbd></span></span></td><td class="what" data-label="What it does">Go to tab 9.</td><td class="zj" data-label="Zellij action">GoToTab 9</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="resize">
+<h2>Resize: Ctrl+G, then R</h2>
+<p>Zellij&#x27;s resize mode. Press the whole sequence again for each step.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>=</kbd></span></span></td><td class="what" data-label="What it does">Make all splits the same size.</td><td class="zj" data-label="Zellij action">Resize Increase (closest Tern action)</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>H</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Left arrow">←</kbd></span></span></td><td class="what" data-label="What it does">Move the divider left.</td><td class="zj" data-label="Zellij action">Resize Increase left</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>L</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Right arrow">→</kbd></span></span></td><td class="what" data-label="What it does">Move the divider right.</td><td class="zj" data-label="Zellij action">Resize Increase right</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>K</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Up arrow">↑</kbd></span></span></td><td class="what" data-label="What it does">Move the divider up.</td><td class="zj" data-label="Zellij action">Resize Increase up</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>J</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>R</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Down arrow">↓</kbd></span></span></td><td class="what" data-label="What it does">Move the divider down.</td><td class="zj" data-label="Zellij action">Resize Increase down</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="move">
+<h2>Move: Ctrl+G, then M</h2>
+<p>Zellij&#x27;s move mode.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>H</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Left arrow">←</kbd></span></span></td><td class="what" data-label="What it does">Move the pane left.</td><td class="zj" data-label="Zellij action">MovePane left</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>L</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Right arrow">→</kbd></span></span></td><td class="what" data-label="What it does">Move the pane right.</td><td class="zj" data-label="Zellij action">MovePane right</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>K</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Up arrow">↑</kbd></span></span></td><td class="what" data-label="What it does">Move the pane up.</td><td class="zj" data-label="Zellij action">MovePane up</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>J</kbd></span></span> <span class="or">or</span> <span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>M</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Down arrow">↓</kbd></span></span></td><td class="what" data-label="What it does">Move the pane down.</td><td class="zj" data-label="Zellij action">MovePane down</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="scroll">
+<h2>Scroll: Ctrl+G, then S</h2>
+<p>Zellij&#x27;s scroll mode.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>S</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>E</kbd></span></span></td><td class="what" data-label="What it does">Open the scrollback in your editor.</td><td class="zj" data-label="Zellij action">EditScrollback</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>S</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>F</kbd></span></span></td><td class="what" data-label="What it does">Find in the scrollback.</td><td class="zj" data-label="Zellij action">SearchInput</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="session">
+<h2>Session: Ctrl+G, then O</h2>
+<p>Zellij&#x27;s session mode.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>O</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>W</kbd></span></span></td><td class="what" data-label="What it does">Open the session switcher.</td><td class="zj" data-label="Zellij action">session-manager</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>O</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>C</kbd></span></span></td><td class="what" data-label="What it does">Open Tern Settings.</td><td class="zj" data-label="Zellij action">configuration</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="other">
+<h2>Other</h2>
+
+<div class="table-wrap"><table><thead><tr><th scope="col">Keys</th><th scope="col">What it does</th><th scope="col">Zellij action</th><th scope="col">From</th></tr></thead>
+<tbody>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>?</kbd></span></span></td><td class="what" data-label="What it does">Show all commands and their keys.</td><td class="zj" data-label="Zellij action">zj-forgot</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Shift">⇧</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Shift">⇧</kbd></span></span></td><td class="what" data-label="What it does">Tap Shift twice to open the command palette.</td><td class="zj" data-label="Zellij action">room plugin</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Command">⌘</kbd><kbd>R</kbd></span></span></td><td class="what" data-label="What it does">Reload the focused browser pane. From another pane, reload the pages of local files in the same tab, so an edit to an HTML file shows. In a SQLite block, ⌘R still runs its SQLite action.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
+</tbody></table></div>
+</section>
+<section id="not-migrated">
+<h2>Not migrated</h2>
+<p>These zellij keys have no matching action in Tern 0.6.3.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Zellij keys</th><th scope="col">Zellij action</th><th scope="col">Why</th></tr></thead>
+<tbody>
+<tr><td>Alt + / Alt − / Alt =, and + − in resize mode</td><td>Resize Increase and Decrease</td><td>Tern has no action that grows or shrinks a pane on all sides. Use Ctrl+G R and an arrow, or ⌃⌘ and an arrow.</td></tr>
+<tr><td>Alt [ / Alt ]</td><td>Previous and next swap layout</td><td>Tern has no swap layouts.</td></tr>
+<tr><td>Ctrl+G P C</td><td>Rename pane</td><td>Tern has no pane rename.</td></tr>
+<tr><td>Ctrl+G P I, P S, P Z</td><td>Pin pane, stacked pane, pane frames</td><td>Tern has no matching actions.</td></tr>
+<tr><td>Ctrl+G T S</td><td>Sync input to all panes in the tab</td><td>Tern has no matching action.</td></tr>
+<tr><td>Ctrl+G M N, M P, M Tab</td><td>Move the pane forward or back in order</td><td>Tern moves panes only by direction.</td></tr>
+<tr><td>Scroll mode j k d u, Ctrl+B, Ctrl+F</td><td>Scroll by line, half page, page</td><td>Tern scrolls with the trackpad, ⌘⇞ and ⌘⇟.</td></tr>
+<tr><td>Search mode n, p, c, o, w</td><td>Next and previous match, search options</td><td>Use ⌘G and ⇧⌘G in Tern&#x27;s find bar.</td></tr>
+<tr><td>Ctrl+G O D</td><td>Detach</td><td>Tern keeps sessions in its daemon. Closing the window does the same.</td></tr>
+<tr><td>Ctrl+G O A, O S, O L, O P</td><td>About, share, layout manager, plugin manager</td><td>These are zellij popups with no match in Tern.</td></tr>
+<tr><td>Ctrl+Q</td><td>Quit, with zj-quit asking first</td><td>A Tern binding cannot ask first. ⌘Q quits Tern.</td></tr>
+<tr><td>Super+C</td><td>Copy</td><td>⌘C already copies in Tern.</td></tr>
+</tbody></table></div>
+</section>
+<section id="notes">
+<h2>If a key stops working</h2>
+<ul>
+<li>Open the command palette with <kbd>⌘</kbd><kbd>K</kbd> and run Reload settings. Tern reads <code>settings.json</code> only at start and on reload.</li>
+<li>Close Tern Settings before you edit <code>settings.json</code> by hand. An open Settings page keeps the keys it had when it opened. When you change anything there, even its width, it writes those old keys back to the file. If keys go back to old values, close Settings, fix the file, and run Reload settings.</li>
+<li>If F1 to F4 or other Plugin keys do nothing, run Reload plugins from the palette.</li>
+</ul>
+</section>
+<footer>Made for Tern 0.6.3 on 2026-10-09.</footer>
+</main>
+</body>
+</html>
