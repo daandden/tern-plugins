@@ -55,3 +55,4 @@ Preconditions:
 - A float that the mouse focuses still animates. The motion check covers key and palette paths only.
 - `ctl state` gives `glance` for a shown float without focus. `glance` is not a corner preview here: the `dump` box tells. A hidden float is `hidden`.
 - goto closes the picker before it focuses a jump target, and Tern first moves focus to the tiled pane under the picker. So a jump to that tiled pane, or to the tab row of a one-pane tab, acts like Esc and goes back to the float.
+- `.pips[].deck` in `ctl state` is `whole`, `peek1` to `peek3` or `hidden`, and `hidden` means that Tern does not draw the float. `"$V" ctl "$RUN" pip fan '"#1"'` fans the stack of the oldest float as if the pointer were over it, and Tern then draws every float of that stack. Count drawn floats before any `pip fan`, because the fan stays until a fan of another stack.
