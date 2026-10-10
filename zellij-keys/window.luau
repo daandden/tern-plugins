@@ -237,11 +237,13 @@ local focused_float = nil
 local focus_tab = nil
 
 -- Tern draws at most 4 floating panes in each corner stack (the floats of one tiled pane in one
--- corner) and hides the oldest ones of a fuller stack, also when one of them has focus. So the
--- floats of each tiled pane fill the corners in this order, oldest first. The bottom right stack
--- comes first, so a few floats still slide off to the right when they hide, and it keeps one place
--- free for the Go to picker, which goto opens there. So Tern draws 15 floats per tiled pane, and 16
--- when it has more and the picker is closed.
+-- corner) and hides the oldest ones of a fuller stack, also when one of them has focus. Tern draws
+-- the whole stack only while the pointer is over it (Tern calls this a fanned deck), one stack at a
+-- time, and a plugin has no action that fans a stack. So the floats of each tiled pane fill the
+-- corners in this order, oldest first. The bottom right stack comes first, so a few floats still
+-- slide off to the right when they hide, and it keeps one place free for the Go to picker, which
+-- goto opens there. So Tern draws 15 floats per tiled pane, and 16 when it has more and the picker
+-- is closed.
 -- The corner does not change where a shown float sits, because the cascade rules place it.
 local CORNERS = { "br", "bl", "tr", "tl" }
 local CORNER_ROOM = { 3, 4, 4, 4 }
