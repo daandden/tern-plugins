@@ -3,15 +3,18 @@
 -- Zellij floating panes: the shown floating panes of a tab form a cascade, as Zellij draws them.
 -- Each float is half the tab in width and in height. The first float is centered. Each later float
 -- sits 16 px (2 terminal cells) to the right of the one before it and 32 px (2 rows) lower, in open
--- order. The rules cover 8 places, and a 9th or later float takes the 8th place. Tern paints the
--- focused float on top.
+-- order. After 8 places, the cascade starts at the top again and keeps going right. The rules cover
+-- the 16 floats that Tern draws at most over one tiled pane (see place_floats), and a later drawn
+-- float, over a second tiled pane, takes the 16th place. Tern paints the focused float on top.
 -- The rules depend on Tern's class names. Each float is a `.tn-pane.pip` child of `.tn-stage`, in
--- open order, and a hidden float has the class `off`. The rules leave out hidden floats and the Go to
--- picker, whose accessible name starts with "Go to,". So `:nth-child(k of ...)` counts the floating
--- panes only. Tern writes the position, size and transform of a float inline, so each rule needs
--- !important. `transform: none` cancels the tilt and scale of the floats without focus (`pip-glance`,
+-- open order whatever its corner. A float that Tern does not draw has `off` and `pip-hidden`, and a
+-- stashed float has `off`. The rules leave out these floats and the Go to picker, whose accessible
+-- name starts with "Go to,". So `:nth-child(k of ...)` counts the drawn floating panes only. Tern
+-- writes the position, size and transform of a float inline, so each rule needs !important.
+-- `transform: none` cancels the tilt and scale of the floats without focus (`pip-glance`,
 -- `pip-peek`). The `.tn-pip-chip` rule hides Tern's "Show all" chip.
-local CASCADE_PLACES = 8
+local CASCADE_PLACES = 16
+local CASCADE_ROWS = 8
 local cascade = {
 	[[
 :root:root .tn-stage > .tn-pane.pip:not([aria-label^="Go to,"]):not(.off) {
@@ -33,11 +36,11 @@ for place = 2, CASCADE_PLACES do
 	table.insert(
 		cascade,
 		string.format(
-			':root:root .tn-stage > .tn-pane.pip:nth-child(%s of .pip:not([aria-label^="Go to,"])):not(.off) {\n'
+			':root:root .tn-stage > .tn-pane.pip:nth-child(%s of .pip:not([aria-label^="Go to,"]):not(.pip-hidden)):not(.off) {\n'
 				.. "\tleft: calc(25%% + %dpx) !important;\n\ttop: calc(25%% + %dpx) !important;\n}\n",
 			nth,
 			(place - 1) * 16,
-			(place - 1) * 32
+			((place - 1) % CASCADE_ROWS) * 32
 		)
 	)
 end
@@ -233,8 +236,72 @@ local focused_float = nil
 -- The tab of the last focus that focus_moved saw. A focus in another tab is a tab or session switch.
 local focus_tab = nil
 
+-- Tern draws at most 4 floating panes in each corner stack (the floats of one tiled pane in one
+-- corner) and hides the oldest ones of a fuller stack, also when one of them has focus. So the
+-- floats of each tiled pane fill the corners in this order, oldest first. The bottom right stack
+-- comes first, so a few floats still slide off to the right when they hide, and it keeps one place
+-- free for the Go to picker, which goto opens there. So Tern draws 15 floats per tiled pane, and 16
+-- when it has more and the picker is closed.
+-- The corner does not change where a shown float sits, because the cascade rules place it.
+local CORNERS = { "br", "bl", "tr", "tl" }
+local CORNER_ROOM = { 3, 4, 4, 4 }
+local DRAWN_FLOATS = 15
+
+-- Zellij floating panes: puts each floating pane of `tab` in its corner stack. With more than 15
+-- floats over one tiled pane, the bottom right stack takes the extra ones, and Tern hides the oldest
+-- of them: one less than the extra floats, or all of them while the Go to picker is open. The
+-- focused float `keep` never goes to a hidden place, so focus never lands on a float that Tern does
+-- not draw.
+local function place_floats(cx, tab, keep)
+	local owners = {}
+	local by_owner = {}
+	for _, float in tab_floats(cx, tab) do
+		if by_owner[float.over] == nil then
+			by_owner[float.over] = {}
+			table.insert(owners, float.over)
+		end
+		table.insert(by_owner[float.over], float)
+	end
+	local quiet = false
+	for _, owner in owners do
+		local floats = by_owner[owner]
+		local extra = math.max(0, #floats - DRAWN_FLOATS)
+		local corner_of = {}
+		local taken = 0
+		for i, float in floats do
+			if taken < extra + CORNER_ROOM[1] and not (float.pane == keep and i <= extra) then
+				corner_of[float.pane] = 1
+				taken += 1
+			end
+		end
+		local corner = 2
+		local room = CORNER_ROOM[corner]
+		for _, float in floats do
+			if corner_of[float.pane] == nil then
+				if room == 0 then
+					corner += 1
+					room = CORNER_ROOM[corner]
+				end
+				corner_of[float.pane] = corner
+				room -= 1
+			end
+		end
+		for _, float in floats do
+			local target = CORNERS[corner_of[float.pane]]
+			if float.corner ~= target then
+				if not quiet then
+					quiet_float_motion(cx)
+					quiet = true
+				end
+				cx.layout:float(float.pane, owner, target, { focus = false })
+			end
+		end
+	end
+end
+
 -- Zellij floating panes: a floating pane gets focus. It becomes the last used floating pane of its
--- tab, and the floats of that tab count as shown. The Go to picker changes neither.
+-- tab, the floats of that tab count as shown, and each float goes to its corner stack. The Go to
+-- picker changes none of these.
 local function note_float_focus(cx, info, tab)
 	local order = {}
 	for _, float in tab_floats(cx, tab) do
@@ -244,6 +311,7 @@ local function note_float_focus(cx, info, tab)
 	if not is_picker(info) then
 		set_tab_value(LAST_KEY, tab, info.pane)
 		set_tab_value(SHOWN_KEY, tab, true)
+		place_floats(cx, tab, info.pane)
 	end
 end
 
