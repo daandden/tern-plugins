@@ -28,15 +28,16 @@ Preconditions:
 - First file. Run `"$V" type "$RUN" 'tern open notes.txt; echo EXIT=$status'`. `"$V" tern "$RUN" ls` lists a new pane with the command `PATH=/opt/homebrew/bin:"$PATH" exec /opt/homebrew/bin/nvim -- <RUN>/data/notes.txt`, focused. `"$V" tern "$RUN" capture ID` of that pane shows the first line of `notes.txt` and `notes.txt` in the Neovim status line.
 - Pane store. Read `RUN/data/config/plugin-data/nvim-files/kv.json`. It holds `{"panes": [ID]}`.
 - Second file. Focus pane 5 and run `"$V" type "$RUN" 'tern open second.txt; echo EXIT=$status'`. `tern ls` lists no new pane. `capture ID` of the Neovim pane shows the first line of `second.txt` and its path in the status line.
-- Line. Run `"$V" type "$RUN" 'tern open notes.txt:3'` with a file of three lines or more. The status line of Neovim ends with `3:1`.
-- bin/open. Run `"$V" type "$RUN" '<checkout>/bin/open notes.txt; echo EXIT=$status'`. The pane shows `EXIT=0`, and `~/.cache/tern/open-owners` holds no file of this run.
+- Line. Focus pane 5 with `"$V" tern "$RUN" focus 5` and run `"$V" type "$RUN" 'tern open notes.txt:3'` with a file of three lines or more. The status line of Neovim ends with `3:1`.
+- bin/open. Focus pane 5 and run `"$V" type "$RUN" '<checkout>/bin/open notes.txt; echo EXIT=$status'`. `capture 5` shows `EXIT=0`, and `~/.cache/tern/open-owners` holds no file of this run.
 - Files pane. Focus pane 5, press `key ctrl+cmd+e`, then run `"$V" ctl "$RUN" files focus`, `"$V" ctl "$RUN" files cursor notes.txt` and `"$V" ctl "$RUN" key enter`. The file opens in the Neovim pane of the tab, or in a new one when the tab has none.
-- Skip. Run `"$V" type "$RUN" 'tern open readme.md; echo EXIT=$status'`. `tern ls` lists no Neovim pane for it, `EXIT=0`, and Tern shows the Markdown in its own block.
+- Skip. Focus pane 5 and run `"$V" type "$RUN" 'tern open readme.md; echo EXIT=$status'`. `tern ls` lists no Neovim pane for it, `capture 5` shows `EXIT=0`, and Tern shows the Markdown in its own block.
 - Proof. Run `"$V" shot "$RUN" nvim-<step>` and keep the `capture` output of the Neovim pane in `RUN/nvim-<step>.txt`.
 
 ## Gotchas
 
 - `tern open` exits 1 with `cannot open in a file block` when the plugin opened the file. That is the expected result for a text file.
+- Each file open moves the focus to the Neovim pane, and `"$V" type` types into the focused pane. Run `"$V" tern "$RUN" focus 5` before each typed step, or the command goes into Vim.
 - Neovim loads your own `~/.config/nvim`. A plugin error there shows in the pane and is not a fault of nvim-files.
 - The Neovim pane closes when Neovim quits, and the next file then opens in a new pane.
 - The Files pane follows the focused pane. Focus a shell pane in `RUN/data` before `files cursor`.
