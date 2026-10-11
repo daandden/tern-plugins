@@ -7,14 +7,18 @@
 -- the 16 floats that Tern draws at most over one tiled pane (see place_floats), and a later drawn
 -- float, over a second tiled pane, takes the 16th place. Tern paints the focused float on top.
 -- The rules depend on Tern's class names. Each float is a `.tn-pane.pip` child of `.tn-stage`, in
--- open order whatever its corner. A float that Tern does not draw has `off` and `pip-hidden`, and a
--- stashed float has `off`. The rules leave out these floats and the Go to picker, whose accessible
--- name starts with "Go to,". So `:nth-child(k of ...)` counts the drawn floating panes only. Tern
--- writes the position, size and transform of a float inline, so each rule needs !important.
+-- open order whatever its corner. The stage also keeps the panes of the other tabs that you looked
+-- at, with `off`. A float that Tern does not draw has `off` and `pip-hidden`, and a stashed float
+-- has `off`. The rules leave out these floats and the Go to picker, whose accessible name starts
+-- with "Go to,". So `:nth-child(k of ...)` counts the drawn floating panes of the tab you look at.
+-- Tern writes the position, size and transform of a float inline, so each rule needs !important.
 -- `transform: none` cancels the tilt and scale of the floats without focus (`pip-glance`,
 -- `pip-peek`). The `.tn-pip-chip` rule hides Tern's "Show all" chip.
 local CASCADE_PLACES = 16
 local CASCADE_ROWS = 8
+-- The offset of each cascade place from the one before it, in px.
+local CASCADE_DX = 16
+local CASCADE_DY = 32
 local cascade = {
 	[[
 :root:root .tn-stage > .tn-pane.pip:not([aria-label^="Go to,"]):not(.off) {
@@ -36,11 +40,11 @@ for place = 2, CASCADE_PLACES do
 	table.insert(
 		cascade,
 		string.format(
-			':root:root .tn-stage > .tn-pane.pip:nth-child(%s of .pip:not([aria-label^="Go to,"]):not(.pip-hidden)):not(.off) {\n'
+			':root:root .tn-stage > .tn-pane.pip:nth-child(%s of .pip:not([aria-label^="Go to,"]):not(.off)):not(.off) {\n'
 				.. "\tleft: calc(25%% + %dpx) !important;\n\ttop: calc(25%% + %dpx) !important;\n}\n",
 			nth,
-			(place - 1) * 16,
-			((place - 1) % CASCADE_ROWS) * 32
+			(place - 1) * CASCADE_DX,
+			((place - 1) % CASCADE_ROWS) * CASCADE_DY
 		)
 	)
 end
@@ -301,6 +305,146 @@ local function place_floats(cx, tab, keep)
 	end
 end
 
+-- Zellij floating panes: the own spot of each float that you moved or resized. tern.kv keeps a map
+-- from pane id to { x, y, w, h, l, r, t, b } under SPOTS_KEY until the float closes or docks. x, y,
+-- w and h are parts of the tab (0 to 1), so a spot scales with the tab. l, r, t and b mark an edge
+-- that sits 10 px from that tab edge, the gap of Tern's own corner cards.
+local SPOTS_KEY = "float_spots"
+-- One move or resize step, as a part of the tab.
+local STEP = 0.1
+-- An edge that ends this close to a tab edge after a move or resize snaps to it.
+local SNAP = 0.05
+-- The smallest width or height of a float, as a part of the tab.
+local MIN_SIZE = 0.2
+-- A plugin cannot read the size of the tab. A float that leaves its cascade place turns the px
+-- offsets of that place into parts of a tab of this size, the tab of a 1280 by 800 window.
+local TAB_GUESS = { w = 1260, h = 710 }
+
+-- Zellij floating panes: the own spot of `pane`, else nil while it sits at its cascade place.
+local function spot_of(pane)
+	local spots = tern.kv.get(SPOTS_KEY)
+	return if spots then spots[tostring(pane)] else nil
+end
+
+-- Zellij floating panes: keeps `spot` as the own spot of `pane`. nil puts it back at its cascade place.
+local function set_spot(pane, spot)
+	local spots = tern.kv.get(SPOTS_KEY) or {}
+	if spots[tostring(pane)] == nil and spot == nil then
+		return
+	end
+	spots[tostring(pane)] = spot
+	tern.kv.set(SPOTS_KEY, spots)
+end
+
+-- Zellij floating panes: forgets the spots of panes that are gone or no longer float. A tab close
+-- sends no pane_closed for its panes, and a new Tern daemon starts its pane ids again.
+local function prune_spots(cx)
+	local spots = tern.kv.get(SPOTS_KEY)
+	if spots == nil then
+		return
+	end
+	for key in spots do
+		local info = cx.session:pane(tonumber(key))
+		if not (info and info.floating) then
+			set_spot(key, nil)
+		end
+	end
+end
+
+-- Zellij floating panes: one CSS rule that draws the float at `place` in open order at `spot`. It
+-- counts the floats the same way as the cascade rules and wins over them with one more `:root`.
+local function spot_rule(place, spot)
+	local function edge(snap_low, snap_high, at, size)
+		if snap_low then
+			return "10px"
+		elseif snap_high then
+			return string.format("calc(%.2f%% - 10px)", (1 - size) * 100)
+		end
+		return string.format("%.2f%%", at * 100)
+	end
+	local function length(snap_low, snap_high, size)
+		return if snap_low and snap_high then "calc(100% - 20px)" else string.format("%.2f%%", size * 100)
+	end
+	return string.format(
+		':root:root:root .tn-stage > .tn-pane.pip:nth-child(%d of .pip:not([aria-label^="Go to,"]):not(.off)):not(.off) {\n'
+			.. "\tleft: %s !important;\n\ttop: %s !important;\n\twidth: %s !important;\n\theight: %s !important;\n}\n",
+		place,
+		edge(spot.l, spot.r, spot.x, spot.w),
+		edge(spot.t, spot.b, spot.y, spot.h),
+		length(spot.l, spot.r, spot.w),
+		length(spot.t, spot.b, spot.h)
+	)
+end
+
+-- Zellij floating panes: draws each float of `tab` that has its own spot there. The rules count only
+-- the drawn floats, and those are the floats of the tab you look at, so this runs again on each
+-- focus, close and spot change. While the floats of `tab` hide, the rules match nothing.
+local function render_spots(cx, tab)
+	local rules = {}
+	for place, float in tab_floats(cx, tab) do
+		local spot = spot_of(float.pane)
+		if spot then
+			table.insert(rules, spot_rule(place, spot))
+		end
+	end
+	tern.css("float-spots", table.concat(rules))
+end
+
+-- Zellij floating panes: the spot of the cascade place of `pane`, the start of its first move or resize.
+local function cascade_spot(cx, tab, pane)
+	local k = 0
+	for place, float in tab_floats(cx, tab) do
+		if float.pane == pane then
+			k = place - 1
+		end
+	end
+	return {
+		x = 0.25 + k * CASCADE_DX / TAB_GUESS.w,
+		y = 0.25 + (k % CASCADE_ROWS) * CASCADE_DY / TAB_GUESS.h,
+		w = 0.5,
+		h = 0.5,
+	}
+end
+
+-- Zellij floating panes: keeps `spot` inside the tab, at least MIN_SIZE big, and snaps each edge
+-- that ends within SNAP of a tab edge to that edge.
+local function settle(spot)
+	local function axis(at, size)
+		size = math.clamp(size, MIN_SIZE, 1)
+		at = math.clamp(at, 0, 1 - size)
+		local low = at <= SNAP + 1e-6
+		local high = at + size >= 1 - SNAP - 1e-6
+		if low and high then
+			at, size = 0, 1
+		elseif low then
+			at = 0
+		elseif high then
+			at = 1 - size
+		end
+		return math.round(at * 10000) / 10000, math.round(size * 10000) / 10000, low, high
+	end
+	spot.x, spot.w, spot.l, spot.r = axis(spot.x, spot.w)
+	spot.y, spot.h, spot.t, spot.b = axis(spot.y, spot.h)
+end
+
+-- Zellij floating panes: changes the spot of the focused float with `change`, settles it and draws
+-- it. Returns false when no floating pane has focus, so the caller acts on the tiled pane instead.
+local function change_spot(cx, change)
+	local pane = cx.session:focused()
+	local info = if pane then cx.session:pane(pane) else nil
+	if not (info and info.floating) or is_picker(info) then
+		return false
+	end
+	local tab = cx.session:tab_of(pane)
+	local spot = spot_of(pane) or cascade_spot(cx, tab, pane)
+	change(spot)
+	settle(spot)
+	quiet_float_motion(cx)
+	set_spot(pane, spot)
+	render_spots(cx, tab)
+	return true
+end
+
 -- Zellij floating panes: a floating pane gets focus. It becomes the last used floating pane of its
 -- tab, the floats of that tab count as shown, and each float goes to its corner stack. The Go to
 -- picker changes none of these.
@@ -317,7 +461,9 @@ local function note_float_focus(cx, info, tab)
 	end
 end
 
--- Zellij floating panes: focus moved to `pane` in `tab`. When it is a tiled pane and the last focus
+-- Zellij floating panes: focus moved to `pane` in `tab`. The own spots of the floats of `tab` draw
+-- again, because a tab switch changes the drawn floats. A tiled pane forgets its own spot, so
+-- a docked float that floats again starts at its cascade place. When it is a tiled pane and the last focus
 -- was in the same tab, the shown floats of the tab hide. A tab or session switch hides nothing, also
 -- when it lands on a tiled pane of a tab whose floats are shown. While focus_pane waits to focus a
 -- float again, a key press handed focus back to a tiled pane for a moment, and that hides nothing.
@@ -326,6 +472,7 @@ local function focus_moved(cx, pane, tab)
 	if info == nil or tab == nil then
 		return
 	end
+	render_spots(cx, tab)
 	local from_tab = focus_tab
 	focus_tab = tab
 	if info.floating then
@@ -333,6 +480,7 @@ local function focus_moved(cx, pane, tab)
 		return
 	end
 	focused_float = nil
+	set_spot(pane, nil)
 	if from_tab ~= tab then
 		return
 	end
@@ -369,6 +517,9 @@ tern.on("pane_closed", function(ev, cx)
 			end
 		end
 	end
+	set_spot(ev.pane, nil)
+	local focused = cx.session:focused()
+	render_spots(cx, if focused then cx.session:tab_of(focused) else nil)
 	local closed = focused_float
 	if closed == nil or closed.pane ~= ev.pane then
 		return
@@ -405,19 +556,23 @@ tern.on("pane_closed", function(ev, cx)
 	cx.layout:focus(target or floats[#floats].pane)
 end)
 
--- Zellij CloseTab: forgets the floats of the closed tab.
-tern.on("tab_closed", function(ev, _cx)
+-- Zellij CloseTab: forgets the floats of the closed tab and their spots.
+tern.on("tab_closed", function(ev, cx)
 	set_tab_value(LAST_KEY, ev.tab, nil)
 	set_tab_value(SHOWN_KEY, ev.tab, nil)
+	prune_spots(cx)
 end)
 
 -- Zellij floating panes: a reload resets focused_float and focus_tab, so a timer started when this
--- script loads notes the focused pane again. window_start does not run after a reload.
+-- script loads notes the focused pane again, forgets stale spots and draws the kept ones. window_start
+-- does not run after a reload.
 tern.timer(0, function(cx)
 	local pane = if cx then cx.session:focused() else nil
 	local info = if pane then cx.session:pane(pane) else nil
 	if info then
 		focus_tab = cx.session:tab_of(pane)
+		prune_spots(cx)
+		render_spots(cx, focus_tab)
 		if info.floating then
 			note_float_focus(cx, info, focus_tab)
 		end
@@ -661,3 +816,77 @@ end
 
 focus_or_tab("focus_or_tab_left", "Focus the pane or tab on the left", "left", -1, "previous_tab")
 focus_or_tab("focus_or_tab_right", "Focus the pane or tab on the right", "right", 1, "next_tab")
+
+-- Zellij MovePane on a floating pane: moves the focused float a STEP of the tab that way, up to the
+-- tab edge. A tiled pane runs Tern's own move_pane.
+local function move_float(dir, dx, dy)
+	tern.override("move_pane:" .. dir, function(cx)
+		return change_spot(cx, function(spot)
+			spot.x += dx * STEP
+			spot.y += dy * STEP
+		end)
+	end)
+end
+
+move_float("left", -1, 0)
+move_float("right", 1, 0)
+move_float("up", 0, -1)
+move_float("down", 0, 1)
+
+-- Zellij Resize Increase or Decrease with a direction: makes the focused float narrower (left),
+-- wider (right), shorter (up) or taller (down) by a STEP of the tab, and its top-left corner stays.
+-- A tiled pane moves its divider with Tern's resize_split, which a plugin cannot override.
+local function resize_dir(id, title, dir, dw, dh)
+	tern.command({
+		id = id,
+		title = title,
+		run = function(cx)
+			local floated = change_spot(cx, function(spot)
+				spot.w += dw * STEP
+				spot.h += dh * STEP
+			end)
+			if not floated then
+				cx:action("resize_split:" .. dir)
+			end
+		end,
+	})
+end
+
+resize_dir("resize_left", "Resize: narrower float or divider left", "left", -1, 0)
+resize_dir("resize_right", "Resize: wider float or divider right", "right", 1, 0)
+resize_dir("resize_up", "Resize: shorter float or divider up", "up", 0, -1)
+resize_dir("resize_down", "Resize: taller float or divider down", "down", 0, 1)
+
+-- Zellij Resize Increase and Resize Decrease: grows or shrinks the focused float by a STEP of the
+-- tab on each side, and its center stays. A tiled pane does not change.
+local function resize_all(id, title, step)
+	tern.command({
+		id = id,
+		title = title,
+		run = function(cx)
+			change_spot(cx, function(spot)
+				spot.x -= step / 2
+				spot.y -= step / 2
+				spot.w += step
+				spot.h += step
+			end)
+		end,
+	})
+end
+
+resize_all("resize_increase", "Grow the floating pane", STEP)
+resize_all("resize_decrease", "Shrink the floating pane", -STEP)
+
+-- Zellij has no reset for a floating pane. Tern's equalize on a floating pane puts it back at its
+-- cascade place and size. A tiled pane runs Tern's own equalize.
+tern.override("equalize", function(cx)
+	local pane = cx.session:focused()
+	local info = if pane then cx.session:pane(pane) else nil
+	if not (info and info.floating) or is_picker(info) then
+		return false
+	end
+	quiet_float_motion(cx)
+	set_spot(pane, nil)
+	render_spots(cx, cx.session:tab_of(pane))
+	return true
+end)

@@ -41,5 +41,9 @@ The pane where an open starts: the pane that holds a clicked link, or the pane w
 _Avoid_: Owner, caller, source pane, focused pane
 
 **Floating pane**:
-A pane that sits over the tiled panes of its tab, near the middle. The floating panes of a tab are shown or hidden, together. When focus goes to a tiled pane of the tab, they hide, and their programs keep running. The Go to picker also floats, but it is not a floating pane: it closes when focus leaves it.
+A pane that sits over the tiled panes of its tab, at its cascade place until you move or resize it. The floating panes of a tab are shown or hidden, together. When focus goes to a tiled pane of the tab, they hide, and their programs keep running. The Go to picker also floats, but it is not a floating pane: it closes when focus leaves it.
 _Avoid_: Popup, PiP, picture in picture, glance
+
+**Cascade place**:
+The spot where a floating pane opens: half the tab in size, a little lower and to the right of the floating pane opened before it. A floating pane that you move or resize leaves its cascade place and keeps its own spot until it closes.
+_Avoid_: Home spot, slot, corner
