@@ -406,14 +406,21 @@ local function cascade_spot(cx, tab, pane)
 	}
 end
 
--- Zellij floating panes: keeps `spot` inside the tab, at least MIN_SIZE big, and snaps each edge
--- that ends within SNAP of a tab edge to that edge.
-local function settle(spot)
-	local function axis(at, size)
+-- Zellij floating panes: keeps `spot` inside the tab and at least MIN_SIZE big. An edge that ends
+-- within SNAP of a tab edge snaps to that edge when the change moved it toward that tab edge, or
+-- when it was snapped and did not move away (`before` is the spot before the change). So a shrink
+-- of a float that fills the tab lets go of the tab edges, and a move to the side leaves the top
+-- and bottom edges as they were.
+local function settle(spot, before)
+	local function axis(at, size, at0, size0, was_low, was_high)
 		size = math.clamp(size, MIN_SIZE, 1)
 		at = math.clamp(at, 0, 1 - size)
-		local low = at <= SNAP + 1e-6
-		local high = at + size >= 1 - SNAP - 1e-6
+		local eps = 1e-6
+		local near_low = at <= SNAP + eps
+		local near_high = at + size >= 1 - SNAP - eps
+		local low = near_low and (at < at0 - eps or (was_low == true and at <= at0 + eps))
+		local high = near_high
+			and (at + size > at0 + size0 + eps or (was_high == true and at + size >= at0 + size0 - eps))
 		if low and high then
 			at, size = 0, 1
 		elseif low then
@@ -423,8 +430,8 @@ local function settle(spot)
 		end
 		return math.round(at * 10000) / 10000, math.round(size * 10000) / 10000, low, high
 	end
-	spot.x, spot.w, spot.l, spot.r = axis(spot.x, spot.w)
-	spot.y, spot.h, spot.t, spot.b = axis(spot.y, spot.h)
+	spot.x, spot.w, spot.l, spot.r = axis(spot.x, spot.w, before.x, before.w, before.l, before.r)
+	spot.y, spot.h, spot.t, spot.b = axis(spot.y, spot.h, before.y, before.h, before.t, before.b)
 end
 
 -- Zellij floating panes: changes the spot of the focused float with `change`, settles it and draws
@@ -437,8 +444,9 @@ local function change_spot(cx, change)
 	end
 	local tab = cx.session:tab_of(pane)
 	local spot = spot_of(pane) or cascade_spot(cx, tab, pane)
+	local before = { x = spot.x, y = spot.y, w = spot.w, h = spot.h, l = spot.l, r = spot.r, t = spot.t, b = spot.b }
 	change(spot)
-	settle(spot)
+	settle(spot, before)
 	quiet_float_motion(cx)
 	set_spot(pane, spot)
 	render_spots(cx, tab)
@@ -835,6 +843,7 @@ move_float("down", 0, 1)
 
 -- Zellij Resize Increase or Decrease with a direction: makes the focused float narrower (left),
 -- wider (right), shorter (up) or taller (down) by a STEP of the tab, and its top-left corner stays.
+-- It stops at the tab edge and at MIN_SIZE.
 -- A tiled pane moves its divider with Tern's resize_split, which a plugin cannot override.
 local function resize_dir(id, title, dir, dw, dh)
 	tern.command({
@@ -842,8 +851,8 @@ local function resize_dir(id, title, dir, dw, dh)
 		title = title,
 		run = function(cx)
 			local floated = change_spot(cx, function(spot)
-				spot.w += dw * STEP
-				spot.h += dh * STEP
+				spot.w = math.clamp(spot.w + dw * STEP, MIN_SIZE, math.max(MIN_SIZE, 1 - spot.x))
+				spot.h = math.clamp(spot.h + dh * STEP, MIN_SIZE, math.max(MIN_SIZE, 1 - spot.y))
 			end)
 			if not floated then
 				cx:action("resize_split:" .. dir)
@@ -858,17 +867,19 @@ resize_dir("resize_up", "Resize: shorter float or divider up", "up", 0, -1)
 resize_dir("resize_down", "Resize: taller float or divider down", "down", 0, 1)
 
 -- Zellij Resize Increase and Resize Decrease: grows or shrinks the focused float by a STEP of the
--- tab on each side, and its center stays. A tiled pane does not change.
+-- tab, half on each side, and its center stays. At MIN_SIZE or the full tab the size stops, and
+-- the center does not move. A tiled pane does not change.
 local function resize_all(id, title, step)
 	tern.command({
 		id = id,
 		title = title,
 		run = function(cx)
 			change_spot(cx, function(spot)
-				spot.x -= step / 2
-				spot.y -= step / 2
-				spot.w += step
-				spot.h += step
+				local w = math.clamp(spot.w + step, MIN_SIZE, 1)
+				local h = math.clamp(spot.h + step, MIN_SIZE, 1)
+				spot.x -= (w - spot.w) / 2
+				spot.y -= (h - spot.h) / 2
+				spot.w, spot.h = w, h
 			end)
 		end,
 	})
