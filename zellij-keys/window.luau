@@ -646,6 +646,23 @@ tern.command({
 	end,
 })
 
+-- Zellij NewTab, with an agent in place of the shell: a new tab with an agent block, in the folder of
+-- the focused pane, as Tern's new tab opens when the setting `new_blocks` is `Agent`. Tern has no action
+-- for an agent tab, so the command sets `new_blocks` to `Agent` for the one `new_tab`.
+tern.command({
+	id = "new_agent_tab",
+	title = "New agent tab",
+	run = function(cx)
+		local before = cx.settings:get("new_blocks")
+		cx.settings:set("new_blocks", "Agent")
+		local ok, why = pcall(cx.command, cx, "new_tab")
+		cx.settings:set("new_blocks", before)
+		if not ok then
+			cx:toast("error", "Could not open an agent tab", tostring(why))
+		end
+	end,
+})
+
 -- Zellij `Run ... { floating true; close_on_exit true }`.
 local function float_command(id, title, command)
 	tern.command({
