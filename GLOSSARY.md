@@ -29,7 +29,7 @@ The group at the top of the Go to picker: each pane, other than the one you are 
 _Avoid_: Needs attention (its old name), needs you (Orca), inbox (Tern's own F6 list)
 
 **Jump number**:
-The number on each session, tab and pane row of the Go to picker. Typing it goes to that row.
+The number on the session, tab and pane rows of the Go to picker. Typing it goes to that row. A session that shows one tab shares one number with that tab, because both go to the same pane. A Waiting on you row keeps its own number.
 _Avoid_: Label, hint, row number
 
 **Rendered page**:

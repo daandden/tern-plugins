@@ -7,11 +7,13 @@
 --
 -- Keys: a typed letter or space goes into the search at once. The search filters the tree rows
 -- (the Waiting on you rows hide), highlights the matching characters and shows in the footer.
--- A digit is a jump number and goes to its row, so a search holds no digits. With more than 9
--- rows, every jump number has two digits; after the first digit, the reachable numbers show the
--- typed digit highlighted and rows that the second digit cannot reach dim. Up/Down move, Enter
--- goes to the row. Esc undoes one step: the first digit, then the search; with nothing to undo it
--- closes. Backspace clears the first digit, else deletes the last character.
+-- A digit is a jump number and goes to its row, so a search holds no digits. A session row that
+-- shows one tab row under it shares its number with that tab, which shows no number and which
+-- Up/Down skips. With more than 9 numbers, every jump number has two digits; after the first
+-- digit, the reachable numbers show the typed digit highlighted and rows that the second digit
+-- cannot reach dim. Up/Down move, Enter goes to the row. Esc undoes one step: the first digit,
+-- then the search; with nothing to undo it closes. Backspace clears the first digit, else deletes
+-- the last character.
 -- Actions sit behind the prefix ctrl+;: then a switches agents only and all panes, i shows or
 -- hides idle agents in the group, and any other key only ends the prefix.
 
@@ -65,6 +67,35 @@ local function in_view(state, i)
 	return true
 end
 
+-- Gives the shown rows their jump numbers. A session row that shows one tab row under it shares
+-- its number with that tab (`merged`), because both go to the same pane: the tab row
+-- shows no number, and Up/Down skips it (`skip`). Every other row gets the next number, and the
+-- Waiting on you rows keep their own. `jump_of` is the number of each shown position, and `jumps`
+-- the position of the row that shows each number.
+local function number_rows(state)
+	local tabs = {}
+	for _, i in state.shown do
+		local row = state.rows[i]
+		if row.kind == "tab" and not row.group then
+			tabs[row.session] = tabs[row.session] or {}
+			table.insert(tabs[row.session], i)
+		end
+	end
+	state.merged, state.skip, state.jump_of, state.jumps = {}, {}, {}, {}
+	for session, list in tabs do
+		if #list == 1 then
+			state.merged[session] = list[1]
+			state.skip[list[1]] = true
+		end
+	end
+	for position, i in state.shown do
+		if not state.skip[i] then
+			table.insert(state.jumps, position)
+		end
+		state.jump_of[position] = #state.jumps
+	end
+end
+
 -- The indexes of the rows the list shows, after the filter. With no search: the Waiting on you
 -- rows, then the tree. With a search: the tree rows that match, with the session and tab rows
 -- above each match.
@@ -102,18 +133,19 @@ local function refilter(state)
 	end
 	state.shown = shown
 	state.digit = nil
+	number_rows(state)
 end
 
--- The jump number of the shown row at `position`: one digit when the list has 9 rows or fewer,
--- else two digits up to 99. Nil for rows past the last number.
-local function jump_number(state, position)
-	if #state.shown <= 9 then
-		return tostring(position)
-	end
-	if position > 99 then
+-- The jump number `k` as text: one digit when the list has 9 numbers or fewer, else two digits up
+-- to 99. Nil past the last number.
+local function jump_number(state, k)
+	if k == nil or k > 99 then
 		return nil
 	end
-	return string.format("%02d", position)
+	if #state.jumps <= 9 then
+		return tostring(k)
+	end
+	return string.format("%02d", k)
 end
 
 -- The position of the cursor in the shown rows, or 0 when its row is hidden.
@@ -134,9 +166,22 @@ local function move_to(state, position)
 	end
 end
 
+-- Moves the cursor `delta` rows up or down, past the tab rows that share their session's number.
+-- At either end of the list it stays.
+local function step(state, delta)
+	local position = cursor_position(state) + delta
+	while state.shown[position] and state.skip[state.shown[position]] do
+		position += delta
+	end
+	if state.shown[position] then
+		state.cursor = state.shown[position]
+	end
+end
+
 -- Puts the cursor on the first Waiting on you row. Else on the row of the pane you are in
 -- (`state.current`), or on its tab row when that tab stands for your pane, or, when the filter
--- hides your pane, on your session's row.
+-- hides your pane, on your session's row. A tab row that shares its session's number gives the
+-- cursor to the session row, because Up/Down skips it.
 local function place_cursor(state)
 	local first = state.shown[1]
 	if first and state.rows[first].group then
@@ -154,6 +199,9 @@ local function place_cursor(state)
 	for _, i in candidates do
 		state.cursor = i
 		if cursor_position(state) > 0 then
+			if state.skip[i] then
+				state.cursor = state.rows[i].session
+			end
 			return
 		end
 	end
@@ -181,33 +229,35 @@ local function target(state, row)
 	return row
 end
 
--- Reports the row to the window half, which moves focus there and closes the picker.
-local function go(state, row, cx)
-	local to = target(state, row)
+-- The row that the row at index `i` goes to: a session row that shares its number with a tab goes
+-- where that tab goes.
+local function destination(state, i)
+	return target(state, state.rows[state.merged[i] or i])
+end
+
+-- Reports the row at index `i` to the window half, which moves focus there and closes the picker.
+local function go(state, i, cx)
+	local to = destination(state, i)
 	cx:open("goto:" .. to.kind .. "/" .. string.format("%d", to.id))
 end
 
 -- Handles a typed digit: the jump number it completes goes to its row.
 local function press_digit(state, digit, cx)
-	local count = math.min(#state.shown, 99)
-	if #state.shown <= 9 then
-		local position = tonumber(digit)
-		if position >= 1 and position <= count then
-			go(state, state.rows[state.shown[position]], cx)
-		end
-		return
-	end
-	if state.digit == nil then
-		local first = tonumber(digit)
-		if first * 10 <= count then
+	local count = math.min(#state.jumps, 99)
+	local position
+	if #state.jumps <= 9 then
+		position = tonumber(digit)
+	elseif state.digit == nil then
+		if tonumber(digit) * 10 <= count then
 			state.digit = digit
 		end
 		return
+	else
+		position = tonumber(state.digit .. digit)
+		state.digit = nil
 	end
-	local position = tonumber(state.digit .. digit)
-	state.digit = nil
 	if position >= 1 and position <= count then
-		go(state, state.rows[state.shown[position]], cx)
+		go(state, state.shown[state.jumps[position]], cx)
 	end
 end
 
@@ -354,11 +404,13 @@ end
 -- the tree lines and the label (search matches highlighted), or the place of a Waiting on you row.
 local function row_item(state, position, i, prefix)
 	local row = state.rows[i]
-	local number = jump_number(state, position)
+	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
 	local dim = if reachable then nil else "dim"
 	local label: { any } = {}
-	if number then
+	if state.skip[i] then
+		table.insert(label, ui.span(string.rep("\u{00A0}", if #state.jumps <= 9 then 1 else 2) .. " ", dim))
+	elseif number then
 		for _, span in number_spans(state, number, dim) do
 			table.insert(label, span)
 		end
@@ -460,7 +512,8 @@ end
 
 -- Handles the key after the ctrl+; prefix: a switches agents only and all panes, i shows or hides
 -- idle agents in the Waiting on you group. Every key ends the prefix, and any other key does
--- nothing else.
+-- nothing else. A cursor whose row the filter hides starts again where it starts on open, and a
+-- cursor on a tab row that now shares its session's number moves to the session row.
 local function action_key(state, key)
 	state.prefix = false
 	if key.ctrl or key.alt or key.meta then
@@ -477,6 +530,8 @@ local function action_key(state, key)
 	refilter(state)
 	if cursor_position(state) == 0 then
 		place_cursor(state)
+	elseif state.skip[state.cursor] then
+		state.cursor = state.rows[state.cursor].session
 	end
 end
 
@@ -495,14 +550,13 @@ local function picker_key(state, key, cx)
 			cx:open("goto:close")
 		end
 	elseif name == "enter" then
-		local row = state.rows[state.cursor]
-		if row and cursor_position(state) > 0 then
-			go(state, row, cx)
+		if state.rows[state.cursor] and cursor_position(state) > 0 then
+			go(state, state.cursor, cx)
 		end
 	elseif name == "up" then
-		move_to(state, cursor_position(state) - 1)
+		step(state, -1)
 	elseif name == "down" then
-		move_to(state, cursor_position(state) + 1)
+		step(state, 1)
 	elseif name == "backspace" then
 		if state.digit then
 			state.digit = nil
@@ -576,9 +630,8 @@ tern.block.define("picker", {
 	event = function(state, ev, cx)
 		if (ev.ev == "select" or ev.ev == "activate") and type(ev.item) == "string" then
 			local i = tonumber(string.sub(ev.item, #LIST_ID + 1))
-			local row = if i then state.rows[i] else nil
-			if row then
-				go(state, row, cx)
+			if i and state.rows[i] then
+				go(state, i, cx)
 			end
 		end
 	end,
