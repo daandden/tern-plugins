@@ -638,15 +638,17 @@ end
 
 -- Zellij floating pane: a new floating pane over the focused tiled pane (or over the pane the focused
 -- floating pane belongs to), running `command` or, without one, a shell. The hidden floats of the tab
--- show first, so the new float opens on top of them with focus.
-local function open_float(cx, command)
+-- show first, so the new float opens on top of them with focus. With `spot`, the float starts at that
+-- own spot in place of its cascade place.
+local function open_float(cx, command, spot)
 	local focused = cx.session:focused()
 	if focused == nil then
 		return
 	end
 	local owner = tiled_owner(cx, focused)
+	local tab = cx.session:tab_of(focused)
 	quiet_float_motion(cx)
-	show_floats(cx, cx.session:tab_of(focused))
+	show_floats(cx, tab)
 	local launch = if command then { command = command } else nil
 	local pane = cx.layout:split(owner, "right", launch)
 	if pane == nil then
@@ -656,6 +658,10 @@ local function open_float(cx, command)
 	if not ok then
 		cx:toast("error", "Could not open a floating pane", why)
 		return
+	end
+	if spot then
+		set_spot(pane, spot)
+		render_spots(cx, tab)
 	end
 	focus_pane(cx, pane)
 end
@@ -695,14 +701,18 @@ tern.command({
 	end,
 })
 
--- Zellij `Run ... { floating true; close_on_exit true }`.
+-- The own spot that the floats of float_command start at: centered, 80% of the tab in width and
+-- in height, so a full-screen program has more room than at a cascade place.
+local APP_SPOT = { x = 0.1, y = 0.1, w = 0.8, h = 0.8 }
+
+-- Zellij `Run ... { floating true; close_on_exit true }`, at APP_SPOT.
 local function float_command(id, title, command)
 	tern.command({
 		id = id,
 		title = title,
 		icon = "terminal",
 		run = function(cx)
-			open_float(cx, command)
+			open_float(cx, command, table.clone(APP_SPOT))
 		end,
 	})
 end
