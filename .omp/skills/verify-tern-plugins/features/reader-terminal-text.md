@@ -6,8 +6,8 @@ When omp runs in a Tern pane, Tern shows its chat in the Reader style. With this
 
 - `rtt-composer-size` gives the composer the terminal font size and row height.
 - `rtt-composer-font` puts `ui_font` first in the composer font list, before Geist.
-- `rtt-placeholder` hides the placeholder of the empty composer and keeps the line.
-- `rtt-chat-text` gives user messages, assistant prose, assistant headings and ask questions the terminal size and row height.
+- `rtt-placeholder` hides the placeholder of the empty composer and keeps the line. This rule applies to omp's composer in every chat style.
+- `rtt-chat-text` gives user messages, assistant prose, annotated assistant headings and ask questions the terminal size and row height. Headings with their own size keep Reader's font size.
 
 ## How to get to it (user POV)
 
@@ -25,7 +25,7 @@ Preconditions:
 - Composer with the plugin. Run `"$V" ctl "$RUN" dump "$ED .sf-editor" | jq -c '.elements[0] | {rect, fontFamily, fontSize}'` and `"$V" ctl "$RUN" dump "$ED .sf-ed-ph" | jq -c '.elements[0].visible'`. With the copied settings: `fontSize` `13px`, a rect height of 17, a `fontFamily` that starts with `"JetBrainsMono Nerd Font Mono"`, and a placeholder that is `false`.
 - Composer without the plugin. Drop both sheets in this window only: `"$V" ctl "$RUN" css plugin:local:reader-terminal-text:reader-terminal-text` and `"$V" ctl "$RUN" css plugin:local:reader-terminal-text:composer-placeholder`. Each prints `{"ok":true,"dropped":1}`. The same dumps now give `14px`, height 22, a font list that starts with `Geist, "Berkeley Mono"`, and a placeholder that is `true`.
 - Restore. Run `"$V" tern "$RUN" plugin reload`. The dumps give the values with the plugin again, and `"$V" ctl "$RUN" css` lists both sheets.
-- Chat text. Send a short prompt with `"$V" ctl "$RUN" type '"say ok"'` and `"$V" ctl "$RUN" key enter`, wait for `tree ".sf-chat-reader [data-role^='omp.assistant']"`, and dump `.sf-chat-reader [data-role^='omp.assistant'] > .sf-md` and `.sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md` with and without the sheet, as above.
+- Chat text. Send a short prompt with `"$V" ctl "$RUN" type '"say ok"'` and `"$V" ctl "$RUN" key enter`, wait for `tree ".sf-chat-reader [data-role^='omp.assistant'] > .sf-md"`, and dump that selector and `.sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md` with and without the `reader-terminal-text` sheet, as above. With the sheet both give `13px` and a row of 17. Without it they give `14px` and a taller row.
 - Proof. Run `"$V" shot "$RUN" rtt-with` and `"$V" shot "$RUN" rtt-without` around the drop, and keep each `dump` output in `RUN/rtt-<step>.json`.
 
 ## Gotchas

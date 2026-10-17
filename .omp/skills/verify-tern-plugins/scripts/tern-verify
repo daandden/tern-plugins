@@ -171,6 +171,17 @@ stop)
 			kill -9 "$pid" 2>/dev/null || true
 		fi
 	done
+	# A pane program can outlive the daemon: Neovim's `nvim --embed` server stays as an orphan and
+	# ignores SIGTERM. Its command line names a file in RUN/data, a dir that only this run has.
+	leftovers() { ps -Ao pid=,command= | grep -F "$data/" | grep -v grep | awk '{print $1}' || true; }
+	pids=$(leftovers)
+	if [ -n "$pids" ]; then
+		printf 'ending leftover processes of this run: %s\n' "$(echo $pids)"
+		kill $pids 2>/dev/null || true
+		sleep 1
+		pids=$(leftovers)
+		[ -z "$pids" ] || kill -9 $pids 2>/dev/null || true
+	fi
 	rm -rf "$(omp_session_dir)" "$data"
 	printf 'stopped window %s and daemon %s; kept:\n' "${window_pid:-none}" "${daemon_pid:-none}"
 	ls -1 "$run"

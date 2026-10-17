@@ -66,7 +66,7 @@ If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `
 
 Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It changes nothing. It exits 1 when a check fails. It prints:
 
-- The checkout and its commit, and the Tern version (`tern 0.7.2` when this skill was written).
+- The checkout and its commit, and the Tern version (`tern 0.9.2` at the last check of this skill).
 - The window pid and the owner of `RUN/data/ctl.sock`. Both must be the same pid.
 - The daemon pid, as the owner of `RUN/data/daemon.sock`.
 - The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here.
@@ -108,7 +108,8 @@ Run `"$V" stop "$RUN"` after every run, also after a failed one. The one excepti
 
 1. Closes the window with `ctl quit`, and sends SIGTERM to the window pid of this run if the window is still open after 2 s.
 2. Sends SIGTERM to the daemon pid that owns `RUN/data/daemon.sock`. Its panes (shells, Neovim, omp) end with it.
-3. Deletes `RUN/data` and the omp session dir of a pane that ran omp in `RUN/data` (`~/.omp/agent/sessions/-<path of RUN/data under home, with / as ->`).
-4. Lists what stays in `RUN`: the proof, `notes.md`, `start.log` and `window.log`.
+3. Ends each process left with `RUN/data/` in its command line, such as an orphaned `nvim --embed` that ignores SIGTERM: SIGTERM, then SIGKILL after 1 s.
+4. Deletes `RUN/data` and the omp session dir of a pane that ran omp in `RUN/data` (`~/.omp/agent/sessions/-<path of RUN/data under home, with / as ->`).
+5. Lists what stays in `RUN`: the proof, `notes.md`, `start.log` and `window.log`.
 
-`stop` selects processes only by the pid files and sockets of this run. After `stop`, make sure that `ps -Ao pid,command | grep -F "$RUN/data"` shows only the grep itself.
+`stop` selects processes only by the pid files and sockets of this run and by the path of `RUN/data`, which no other run has. After `stop`, make sure that `ps -Ao pid,command | grep -F "$RUN/data"` shows only the grep itself.
