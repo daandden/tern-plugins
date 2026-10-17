@@ -66,6 +66,10 @@ start)
 	if [ -f "$HOME/.config/tern/settings.json" ]; then
 		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
 	fi
+	# A config dir with no omp state makes Tern show its native "Let Tern keep omp up to date?" alert
+	# on top of the screen. This is the state that Tern writes when you answer Not Now.
+	mkdir "$cfg/omp"
+	printf '{"managed":false,"checked":0,"no_build":false,"offered":true}\n' >"$cfg/omp/state.json"
 	for manifest in "$repo"/*/plugin.toml; do
 		iso tern plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
 			die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
@@ -125,6 +129,14 @@ doctor)
 		| select(startswith("Signed in to Stencil"))][0] // "NOT SIGNED IN"')
 	printf 'account:    %s\n' "$account"
 	[ "$account" != "NOT SIGNED IN" ] || status=1
+	# Shots do not show a native alert, so list it here.
+	alerts=$(ctl system | jq -r '.dialogs[] | "\(.message) \(.buttons)"')
+	if [ -n "$alerts" ]; then
+		printf 'NATIVE ALERT OPEN: %s\n' "$alerts"
+		status=1
+	else
+		printf 'alerts:     none\n'
+	fi
 	exit $status
 	;;
 ctl)

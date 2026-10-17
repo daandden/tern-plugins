@@ -36,7 +36,7 @@ V=<directory of this SKILL.md>/scripts/tern-verify
 
 Every command takes the run dir first:
 
-- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance, opens the window and waits until it is ready.
+- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance, writes the omp offer as answered with Not Now, opens the window and waits until it is ready. Without that state, Tern shows its native "Let Tern keep omp up to date?" alert on top of the screen at each start.
 - `"$V" doctor "$RUN"` is the read-only instance check.
 - `"$V" ctl "$RUN" ARGS...` runs `tern ctl ARGS...` on the instance's control socket.
 - `"$V" tern "$RUN" ARGS...` runs a `tern` CLI command against the instance, for example `"$V" tern "$RUN" ls`.
@@ -73,6 +73,7 @@ Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It chan
 - `tern plugin list` of the instance. Every plugin must say `ready`, and every link must point into the checkout.
 - The plugin CSS sheets that the window loaded, named `plugin:local:<id>:<sheet>`.
 - The account: `Signed in to Stencil as @<user>`, the name of the account button. `NOT SIGNED IN` means that the button is missing. Take a shot and look for the sign-in gate before you drive anything.
+- Open native alerts of the window, from `"$V" ctl "$RUN" system`. A shot does not show a native alert. `NATIVE ALERT OPEN` means that the window waits for an answer: name it in `notes.md`, and close it with `"$V" ctl "$RUN" dialog button N`, where N counts the buttons from 0.
 
 ## Drive
 
