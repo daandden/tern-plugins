@@ -21,8 +21,12 @@ A pane that runs an agent Tern knows, such as omp. Any other pane (a shell, an e
 _Avoid_: Agent block, AI pane
 
 **Go to picker**:
-The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
+The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. The tabs of a session and the panes of a tab come last seen first; sessions keep Tern's order. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
 _Avoid_: Navigator, jump palette, switcher
+
+**Last seen**:
+When a pane last had focus, however briefly. A tab was last seen when one of its panes was, and focus on a floating pane counts for its tab only. The Go to picker's own focus does not count. Panes and tabs not seen yet follow the seen ones, in Tern's order.
+_Avoid_: Recent, last used, MRU, last active
 
 **Waiting on you**:
 The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or is done, or its terminal rang an alert. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes also stay in their place in the tree below.

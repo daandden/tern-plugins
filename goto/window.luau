@@ -373,6 +373,73 @@ end
 -- host half hides the idle rows until you show them (ctrl+; then i).
 local ATTENTION = { input = 1, error = 2, alert = 3, done = 4, idle = 5 }
 
+-- The key of a pane or tab id in the `seen` maps; JSON object keys are strings.
+local function seen_key(id)
+	return string.format("%d", id)
+end
+
+-- The last seen order (GLOSSARY.md). tern.kv keeps under `seen` a counter `n` and, by id, the
+-- count at the last focus of each pane (`panes`) and tab (`tabs`). A count, not a time, so two
+-- focuses within one second keep their order. A reload resets the Lua state, and every window
+-- shares the store, so the maps live there.
+local function load_seen()
+	local seen = tern.kv.get("seen")
+	if type(seen) ~= "table" then
+		seen = {}
+	end
+	seen.n = if type(seen.n) == "number" then seen.n else 0
+	seen.panes = if type(seen.panes) == "table" then seen.panes else {}
+	seen.tabs = if type(seen.tabs) == "table" then seen.tabs else {}
+	return seen
+end
+
+-- Notes a focus of `pane` in `tab`: every focus counts at once. A floating pane's focus counts for
+-- its tab only, and the picker's own focus does not count. A parked pane has no tab.
+local function note_seen(cx, pane, tab)
+	local info = cx.session:pane(pane)
+	if info == nil or info.block == KIND then
+		return
+	end
+	local seen = load_seen()
+	seen.n += 1
+	if tab then
+		seen.tabs[seen_key(tab)] = seen.n
+	end
+	if not info.floating then
+		seen.panes[seen_key(pane)] = seen.n
+	end
+	tern.kv.set("seen", seen)
+end
+
+-- Drops a closed pane or tab from the `seen` map `field`.
+local function forget_seen(field, id)
+	local seen = load_seen()
+	if seen[field][seen_key(id)] ~= nil then
+		seen[field][seen_key(id)] = nil
+		tern.kv.set("seen", seen)
+	end
+end
+
+-- `ids` last seen first: the ones in `counts` by their last focus, newest first, then the others
+-- in their given order.
+local function last_seen_first(ids, counts)
+	local place = {}
+	for i, id in ids do
+		place[id] = i
+	end
+	local sorted = table.clone(ids)
+	table.sort(sorted, function(a, b)
+		local count_a, count_b = counts[seen_key(a)], counts[seen_key(b)]
+		if count_a and count_b then
+			return count_a > count_b
+		elseif count_a or count_b then
+			return count_a ~= nil
+		end
+		return place[a] < place[b]
+	end)
+	return sorted
+end
+
 -- The name of the remote host of each session; local sessions have none.
 local function remote_hosts(cx)
 	local names = {}
@@ -388,8 +455,8 @@ local function remote_hosts(cx)
 	return by_session
 end
 
--- The picker's rows in Tern's order: each session, its tabs by position, and each tab's tiled
--- panes in layout order. Each row keeps the index of its session and tab rows, for search and for
+-- The picker's rows: each session in Tern's order, its tabs and each split tab's tiled panes last
+-- seen first. Each row keeps the index of its session and tab rows, for search and for
 -- the place of a Waiting on you row. A pane row, and the row of a tab with one pane, is marked
 -- `agent` when Tern lists its pane as an agent; a split tab row is marked `agent` when one of its
 -- panes is, and names in `solo` the row of its only agent pane, so that host.luau shows such a tab
@@ -408,6 +475,7 @@ local function collect(cx, focused)
 		tabs[tab.id] = tab
 	end
 	local hosts = remote_hosts(cx)
+	local seen = load_seen()
 	local focused_tab = if focused then cx.session:tab_of(focused) else nil
 	local rows = {}
 	local current = 1
@@ -422,7 +490,7 @@ local function collect(cx, focused)
 		if focused == nil and session.current then
 			current = session_row
 		end
-		for _, tab_id in session.tabs do
+		for _, tab_id in last_seen_first(session.tabs, seen.tabs) do
 			local tab = tabs[tab_id]
 			local layout = cx.session:layout(tab_id)
 			if tab and layout then
@@ -446,7 +514,7 @@ local function collect(cx, focused)
 				end
 				if single == nil then
 					local agent_rows = {}
-					for _, pane_id in panes do
+					for _, pane_id in last_seen_first(panes, seen.panes) do
 						local info = cx.session:pane(pane_id)
 						if info then
 							table.insert(rows, {
@@ -523,6 +591,9 @@ end
 -- there the picker opens as the only pane of a new tab, and that tab closes with the picker.
 local function open_picker(cx)
 	local focused = cx.session:focused()
+	if focused then
+		note_seen(cx, focused, cx.session:tab_of(focused))
+	end
 	local rows, current = collect(cx, focused)
 	local launch = { block = KIND, args = { tern.json.encode({ rows = rows, current = current }) } }
 	local pane
@@ -599,19 +670,26 @@ tern.route.link(function(link, cx)
 	return { handled = true }
 end)
 
--- Focus that leaves the open picker closes it.
+-- Notes each focus for the last seen order. Focus that leaves the open picker closes it.
 tern.on("focus", function(ev, cx)
+	note_seen(cx, ev.pane, ev.tab)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
 end)
 
--- Forgets a picker that closed some other way.
+-- Forgets a picker that closed some other way, and the last focus of a closed pane.
 tern.on("pane_closed", function(ev, _cx)
+	forget_seen("panes", ev.pane)
 	if picker and ev.pane == picker.pane then
 		picker = nil
 		set_veil(false)
 	end
+end)
+
+-- Forgets the last focus of a closed tab.
+tern.on("tab_closed", function(ev, _cx)
+	forget_seen("tabs", ev.tab)
 end)
 
 -- A plugin reload starts this half with no open picker, but a picker pane from before stays open
