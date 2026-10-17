@@ -10,7 +10,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. |
 | `html-links` | Opens every local HTML file as the rendered page in a browser pane beside the pane that opened it. Web links to this machine stay in Tern, and other web links open in Microsoft Edge. Cmd+R reloads the page. |
 | `nvim-files` | Opens local text and code files in Neovim in a terminal pane, not in Tern's code view. Markdown, notebooks, images, PDFs, databases and binary files stay in Tern. |
-| `reader-terminal-text` | In the Reader chat style, gives omp's text the font size and row height of the terminal. The plugin is CSS only. |
+| `reader-terminal-text` | In the Reader chat style, gives omp's text the font size, row height and font weight of the terminal. The plugin is CSS only. |
 
 `bin/open` replaces the macOS `open` command in a Tern pane. `open FILE...` with only local files opens each file in Tern beside the pane that ran the command. Every other call goes to `/usr/bin/open`.
 

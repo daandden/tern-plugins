@@ -1,8 +1,9 @@
 -- Tern's Reader chat style gives omp's text its own sizes and line heights (prose 14px/1.65,
 -- composer 14px/22px). These rules put that text on the terminal's font size and row height
 -- instead (--sf-fs and --sf-lh, which follow font_size and adjust_cell_height). Single-line
--- chrome (tool titles, chips, status) and sized headings keep Reader's values. `:root` makes each
--- rule outrank Reader's own.
+-- chrome (tool titles, chips, status) and sized headings keep Reader's values. Message text also
+-- gets the terminal's Font weight (--tv-weight), which Reader's `font` shorthands reset to 400.
+-- `:root` makes each rule outrank Reader's own.
 --
 -- The composer also gets the UI font: Reader sets it to `Geist, 'Berkeley Mono', var(--sans)`,
 -- so Geist wins over `ui_font` (which Tern puts at the front of --sans).
@@ -24,6 +25,28 @@ tern.css("reader-terminal-text", [[
 :root .sf-chat-reader .sf-md[data-role='omp.ask.question'],
 :root .sf-chat-reader .sf-col[data-role^='omp.editor'] .sf-editor:not(.code) {
 	font-size: var(--term-fs);
+}
+
+/* Message text at the terminal's Font weight. Reader's `font` shorthands set 400, so the text stays
+   thinner than the grid. Strong text and headings take the next heavier weight (`bolder`: 700 from
+   400, 900 from 600 or 700), close to the grid's bold, 300 heavier: Tern's engine does not apply
+   `min(900, calc(...))` in font-weight. `:root:root:root` outranks Reader's annotated heading rule. */
+:root .sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md,
+:root .sf-chat-reader [data-role^='omp.assistant'] > .sf-md,
+:root .sf-chat-reader .sf-md .md :not(pre) > code,
+:root .sf-chat-reader .sf-md .md .code pre,
+:root .sf-chat-reader .sf-md .md .mfig-body .mmd-fallback,
+:root .sf-chat-reader .sf-md .md .mfig-src,
+:root .sf-chat-reader .sf-section[data-role^='omp.thinking'] > .sf-section-body,
+:root .sf-chat-reader .sf-row[data-role='omp.recap'],
+:root .sf-chat-reader .sf-tool-body > .sf-md,
+:root .sf-chat-reader .sf-md[data-role='omp.ask.question'],
+:root .sf-chat-reader .sf-col[data-role^='omp.editor'] .sf-editor {
+	font-weight: var(--tv-weight, 400);
+}
+
+:root:root:root .sf-chat-reader .sf-md .md :is(strong, b, h1, h2, h3, h4) {
+	font-weight: bolder;
 }
 
 :root .sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md,

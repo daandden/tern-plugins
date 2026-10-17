@@ -1,6 +1,6 @@
 schema = 1
 id = "reader-terminal-text"
 name = "Reader terminal text"
-version = "0.2.0"
-description = "In the Reader chat style, omp's text uses the terminal's row height, and the composer uses the UI font from settings.json."
+version = "0.3.0"
+description = "In the Reader chat style, omp's text uses the terminal's row height and Font weight, and the composer uses the UI font from settings.json."
 window = "window.luau"
