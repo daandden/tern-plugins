@@ -36,7 +36,7 @@ V=<directory of this SKILL.md>/scripts/tern-verify
 
 Every command takes the run dir first:
 
-- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance, writes the omp offer as answered with Not Now, opens the window and waits until it is ready. Without that state, Tern shows its native "Let Tern keep omp up to date?" alert on top of the screen at each start.
+- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance, writes the omp offer as answered with Not Now, opens the window and waits until it is ready. Without that state, Tern shows its native "Tern is better with omp. Install it?" alert on top of the screen at each start.
 - `"$V" doctor "$RUN"` is the read-only instance check.
 - `"$V" ctl "$RUN" ARGS...` runs `tern ctl ARGS...` on the instance's control socket.
 - `"$V" tern "$RUN" ARGS...` runs a `tern` CLI command against the instance, for example `"$V" tern "$RUN" ls`.

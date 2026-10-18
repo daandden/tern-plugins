@@ -66,8 +66,8 @@ start)
 	if [ -f "$HOME/.config/tern/settings.json" ]; then
 		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
 	fi
-	# A config dir with no omp state makes Tern show its native "Let Tern keep omp up to date?" alert
-	# on top of the screen. This is the state that Tern writes when you answer Not Now.
+	# A config dir with no omp state makes Tern show its native "Tern is better with omp. Install it?"
+	# alert on top of the screen. This is the state that Tern writes when you answer Not Now.
 	mkdir "$cfg/omp"
 	printf '{"managed":false,"checked":0,"no_build":false,"offered":true}\n' >"$cfg/omp/state.json"
 	for manifest in "$repo"/*/plugin.toml; do

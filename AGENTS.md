@@ -65,6 +65,10 @@ goto: the window half lists sessions, tabs and tiled panes and passes them as JS
 
 goto last seen: `collect` puts the tabs of each session and the panes of each split tab last seen first (`last_seen_first`); sessions keep Tern's order. Tern has no time of last focus, so the `focus` handler counts each focus in `tern.kv` under `seen`: a counter `n`, and the count of the last focus by pane id (`panes`) and by tab id (`tabs`). A count, not a time, keeps the order of two focuses within one second. Every focus counts at once, also one that only passes through a tab. A floating pane's focus counts for its tab only, and the picker's own focus does not count. `open_picker` counts the focused pane first, so your own pane and tab lead. Panes and tabs with no count come after the counted ones, in Tern's order. `pane_closed` and `tab_closed` drop the closed ids. The Waiting on you rows keep their status order, and inside one status they follow the new tree order.
 
+## Sibling repo
+
+omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts isolated Tern instances for its checks, and it also writes the omp state that keeps Tern's omp offer alert off the screen. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
+
 ## vstack
 
 ### Issue tracker
