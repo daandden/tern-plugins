@@ -67,7 +67,7 @@ goto last seen: `collect` puts the tabs of each session and the panes of each sp
 
 ## Sibling repo
 
-omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts isolated Tern instances for its checks, and it also writes the omp state that keeps Tern's omp offer alert off the screen. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
+omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts Tern instances for its checks. An isolated instance there needs the same omp state before it starts, and https://github.com/daandden/omp-tools/issues/18 asks its Verify skill to write it. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
 
 ## vstack
 
