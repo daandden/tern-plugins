@@ -794,7 +794,9 @@ local function worktree_update(cx, main, branch)
 end
 
 -- Checks that the main checkout is on the default branch with no staged, unstaged or untracked
--- changes, which /wt would copy into the new worktree. A repo with no origin skips the update.
+-- changes, which /wt would copy into the new worktree. `--untracked-files=normal` overrides a
+-- repo's `status.showUntrackedFiles=no`, which would hide untracked files. A repo with no origin
+-- skips the update.
 local function worktree_check(cx, main, branch, has_origin)
 	git(main, { "symbolic-ref", "--quiet", "--short", "HEAD" }, {}, function(head, cx)
 		local current = first_line(head.stdout)
@@ -803,7 +805,7 @@ local function worktree_check(cx, main, branch, has_origin)
 			worktree_stop(cx, "error", `The main checkout is on {on}, not {branch}`, main)
 			return
 		end
-		git(main, { "status", "--porcelain" }, {}, function(status, cx)
+		git(main, { "status", "--porcelain", "--untracked-files=normal" }, {}, function(status, cx)
 			if status.status ~= 0 then
 				worktree_stop(cx, "error", "Could not read the main checkout", first_line(status.stderr))
 			elseif status.stdout ~= "" then
