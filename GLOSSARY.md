@@ -20,6 +20,10 @@ _Avoid_: Block (except for plugin blocks), terminal, split
 A pane that runs an agent Tern knows, such as omp. Any other pane (a shell, an editor, a tool) is a plain pane.
 _Avoid_: Agent block, AI pane
 
+**Worktree**:
+A git checkout of one branch in its own folder, beside the repo's main checkout. An agent can start in a new worktree, so its work stays apart from the main checkout.
+_Avoid_: Session (Tern's group of tabs), workspace, clone
+
 **Go to picker**:
 The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. The tabs of a session and the panes of a tab come last seen first; sessions keep Tern's order. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
 _Avoid_: Navigator, jump palette, switcher

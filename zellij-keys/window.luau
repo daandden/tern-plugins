@@ -701,6 +701,180 @@ tern.command({
 	end,
 })
 
+-- Git as the plugin runs it: Tern's PATH has no /opt/homebrew/bin. GIT_TERMINAL_PROMPT=0 makes a
+-- fetch that needs a password fail at once instead of waiting for input that never comes.
+local GIT = "/opt/homebrew/bin/git"
+local GIT_ENV = { GIT_TERMINAL_PROMPT = "0" }
+-- How long the fetch may take before the command goes on from the local branch.
+local FETCH_TIMEOUT_MS = 30000
+-- True while a worktree_agent_tab press runs its git steps; a second press then does nothing.
+local worktree_busy = false
+
+-- Runs git in `dir` and calls `cb(result, cx)` with the window cx of the callback. A Lua error in
+-- `cb`, or a callback with no window, ends the press with an error toast, so worktree_busy clears.
+local function git(dir, args, opts, cb)
+	local argv = { GIT, "-C", dir }
+	for _, arg in args do
+		table.insert(argv, arg)
+	end
+	tern.process.run(argv, { env = GIT_ENV, timeout_ms = opts.timeout_ms }, function(result, later)
+		if not later then
+			worktree_busy = false
+			return
+		end
+		local ok, why = pcall(cb, result, later)
+		if not ok then
+			worktree_busy = false
+			later:toast("error", "Could not open a worktree agent tab", tostring(why))
+		end
+	end)
+end
+
+-- The first line of git's output, without its line end.
+local function first_line(text)
+	return string.match(text, "^([^\n]*)") or ""
+end
+
+-- Ends a press of worktree_agent_tab with a toast.
+local function worktree_stop(cx, level, text, sub)
+	worktree_busy = false
+	cx:toast(level, text, sub)
+end
+
+-- Opens the agent tab in the main checkout, where omp's /wt branches from its HEAD.
+local function worktree_open(cx, main)
+	worktree_busy = false
+	local ok, why = pcall(function()
+		cx.agents:start({ prompt = "/wt", cwd = main, how = "tab" })
+	end)
+	if not ok then
+		cx:toast("error", "Could not open an agent tab", tostring(why))
+	end
+end
+
+-- Compares the default branch with origin/<branch> and opens the tab. A branch with commits that
+-- origin lacks (ahead or diverged) stops, so the new work never carries unpushed commits. A branch
+-- that is behind fast-forwards first.
+local function worktree_compare(cx, main, branch)
+	local range = `{branch}...origin/{branch}`
+	git(main, { "rev-list", "--left-right", "--count", range }, {}, function(counts, cx)
+		local ahead, behind = string.match(counts.stdout, "^(%d+)%s+(%d+)")
+		if counts.status ~= 0 or not ahead then
+			-- origin has no such branch: nothing to compare with.
+			worktree_open(cx, main)
+		elseif ahead ~= "0" and behind ~= "0" then
+			worktree_stop(cx, "error", `{branch} has diverged from origin/{branch}`, "Push or reset it first.")
+		elseif ahead ~= "0" then
+			local commits = if ahead == "1" then "commit" else "commits"
+			worktree_stop(cx, "error", `{branch} has {ahead} unpushed {commits}`, "Push or reset first.")
+		elseif behind == "0" then
+			worktree_open(cx, main)
+		else
+			git(main, { "merge", "--ff-only", "--quiet", `origin/{branch}` }, {}, function(merged, cx)
+				if merged.status ~= 0 then
+					worktree_stop(cx, "error", `Could not fast-forward {branch}`, first_line(merged.stderr))
+				else
+					worktree_open(cx, main)
+				end
+			end)
+		end
+	end)
+end
+
+-- Fetches the default branch from origin, then compares. A fetch that fails or times out compares
+-- with the origin/<branch> that git already has, so unpushed commits that git knows of still stop.
+local function worktree_update(cx, main, branch)
+	cx:toast("info", `Updating {branch}…`)
+	git(main, { "fetch", "--quiet", "origin", branch }, { timeout_ms = FETCH_TIMEOUT_MS }, function(fetched, cx)
+		if fetched.status ~= 0 then
+			cx:toast("info", `Could not reach origin; {branch} may be old`, first_line(fetched.stderr))
+		end
+		worktree_compare(cx, main, branch)
+	end)
+end
+
+-- Checks that the main checkout is on the default branch with no staged, unstaged or untracked
+-- changes, which /wt would copy into the new worktree. A repo with no origin skips the update.
+local function worktree_check(cx, main, branch, has_origin)
+	git(main, { "symbolic-ref", "--quiet", "--short", "HEAD" }, {}, function(head, cx)
+		local current = first_line(head.stdout)
+		if current ~= branch then
+			local on = if current == "" then "a detached HEAD" else current
+			worktree_stop(cx, "error", `The main checkout is on {on}, not {branch}`, main)
+			return
+		end
+		git(main, { "status", "--porcelain" }, {}, function(status, cx)
+			if status.status ~= 0 then
+				worktree_stop(cx, "error", "Could not read the main checkout", first_line(status.stderr))
+			elseif status.stdout ~= "" then
+				worktree_stop(cx, "error", "The main checkout has uncommitted changes", main)
+			elseif has_origin then
+				worktree_update(cx, main, branch)
+			else
+				worktree_open(cx, main)
+			end
+		end)
+	end)
+end
+
+-- Names the default branch: the branch origin/HEAD points to, else the one of main and master that
+-- exists. Both or neither ends the press with a toast.
+local function worktree_branch(cx, main)
+	git(main, { "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD" }, {}, function(origin_head, cx)
+		local from_origin = string.match(first_line(origin_head.stdout), "^origin/(.+)$")
+		git(main, { "remote" }, {}, function(remotes, cx)
+			local has_origin = string.find(`\n{remotes.stdout}`, "\norigin\n", 1, true) ~= nil
+			if from_origin then
+				worktree_check(cx, main, from_origin, has_origin)
+				return
+			end
+			git(main, { "branch", "--list", "--format=%(refname:short)", "main", "master" }, {}, function(list, cx)
+				local found = {}
+				for name in string.gmatch(list.stdout, "[^\n]+") do
+					table.insert(found, name)
+				end
+				if #found ~= 1 then
+					worktree_stop(cx, "error", "No default branch", "Run: git remote set-head origin -a")
+				else
+					worktree_check(cx, main, found[1], has_origin)
+				end
+			end)
+		end)
+	end)
+end
+
+-- Zellij NewTab, with an agent in a new worktree: a new tab whose agent runs omp's /wt in the main
+-- checkout of the focused pane's repo, after the checkout's default branch is brought up to date.
+-- /wt branches from the HEAD of the folder that omp starts in and copies its uncommitted changes, so
+-- the command opens the tab only when the main checkout is clean and on the default branch.
+tern.command({
+	id = "worktree_agent_tab",
+	title = "New agent tab in a new worktree",
+	run = function(cx)
+		if worktree_busy then
+			return
+		end
+		local pane = cx.session:focused()
+		local info = pane and cx.session:pane(pane)
+		local cwd = info and info.cwd or ""
+		if cwd == "" then
+			cx:toast("error", "Not in a git repo", "Alt+Shift+T opens a plain agent tab.")
+			return
+		end
+		worktree_busy = true
+		git(cwd, { "worktree", "list", "--porcelain" }, {}, function(list, cx)
+			local main = string.match(list.stdout, "^worktree ([^\n]+)")
+			if list.status ~= 0 or not main then
+				worktree_stop(cx, "error", "Not in a git repo", "Alt+Shift+T opens a plain agent tab.")
+			elseif string.find(list.stdout, "^worktree [^\n]+\nbare\n") then
+				worktree_stop(cx, "error", "The repo has no main checkout", main)
+			else
+				worktree_branch(cx, main)
+			end
+		end)
+	end,
+})
+
 -- The own spot that the floats of float_command start at: centered, 80% of the tab in width and
 -- in height, so a full-screen program has more room than at a cascade place.
 local APP_SPOT = { x = 0.1, y = 0.1, w = 0.8, h = 0.8 }
