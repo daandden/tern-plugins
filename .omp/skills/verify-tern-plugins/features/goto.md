@@ -34,6 +34,7 @@ Preconditions:
 - Clear the search. Run `"$V" ctl "$RUN" key escape`. The rows come back and the picker stays open.
 - Jump number. Note the focused id (`ctl state | jq .focused.id`), then run `"$V" ctl "$RUN" type 2`. The focus goes to the first pane, the picker count is 0, and the picker pane leaves `tern ls`.
 - Waiting on you. Focus pane B with `"$V" tern "$RUN" focus B`, run `"$V" ctl "$RUN" alert bell '"verify bell"'`, focus pane A, press F1, then ctrl+; and `a`. The first row is `1 Default / <pane B>` with a bell mark, then `null` for the line, then the tree numbered from 2. `tree "[data-role='goto.sep']"` finds the line.
+- Waiting on you order. Make a split tab with panes P1 and P2 (`tab new`, Alt+N) and a tab with one pane P3 (`tab new`); name each pane with `"$V" type "$RUN" 'function fish_title; echo P1; end'`. Focus and ring a bell in P1, then P3, then P2, focus pane A, press F1, then ctrl+; and `a`. The group is `Default / P2`, `Default / P3`, `Default / P2 / P1`: last seen first by pane, not the tree order P2, P1, P3.
 - Enter. Run `"$V" ctl "$RUN" key up` until the cursor is on the bell row, then `"$V" ctl "$RUN" key enter`. The focus goes to pane B and the picker closes.
 - Close. Open the picker, then each of these closes it (count 0): `key escape` with no search, `"$V" tern "$RUN" focus A`, and a second `key f1`.
 - Idle choice. Open the picker, press ctrl+; then `type i`. `RUN/data/config/plugin-data/goto/kv.json` changes to `{"waiting_idle": true}`. A second ctrl+; `i` sets it to `false`.

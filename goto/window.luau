@@ -420,6 +420,17 @@ local function forget_seen(field, id)
 	end
 end
 
+-- Whether the item with last focus count `count_a` and place `place_a` comes before the other one
+-- in last seen order: counted items newest first, then the others by place.
+local function seen_before(count_a, count_b, place_a, place_b)
+	if count_a and count_b then
+		return count_a > count_b
+	elseif count_a or count_b then
+		return count_a ~= nil
+	end
+	return place_a < place_b
+end
+
 -- `ids` last seen first: the ones in `counts` by their last focus, newest first, then the others
 -- in their given order.
 local function last_seen_first(ids, counts)
@@ -429,13 +440,7 @@ local function last_seen_first(ids, counts)
 	end
 	local sorted = table.clone(ids)
 	table.sort(sorted, function(a, b)
-		local count_a, count_b = counts[seen_key(a)], counts[seen_key(b)]
-		if count_a and count_b then
-			return count_a > count_b
-		elseif count_a or count_b then
-			return count_a ~= nil
-		end
-		return place[a] < place[b]
+		return seen_before(counts[seen_key(a)], counts[seen_key(b)], place[a], place[b])
 	end)
 	return sorted
 end
@@ -462,7 +467,7 @@ end
 -- panes is, and names in `solo` the row of its only agent pane, so that host.luau shows such a tab
 -- as one row with agents only. After the tree rows come the Waiting on you rows (marked `group`),
 -- which host.luau shows first: a copy of each tree row whose status is in ATTENTION, except the row
--- you are in, by status and then tree order.
+-- you are in, by status and then by the last seen of its pane, also for a tab with one pane.
 -- Returns the rows and the index of the row of `focused`, or of the current session when no pane
 -- has focus (a session with no tabs).
 local function collect(cx, focused)
@@ -478,6 +483,8 @@ local function collect(cx, focused)
 	local seen = load_seen()
 	local focused_tab = if focused then cx.session:tab_of(focused) else nil
 	local rows = {}
+	-- The pane of each pane row and each row of a tab with one pane, for the order of the group.
+	local pane_of = {}
 	local current = 1
 	for _, session in cx.session:sessions() do
 		table.insert(rows, {
@@ -509,6 +516,9 @@ local function collect(cx, focused)
 					session = session_row,
 				})
 				local tab_row = #rows
+				if single then
+					pane_of[tab_row] = panes[1]
+				end
 				if tab_id == focused_tab then
 					current = tab_row
 				end
@@ -526,6 +536,7 @@ local function collect(cx, focused)
 								session = session_row,
 								tab = tab_row,
 							})
+							pane_of[#rows] = pane_id
 							if agents[pane_id] then
 								table.insert(agent_rows, #rows)
 							end
@@ -551,7 +562,7 @@ local function collect(cx, focused)
 		if rank_a ~= rank_b then
 			return rank_a < rank_b
 		end
-		return a < b
+		return seen_before(seen.panes[seen_key(pane_of[a])], seen.panes[seen_key(pane_of[b])], a, b)
 	end)
 	for _, i in group do
 		local copy = table.clone(rows[i])
