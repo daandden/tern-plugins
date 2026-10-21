@@ -231,6 +231,46 @@ local function set_veil(on)
 end
 set_veil(false)
 
+-- Tern animates the picker's floating pane as it grows into view, and CSS cannot stop it: only the
+-- global reduce_motion setting does. So open_picker sets reduce_motion "on" for 400 ms, then back
+-- to the user's value. The user's value waits in tern.kv meanwhile, so a reload or crash in between
+-- restores it at the next window start. While reduce_motion is on and the window is idle, a
+-- tern.timer fires only at the next input, so the wait is a `/bin/sleep 0.4` process, whose end
+-- Tern reports on time. zellij-keys does the same for its floats.
+local MOTION_KEY = "reduce_motion_before_open"
+-- The number of the last quiet_motion call. Only the wait of the last call restores the value.
+local motion_wait = 0
+
+-- Puts back the user's reduce_motion value, if quiet_motion saved one.
+local function restore_motion(cx)
+	local saved = tern.kv.get(MOTION_KEY)
+	if saved ~= nil then
+		cx.settings:set("reduce_motion", saved)
+		tern.kv.set(MOTION_KEY, nil)
+	end
+end
+
+-- Turns reduce_motion on for the next 400 ms.
+local function quiet_motion(cx)
+	if tern.kv.get(MOTION_KEY) == nil then
+		local current = cx.settings:get("reduce_motion")
+		if current == "on" then
+			return
+		end
+		tern.kv.set(MOTION_KEY, current)
+		cx.settings:set("reduce_motion", "on")
+	end
+	motion_wait += 1
+	local wait = motion_wait
+	tern.process.run({ "/bin/sleep", "0.4" }, function(_result, later)
+		if wait == motion_wait and later then
+			restore_motion(later)
+		end
+	end)
+end
+
+tern.on("window_start", restore_motion)
+
 -- A tab's label in the tab bar: the name you gave it, else the title of its focused pane.
 local function tab_label(tab)
 	if tab.name and tab.name ~= "" then
@@ -583,14 +623,16 @@ end
 
 -- Opens the picker as a float over the focused pane. A key press hands focus back to the pane
 -- that had it once the keymap action returns, so focus goes to the picker again after 60 ms, and
--- only then does a focus elsewhere close it. A session with no tabs has no pane to float over, so
--- there the picker opens as the only pane of a new tab, and that tab closes with the picker.
+-- only then does a focus elsewhere close it. The 60 ms wait is a `/bin/sleep 0.06` process: a
+-- tern.timer can wait for quiet_motion's 400 ms. A session with no tabs has no pane to float over,
+-- so there the picker opens as the only pane of a new tab, and that tab closes with the picker.
 local function open_picker(cx)
 	local focused = cx.session:focused()
 	if focused then
 		note_seen(cx, focused, cx.session:tab_of(focused))
 	end
 	local rows, current = collect(cx, focused)
+	quiet_motion(cx)
 	local launch = { block = KIND, args = { tern.json.encode({ rows = rows, current = current }) } }
 	local pane
 	if focused == nil then
@@ -616,7 +658,7 @@ local function open_picker(cx)
 	picker = { pane = pane, settled = false }
 	set_veil(true)
 	cx.layout:focus(pane)
-	tern.timer(60, function(later)
+	tern.process.run({ "/bin/sleep", "0.06" }, function(_result, later)
 		if later == nil or picker == nil or picker.pane ~= pane then
 			return
 		end
