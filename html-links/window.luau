@@ -1,21 +1,15 @@
--- Every local HTML file opens as the rendered page in a browser pane split right of its opener
--- pane, not as the file's source in an editor block: a clicked link, the Files pane, the palette,
--- `tern open`, the `open` command of this repo's bin/ (which calls `tern open`) and macOS open that
--- names Tern (`open -a Tern`). A file that the `open` command opens goes beside the pane that ran
--- it, others beside the focused pane. The nvim-files plugin takes other file:// links. Cmd+R reloads
--- the page, so an edit to the file shows. A web link that Tern opens stays in Tern only when it goes
--- to this machine (localhost, a loopback address or the machine's name). Other web links open in
--- Microsoft Edge, the default browser.
+-- Every local HTML file that Tern would open as source opens as the rendered page in a browser pane
+-- split right of its opener pane: the Files pane, the palette, `tern open`, the `open` command of
+-- this repo's bin/ (which calls `tern open`) and macOS open that names Tern (`open -a Tern`). A file
+-- that the `open` command opens goes beside the pane that ran it, others beside the focused pane.
+-- A clicked file:// link to an HTML file is Tern's own: Tern renders it since 0.7.3, so the link
+-- route leaves every file:// URL alone. Cmd+R reloads the page, so an edit to the file shows. A web
+-- link that Tern opens stays in Tern only when it goes to this machine (localhost, a loopback
+-- address or the machine's name). Other web links open in Microsoft Edge, the default browser.
 
 local function is_html(path)
 	local lower = string.lower(path)
 	return string.match(lower, "%.html?$") ~= nil
-end
-
-local function percent_decode(text)
-	return (string.gsub(text, "%%(%x%x)", function(hex)
-		return string.char(tonumber(hex, 16))
-	end))
 end
 
 local function percent_encode_path(path)
@@ -24,15 +18,10 @@ local function percent_encode_path(path)
 	end))
 end
 
--- A file:// URL of this machine as its decoded path and its URL with the host dropped (query and
--- fragment kept, so `#section` still scrolls the page); nil for other URLs and other hosts.
-local function local_file_url(url)
+-- Whether a URL is a file:// URL of this machine.
+local function is_local_file_url(url)
 	local host, rest = string.match(url, "^[Ff][Ii][Ll][Ee]://([^/]*)(/.*)$")
-	if rest == nil or (host ~= "" and string.lower(host) ~= "localhost") then
-		return nil
-	end
-	local encoded_path = string.match(rest, "^[^?#]*")
-	return percent_decode(encoded_path), "file://" .. rest
+	return rest ~= nil and (host == "" or string.lower(host) == "localhost")
 end
 
 -- The lowercase host of an http or https URL, without brackets for IPv6; nil for other URLs.
@@ -155,30 +144,18 @@ local function take_opener(cx, path)
 end
 
 -- A web link to another machine opens in Edge, and one to this machine opens in Tern (nil runs
--- Tern's built-in handling). A file:// link to a local HTML file opens as the page.
+-- Tern's built-in handling, as for every other URL).
 tern.route.link(function(link, cx)
 	local host = web_host(link.url)
-	if host then
-		if is_local_web_host(cx, host) then
-			return nil
-		end
-		open_in_edge(link.url)
-		return { handled = true }
-	end
-	local path, url = local_file_url(link.url)
-	if path == nil or not is_html(path) then
+	if host == nil or is_local_web_host(cx, host) then
 		return nil
 	end
-	-- A browser on this machine cannot read a remote host's file, so that one opens in the editor.
-	if cx.hosts:current().kind ~= "local" then
-		return { path = path }
-	end
-	open_page(cx, link.pane, url)
+	open_in_edge(link.url)
 	return { handled = true }
 end)
 
--- Every file open of a local HTML file: a clicked plain path (not a file:// URL), the Files pane,
--- the palette, `tern open`, bin/open and `open -a Tern`.
+-- Every file open of a local HTML file: a clicked plain path, the Files pane, the palette, `tern
+-- open`, bin/open and `open -a Tern`.
 tern.route.open(function(req, cx)
 	if not is_html(req.path) or not is_local_host(cx, req.host) then
 		return nil
@@ -205,7 +182,7 @@ local function pages_to_reload(cx)
 	local tab = cx.session:tab_of(focused)
 	local pages = {}
 	for _, pane in cx.session:panes() do
-		if pane.kind == "browser" and pane.tab == tab and pane.url and local_file_url(pane.url) then
+		if pane.kind == "browser" and pane.tab == tab and pane.url and is_local_file_url(pane.url) then
 			table.insert(pages, pane.pane)
 		end
 	end
