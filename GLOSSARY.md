@@ -33,7 +33,7 @@ When a pane last had focus, however briefly. A tab was last seen when one of its
 _Avoid_: Recent, last used, MRU, last active
 
 **Waiting on you**:
-The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or is done, or its terminal rang an alert. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, idle), and inside each, last seen first by the pane's own last seen, also for a tab with one pane. The panes also stay in their place in the tree below.
+The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or failed its last turn, or is done (it finished a turn while you were not looking at its pane), or its terminal rang an alert. An agent whose program exited stays out of the group. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, idle), and inside each, last seen first by the pane's own last seen, also for a tab with one pane. The panes also stay in their place in the tree below.
 _Avoid_: Needs attention (its old name), needs you (Orca), inbox (Tern's own F6 list)
 
 **Jump number**:

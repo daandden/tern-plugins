@@ -8,7 +8,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | --- | --- |
 | `zellij-keys` | Adds Zellij actions that Tern has no built-in command for: floating panes, floating Yazi, lazygit and btop, breaking a pane out to a tab, and focus moves between panes and tabs. |
 | `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. |
-| `html-links` | Opens every local HTML file as the rendered page in a browser pane beside the pane that opened it. Web links to this machine stay in Tern, and other web links open in Microsoft Edge. Cmd+R reloads the page. |
+| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page. |
 | `nvim-files` | Opens local text and code files in Neovim in a terminal pane, not in Tern's code view. Markdown, notebooks, images, PDFs, databases and binary files stay in Tern. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's text the font size, row height and font weight of the terminal. The plugin is CSS only. |
 
@@ -18,6 +18,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 
 - Tern and its `tern` command.
 - Neovim, Yazi, lazygit and btop in `/opt/homebrew/bin`, for `nvim-files` and the float commands of `zellij-keys`.
+- Git and GNU coreutils' `gtimeout` in `/opt/homebrew/bin`, for the worktree-agent shortcut's fetch deadline.
 - The font `Symbols Nerd Font`, for the status marks of `goto`.
 - Microsoft Edge, for web links from `html-links`.
 
@@ -41,7 +42,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
    ln -s "$PWD/bin/open" ~/.local/bin/open
    ```
 
-An edit to a plugin folder is the live plugin after `tern plugin reload`.
+Tern reloads linked plugins when a file in their checkout changes. Use `tern plugin reload` and `tern plugin list` to check that every plugin loaded.
 
 ## Keybinds
 

@@ -1,10 +1,11 @@
 -- Text and code files on this machine open in Neovim in a terminal pane, not in Tern's code view.
 -- Tern's code view draws rows as tall as the font, and no setting changes that
 -- (https://github.com/stencil-hq/tern-sdk/issues/20). A terminal pane follows adjust_cell_height.
--- Tern still opens Markdown (rendered), notebooks, images, PDFs, databases, binary files, symlinks,
--- files over 4 MiB and files on remote hosts. Every HTML file stays with html-links, which opens
--- the rendered page in a browser pane. Other clicked file:// links come here: html-links returns
--- nil for them, and the files that do not go to Neovim open in Tern's file block.
+-- Tern still opens Markdown (rendered), notebooks, images, PDFs, databases, binary files, files
+-- over 4 MiB and files on remote hosts. Tern resolves a symlink before it asks a route, so a symlink
+-- to a text file opens its target here. HTML files stay with html-links, or with Tern for a clicked
+-- file:// link, which Tern renders itself. Other clicked file:// links come here: html-links returns
+-- nil for every file:// link, and the files that do not go to Neovim open in Tern's file block.
 --
 -- A file that the `open` command of this repo's bin/ opens goes beside the pane that ran it, other
 -- files beside the focused pane. A float (Yazi runs as one) has no side in the split, so the new
@@ -247,7 +248,8 @@ end)
 
 -- Clicked file:// links. A link route that answers with a path makes Tern open the path in its own
 -- file block without calling route.open, so text files need this route too. Links to HTML files
--- stay with html-links. A file:// link that does not go to Neovim opens in Tern's file block.
+-- stay with Tern, which renders them. A file:// link that does not go to Neovim opens in Tern's file
+-- block.
 tern.route.link(function(link, cx)
 	local path = local_file_path(link.url)
 	if path == nil or is_html(path) then
