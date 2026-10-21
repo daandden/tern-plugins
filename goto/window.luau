@@ -6,57 +6,6 @@
 
 local KIND = "goto.picker"
 
--- The picker draws its box and footer with the command palette's class names (cmdk, ck-foot, kbd),
--- so Tern's own palette CSS gives them the palette's colors in every theme. The rows are a Tern
--- list, which scrolls with the wheel and keeps the cursor row in view. This sheet does the rest:
--- - The pane takes the palette's box: 640 by 511 px (20 rows of 22 px, the separator line, the
---   list padding and the footer), no wider than the window less 48 px, centered on the window,
---   12% of the window height from the top, with a veil over the window. Like the palette, the box
---   grows with the interface size: Tern sets --tn-zoom on the root (1 at the default size), and
---   the palette and the block region both zoom by it. So the pane's px are those px times
---   --tn-zoom, and the box inside the region zooms by 1, not by the palette's --tn-zoom a second
---   time. The region keeps block text at the terminal font size (its font-size is --sf-fs, which
---   is --tv-fs over --tn-zoom), so the box sets its font-size back to --tv-fs, and the rows grow
---   with the box as the palette's rows do. The pane is fixed to the window, not to the pane area,
---   so an open sidebar does not push it off center. Its header and resize grips go away.
---   CSS cannot select a pane by what it holds, so the rule matches the pane's accessible name,
---   which starts with the block title "Go to". Tern writes a float's position and size inline, so
---   the rule needs !important, and a third :root wins over the zellij-keys float-size rule.
--- - The palette box has the palette's size and sits centered, so it looks the same in the float
---   and in the tab that the picker opens in a session with no tabs. In a window too low for the
---   box, the pane and the box end 20 px above the bottom of the window (88vh less 20 px from
---   their top at 12vh). In the zoomed box a px is --tn-zoom px of the window but a vh is not, so
---   there the 20 px are 20px / --tn-zoom, as in Tern's own palette rules. Tern's CSS engine does
---   not apply a max-height of 100% here, nor shrink the box as a flex item. The empty dock goes
---   away, and the terminal grid turns invisible. The grid stays in the page because it holds the
---   input that sends typed keys (j, k, digits, /) to the block; with display none they never
---   arrive.
--- - The list fills the box above the footer, which keeps its full height. Its top padding (12 px)
---   matches the space under the footer text. Its rows are one text line high, so the tree
---   characters join from row to row. Rows that a second digit cannot reach dim.
--- - The row with the role goto.sep (host.luau) is the thin line under the Waiting on you rows: a
---   13 px row with a 1 px line in Tern's border color, which clicks pass through. A list with no
---   line (role goto.flat) gets those 13 px as bottom padding instead, outside the scrolling area,
---   so the box shows 20 rows either way.
--- - Each row starts with its jump number and status mark, then the tree lines and the name. Every
---   mark fills one 22 px slot, so the numbers and names line up: a still glyph or an empty slot has
---   the "icon" token and a width of 22 px (Tern adds a margin after an icon span, which goes to 0),
---   and the moving marks get margins that add up to 22 px. Still glyphs use Symbols Nerd Font,
---   which gives each glyph its own width, so the glyph centers in the slot. The icon token's font
---   (Berkeley Mono) has no such glyph, and its fallback draws it past the right edge of a one-cell
---   width.
--- - Plugin spans keep only Tern's own style tokens, so each moving mark is a no-break space with
---   the "num" token as a hook (host.luau), plus a second token that picks the mark. Every busy mark
---   moves with one of Tern's own keyframes, the one that omp or Tern uses for the same thing, with
---   the duration, steps and delays that Tern gives it:
---   working (accent) is Tern's active step marker, a faint ring with an arc that turns (tnHdSpin);
---   a busy terminal (em) is Tern's orbit spinner, a dot that circles a faint ring (sf-turn);
---   compacting (ins) is the sliding bar of an indeterminate progress bar (sf-indet); running
---   subagents or jobs (del, three spans) are Tern's three dots (sf-dot); retrying (mark) is two
---   rings that widen in the warning color (tnRing). Idle (muted) is a hollow ring that does not
---   move. A block region can be "still", which stops animations, so each animation needs
---   !important. The rules must not require the sf-still class: a region does not always have it,
---   and then nothing of the mark draws.
 tern.css("palette", [[
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] {
 	position: fixed !important;

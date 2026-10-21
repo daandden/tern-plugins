@@ -134,9 +134,6 @@ local function focus_pane(cx, pane)
 	pending_focus = handle
 end
 
--- Zellij keeps the floating panes of a tab shown or hidden together. tern.kv maps a tab id to its last
--- used floating pane under LAST_KEY, because a reload of any plugin resets the Lua state of every
--- plugin.
 local LAST_KEY = "last_float"
 
 -- Zellij floating panes: the value of one tab in the tern.kv map under `key`.
@@ -326,13 +323,7 @@ local function place_floats(cx, tab, keep)
 	end
 end
 
--- Zellij floating panes: the own spot of each float that you moved or resized. tern.kv keeps a map
--- from pane id to { x, y, w, h, l, r, t, b, dx, dy } under SPOTS_KEY until the float closes or docks.
--- x, y, w and h are parts of the tab (0 to 1), so a spot scales with the tab. l, r, t and b mark an
--- edge that sits EDGE_GAP px from that tab edge. dx and dy shift a float in px after one snapped edge
--- let go of its tab edge (see settle).
 local SPOTS_KEY = "float_spots"
--- The gap between a snapped edge and its tab edge in px, the gap of Tern's own corner cards.
 local EDGE_GAP = 10
 -- One move or resize step, as a part of the tab.
 local STEP = 0.1

@@ -69,8 +69,6 @@ start)
 	else
 		echo '{}' >"$cfg/settings.json"
 	fi
-	# With no `shell`, Tern starts the $SHELL of the process that runs this script. An agent's shell
-	# is often bash with no Homebrew or omp in PATH, and the recipes need fish.
 	jq '.shell = "/opt/homebrew/bin/fish"' "$cfg/settings.json" >"$cfg/settings.json.new"
 	mv "$cfg/settings.json.new" "$cfg/settings.json"
 	# A config dir with no omp state makes Tern show its native "Tern is better with omp. Install it?"
@@ -186,8 +184,6 @@ await Bun.write(out, await new Bun.Image(await Bun.file(png).bytes()).webp({ los
 	printf '%s\n%s\n' "$run/$name.webp" "$run/$name.layout.json"
 	;;
 lens)
-	# A command lens of this run only: the output block of `echo PROBE_LINK URL` shows URL as a
-	# Tern link, which `ctl click SELECTOR cmd` Cmd-clicks without coordinates.
 	lens=$run/link-lens
 	mkdir -p "$lens"
 	cat >"$lens/plugin.toml" <<'EOF'
