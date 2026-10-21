@@ -43,6 +43,7 @@ tern.css("palette", [[
 [data-surface="plugin.goto.picker"] .goto-box {
 	position: static;
 	transform: none;
+	animation: none !important;
 	zoom: 1;
 	font-size: var(--tv-fs) !important;
 	width: min(640px, calc(100vw - 48px)) !important;
@@ -236,7 +237,9 @@ set_veil(false)
 -- to the user's value. The user's value waits in tern.kv meanwhile, so a reload or crash in between
 -- restores it at the next window start. While reduce_motion is on and the window is idle, a
 -- tern.timer fires only at the next input, so the wait is a `/bin/sleep 0.4` process, whose end
--- Tern reports on time. zellij-keys does the same for its floats.
+-- Tern reports on time. zellij-keys does the same for its floats. The box's own palette animation
+-- (cmdkIn of the cmdk class) is CSS: Tern replays it when reduce_motion goes back off, so the
+-- palette sheet turns it off.
 local MOTION_KEY = "reduce_motion_before_open"
 -- The number of the last quiet_motion call. Only the wait of the last call restores the value.
 local motion_wait = 0
