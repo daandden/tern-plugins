@@ -134,11 +134,6 @@ local function focus_pane(cx, pane)
 	pending_focus = handle
 end
 
--- Zellij keeps the floating panes of a tab shown or hidden together. Tern does not tell a plugin
--- whether a float is hidden, so tern.kv keeps a map from tab id to true under SHOWN_KEY while the
--- floats of that tab are shown. LAST_KEY maps a tab id to its last used floating pane. A reload of any
--- plugin resets the Lua state of every plugin, and tern.kv keeps both maps.
-local SHOWN_KEY = "shown_floats"
 local LAST_KEY = "last_float"
 
 -- Zellij floating panes: the value of one tab in the tern.kv map under `key`.
@@ -176,37 +171,60 @@ local function tab_floats(cx, tab)
 	return floats
 end
 
--- Zellij ToggleFloatingPanes, the hide half: hides every floating pane of the active tab. Tern's
--- pip_stash_all hides the floats of the active tab when one of them shows, and shows them all when
--- all are hidden.
-local function hide_floats(cx, tab)
-	set_tab_value(SHOWN_KEY, tab, nil)
-	quiet_float_motion(cx)
-	cancel_pending_focus()
-	cx:command("pip_stash_all")
-end
-
--- Zellij ToggleFloatingPanes, the show half: shows the hidden floating panes of the active tab
--- without a change of focus.
-local function show_floats(cx, tab)
-	if tab_value(SHOWN_KEY, tab) == true or #tab_floats(cx, tab) == 0 then
-		return
+-- Zellij floating panes: whether a floating pane of `tab` shows. Tern gives a stashed float no view.
+local function floats_shown(cx, tab)
+	for _, float in tab_floats(cx, tab) do
+		if cx.session:view(float.pane, { depth = 0, nodes = 1 }) ~= nil then
+			return true
+		end
 	end
-	set_tab_value(SHOWN_KEY, tab, true)
-	quiet_float_motion(cx)
-	cx:command("pip_stash_all")
+	return false
 end
 
--- Zellij ToggleFloatingPanes through Tern's own key or palette entry for pip_stash_all. Tern runs
--- its command after this one and toggles the floats of the active tab, so the kept state flips too.
--- A call from cx:command does not come here.
+-- Zellij ToggleFloatingPanes on Tern's pip_stash_all, which stashes every float of the active tab or
+-- brings them all back. Tern picks the way from its own last pip_stash_all, also one in another tab,
+-- and not from the floats of the tab. So when the floats of `tab` do not end shown as `shown` says,
+-- the first run went the other way, and a second run goes the right way.
+local function stash_all(cx, tab, shown)
+	quiet_float_motion(cx)
+	cx:command("pip_stash_all")
+	if floats_shown(cx, tab) ~= shown then
+		cx:command("pip_stash_all")
+	end
+end
+
+-- Zellij ToggleFloatingPanes, the hide half: hides every floating pane of `tab`, the active tab.
+local function hide_floats(cx, tab)
+	cancel_pending_focus()
+	stash_all(cx, tab, false)
+end
+
+-- Zellij ToggleFloatingPanes, the show half: unstashes every floating pane of the active tab,
+-- without a change of focus. Does nothing when every float is already unstashed.
+local function show_floats(cx, tab)
+	for _, float in tab_floats(cx, tab) do
+		if cx.session:view(float.pane, { depth = 0, nodes = 1 }) == nil then
+			stash_all(cx, tab, true)
+			return
+		end
+	end
+end
+
+-- Zellij ToggleFloatingPanes through Tern's own key or palette entry for pip_stash_all: hides the
+-- floats of the active tab when one of them shows, else shows them all. In a tab with no floating
+-- pane, Tern's own command runs. A call from cx:command does not come here.
 tern.override("pip_stash_all", function(cx)
 	local focused = cx.session:focused()
 	local tab = if focused then cx.session:tab_of(focused) else nil
-	if tab then
-		set_tab_value(SHOWN_KEY, tab, if tab_value(SHOWN_KEY, tab) == true then nil else true)
+	if tab == nil or #tab_floats(cx, tab) == 0 then
+		return false
 	end
-	return false
+	if floats_shown(cx, tab) then
+		hide_floats(cx, tab)
+	else
+		show_floats(cx, tab)
+	end
+	return true
 end)
 
 -- Zellij ToggleFloatingPanes: the last used floating pane of the tab, else the newest one.
@@ -305,11 +323,8 @@ local function place_floats(cx, tab, keep)
 	end
 end
 
--- Zellij floating panes: the own spot of each float that you moved or resized. tern.kv keeps a map
--- from pane id to { x, y, w, h, l, r, t, b } under SPOTS_KEY until the float closes or docks. x, y,
--- w and h are parts of the tab (0 to 1), so a spot scales with the tab. l, r, t and b mark an edge
--- that sits 10 px from that tab edge, the gap of Tern's own corner cards.
 local SPOTS_KEY = "float_spots"
+local EDGE_GAP = 10
 -- One move or resize step, as a part of the tab.
 local STEP = 0.1
 -- An edge that ends this close to a tab edge after a move or resize snaps to it.
@@ -354,23 +369,27 @@ end
 -- Zellij floating panes: one CSS rule that draws the float at `place` in open order at `spot`. It
 -- counts the floats the same way as the cascade rules and wins over them with one more `:root`.
 local function spot_rule(place, spot)
-	local function edge(snap_low, snap_high, at, size)
+	local function edge(snap_low, snap_high, at, size, shift)
 		if snap_low then
-			return "10px"
+			return `{EDGE_GAP}px`
 		elseif snap_high then
-			return string.format("calc(%.2f%% - 10px)", (1 - size) * 100)
+			return string.format("calc(%.2f%% - %dpx)", (1 - size) * 100, EDGE_GAP)
+		elseif shift then
+			return string.format("calc(%.2f%% + %dpx)", at * 100, shift)
 		end
 		return string.format("%.2f%%", at * 100)
 	end
 	local function length(snap_low, snap_high, size)
-		return if snap_low and snap_high then "calc(100% - 20px)" else string.format("%.2f%%", size * 100)
+		return if snap_low and snap_high
+			then `calc(100% - {2 * EDGE_GAP}px)`
+			else string.format("%.2f%%", size * 100)
 	end
 	return string.format(
 		':root:root:root .tn-stage > .tn-pane.pip:nth-child(%d of .pip:not([aria-label^="Go to,"]):not(.off)):not(.off) {\n'
 			.. "\tleft: %s !important;\n\ttop: %s !important;\n\twidth: %s !important;\n\theight: %s !important;\n}\n",
 		place,
-		edge(spot.l, spot.r, spot.x, spot.w),
-		edge(spot.t, spot.b, spot.y, spot.h),
+		edge(spot.l, spot.r, spot.x, spot.w, spot.dx),
+		edge(spot.t, spot.b, spot.y, spot.h, spot.dy),
 		length(spot.l, spot.r, spot.w),
 		length(spot.t, spot.b, spot.h)
 	)
@@ -440,9 +459,11 @@ end
 -- within SNAP of a tab edge snaps to that edge when the change moved it toward that tab edge, or
 -- when it was snapped and did not move away (`before` is the spot before the change). So a shrink
 -- of a float that fills the tab lets go of the tab edges, and a move to the side leaves the top
--- and bottom edges as they were.
+-- and bottom edges as they were. A snapped edge sits EDGE_GAP px inside its tab edge. When the one
+-- snapped edge of an axis lets go, the float keeps that EDGE_GAP px shift until an edge snaps again,
+-- so a resize keeps the other edge where it was drawn, and a move goes a whole STEP.
 local function settle(spot, before)
-	local function axis(at, size, at0, size0, was_low, was_high)
+	local function axis(at, size, at0, size0, was_low, was_high, shift)
 		size = math.clamp(size, MIN_SIZE, 1)
 		at = math.clamp(at, 0, 1 - size)
 		local eps = 1e-6
@@ -458,10 +479,17 @@ local function settle(spot, before)
 		elseif high then
 			at = 1 - size
 		end
-		return math.round(at * 10000) / 10000, math.round(size * 10000) / 10000, low, high
+		if low or high then
+			shift = nil
+		elseif was_high == true and was_low ~= true then
+			shift = -EDGE_GAP
+		elseif was_low == true and was_high ~= true then
+			shift = EDGE_GAP
+		end
+		return math.round(at * 10000) / 10000, math.round(size * 10000) / 10000, low, high, shift
 	end
-	spot.x, spot.w, spot.l, spot.r = axis(spot.x, spot.w, before.x, before.w, before.l, before.r)
-	spot.y, spot.h, spot.t, spot.b = axis(spot.y, spot.h, before.y, before.h, before.t, before.b)
+	spot.x, spot.w, spot.l, spot.r, spot.dx = axis(spot.x, spot.w, before.x, before.w, before.l, before.r, before.dx)
+	spot.y, spot.h, spot.t, spot.b, spot.dy = axis(spot.y, spot.h, before.y, before.h, before.t, before.b, before.dy)
 end
 
 -- Zellij floating panes: changes the spot of the focused float with `change`, settles it and draws
@@ -474,7 +502,7 @@ local function change_spot(cx, change)
 	end
 	local tab = cx.session:tab_of(pane)
 	local spot = spot_of(pane) or cascade_spot(cx, tab, pane)
-	local before = { x = spot.x, y = spot.y, w = spot.w, h = spot.h, l = spot.l, r = spot.r, t = spot.t, b = spot.b }
+	local before = table.clone(spot)
 	change(spot)
 	settle(spot, before)
 	quiet_float_motion(cx)
@@ -484,8 +512,7 @@ local function change_spot(cx, change)
 end
 
 -- Zellij floating panes: a floating pane gets focus. It becomes the last used floating pane of its
--- tab, the floats of that tab count as shown, and each float goes to its corner stack. The Go to
--- picker changes none of these.
+-- tab, and each float goes to its corner stack. The Go to picker changes neither.
 local function note_float_focus(cx, info, tab)
 	local order = {}
 	for _, float in tab_floats(cx, tab) do
@@ -494,7 +521,6 @@ local function note_float_focus(cx, info, tab)
 	focused_float = { pane = info.pane, tab = tab, over = tiled_owner(cx, info.pane), order = order }
 	if not is_picker(info) then
 		set_tab_value(LAST_KEY, tab, info.pane)
-		set_tab_value(SHOWN_KEY, tab, true)
 		place_floats(cx, tab, info.pane)
 	end
 end
@@ -524,12 +550,8 @@ local function focus_moved(cx, pane, tab)
 	if from_tab ~= tab then
 		return
 	end
-	if pending_focus == nil and tab_value(SHOWN_KEY, tab) == true then
-		if #tab_floats(cx, tab) > 0 then
-			hide_floats(cx, tab)
-		else
-			set_tab_value(SHOWN_KEY, tab, nil)
-		end
+	if pending_focus == nil and floats_shown(cx, tab) then
+		hide_floats(cx, tab)
 	end
 end
 
@@ -566,11 +588,7 @@ tern.on("pane_closed", function(ev, cx)
 	end
 	focused_float = nil
 	local floats = tab_floats(cx, closed.tab)
-	if #floats == 0 then
-		set_tab_value(SHOWN_KEY, closed.tab, nil)
-		return
-	end
-	if tab_value(SHOWN_KEY, closed.tab) ~= true or cx.session:focused() ~= closed.over then
+	if #floats == 0 or not floats_shown(cx, closed.tab) or cx.session:focused() ~= closed.over then
 		return
 	end
 	local open = {}
@@ -596,10 +614,9 @@ tern.on("pane_closed", function(ev, cx)
 	cx.layout:focus(target or floats[#floats].pane)
 end)
 
--- Zellij CloseTab: forgets the floats of the closed tab and their spots.
+-- Zellij CloseTab: forgets the last used float of the closed tab and the spots of its floats.
 tern.on("tab_closed", function(ev, cx)
 	set_tab_value(LAST_KEY, ev.tab, nil)
-	set_tab_value(SHOWN_KEY, ev.tab, nil)
 	prune_spots(cx)
 end)
 
@@ -684,23 +701,6 @@ tern.command({
 	end,
 })
 
--- Zellij NewTab, with an agent in place of the shell: a new tab with an agent block, in the folder of
--- the focused pane, as Tern's new tab opens when the setting `new_blocks` is `Agent`. Tern has no action
--- for an agent tab, so the command sets `new_blocks` to `Agent` for the one `new_tab`.
-tern.command({
-	id = "new_agent_tab",
-	title = "New agent tab",
-	run = function(cx)
-		local before = cx.settings:get("new_blocks")
-		cx.settings:set("new_blocks", "Agent")
-		local ok, why = pcall(cx.command, cx, "new_tab")
-		cx.settings:set("new_blocks", before)
-		if not ok then
-			cx:toast("error", "Could not open an agent tab", tostring(why))
-		end
-	end,
-})
-
 -- Git as the plugin runs it: Tern's PATH has no /opt/homebrew/bin. GIT_TERMINAL_PROMPT=0 makes a
 -- fetch that needs a password fail at once instead of waiting for input that never comes.
 local GIT = "/opt/homebrew/bin/git"
@@ -713,11 +713,14 @@ local worktree_busy = false
 -- Runs git in `dir` and calls `cb(result, cx)` with the window cx of the callback. A Lua error in
 -- `cb`, or a callback with no window, ends the press with an error toast, so worktree_busy clears.
 local function git(dir, args, opts, cb)
-	local argv = { GIT, "-C", dir }
+	local argv = if opts.timeout_ms
+		then { "/opt/homebrew/bin/gtimeout", "--kill-after=1s", `{opts.timeout_ms / 1000}s`, GIT, "-C", dir }
+		else { GIT, "-C", dir }
 	for _, arg in args do
 		table.insert(argv, arg)
 	end
-	tern.process.run(argv, { env = GIT_ENV, timeout_ms = opts.timeout_ms }, function(result, later)
+	-- Tern kills only the parent on timeout; gtimeout also kills transports holding its output open.
+	tern.process.run(argv, { env = GIT_ENV }, function(result, later)
 		if not later then
 			worktree_busy = false
 			return

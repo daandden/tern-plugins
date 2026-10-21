@@ -6,7 +6,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 
 - `RUN` is a new dir `<Scratch dir>/verify/tern-plugins-<run-id>`. Proof and `notes.md` go at its top level, app data in `RUN/data`.
 - `"$V" start "$RUN"` printed `ready`, and `"$V" doctor "$RUN"` exits 0.
-- The instance has one session, `Default`, with one tab and one fish pane in `RUN/data`. Its `settings.json` is a copy of `~/.config/tern/settings.json`, so the keys of `keybinds.html` work and `reduce_motion` starts as `off`.
+- The instance has one session, `Default`, with one tab and one fish pane in `RUN/data`. Its `settings.json` is a copy of `~/.config/tern/settings.json` with `shell` set to fish, so the keys of `keybinds.html` work, `$status` works in typed lines, and `reduce_motion` starts as `off`. If `"$V" ctl "$RUN" state | jq .focused.label` does not end in `- fish`, the run is not at the baseline: stop it and report the shell.
 - Test files go in `RUN/data`. Make them before the step that opens them, and always write them by absolute path, for example `printf '<!doctype html><title>Verify page</title><h1>First</h1>\n' >"$RUN/data/page.html"`. Do not `cd` there first: when the `cd` fails, the files go into the checkout and can overwrite a tracked file (on macOS, `readme.md` is `README.md`).
 - Drive only the instance of this run.
 
@@ -39,8 +39,8 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
-- [Go to picker](./goto.md) covers opening the picker, the agents-only and all-panes views, the jump number that a session shares with its only tab, search, one- and two-digit jump numbers, Enter, Esc, the Waiting on you rows and the idle choice.
-- [Zellij floats and panes](./zellij-keys.md) covers floating shells, the cascade of shown floats, the four corner stacks, float moves and resizes, the F2/F3/F4 tool floats at 80% of the tab, hiding floats on Alt+F and on a focus change, a float close, the Go to picker over floats, floating and docking a pane, breaking a pane to a tab, the focus keys, the agent tab, and the `reduce_motion` restore.
-- [HTML pages](./html-links.md) covers HTML files that open as rendered pages beside their opener, from `tern open`, `bin/open` and the Files pane, web links that go to Microsoft Edge, and the Cmd+R and palette reload.
-- [Neovim files](./nvim-files.md) covers text files that open in a Neovim pane, the reuse of that pane, `FILE:LINE:COL`, `--tab`, a float opener, and the files that stay in Tern.
+- [Go to picker](./goto.md) covers opening the picker, the agents-only and all-panes views, the jump number that a session shares with its only tab, search, one- and two-digit jump numbers, Enter, Esc, the Waiting on you rows with the done and error rows of finished turns, the idle choice, the box at the palette's place at each interface size, and the timing of the status marks.
+- [Zellij floats and panes](./zellij-keys.md) covers floating shells, the cascade of shown floats, the four corner stacks, float moves and resizes, the F2/F3/F4 tool floats at 80% of the tab, hiding floats on Alt+F and on a focus change (also in a new tab and with floats both shown and hidden), a float close, the Go to picker over floats, floating and docking a pane, breaking a pane to a tab, the focus keys, the agent tab through Tern's New agent block, the scroll and find keys of Ctrl+G S, and the `reduce_motion` restore.
+- [HTML pages](./html-links.md) covers HTML files that open as rendered pages beside their opener, from `tern open`, `bin/open` and the Files pane, clicked `file://` links that Tern renders itself, web links that go to Microsoft Edge, and the Cmd+R and palette reload.
+- [Neovim files](./nvim-files.md) covers text files that open in a Neovim pane, the reuse of that pane, `FILE:LINE:COL`, `--tab`, a float opener, symlinks that open their target, and the files that stay in Tern.
 - [Reader terminal text](./reader-terminal-text.md) covers the terminal font size, row height and UI font of omp's composer in the Reader chat style, and the hidden placeholder.
