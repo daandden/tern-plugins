@@ -10,16 +10,27 @@ local KIND = "goto.picker"
 -- so Tern's own palette CSS gives them the palette's colors in every theme. The rows are a Tern
 -- list, which scrolls with the wheel and keeps the cursor row in view. This sheet does the rest:
 -- - The pane takes the palette's box: 640 by 511 px (20 rows of 22 px, the separator line, the
---   list padding and the footer), centered on the window, 12% of the window height from the top,
---   with a veil over the window. It is fixed to the window, not to the pane area, so an open
---   sidebar does not push it off center. Its header and resize grips go away.
+--   list padding and the footer), no wider than the window less 48 px, centered on the window,
+--   12% of the window height from the top, with a veil over the window. Like the palette, the box
+--   grows with the interface size: Tern sets --tn-zoom on the root (1 at the default size), and
+--   the palette and the block region both zoom by it. So the pane's px are those px times
+--   --tn-zoom, and the box inside the region zooms by 1, not by the palette's --tn-zoom a second
+--   time. The region keeps block text at the terminal font size (its font-size is --sf-fs, which
+--   is --tv-fs over --tn-zoom), so the box sets its font-size back to --tv-fs, and the rows grow
+--   with the box as the palette's rows do. The pane is fixed to the window, not to the pane area,
+--   so an open sidebar does not push it off center. Its header and resize grips go away.
 --   CSS cannot select a pane by what it holds, so the rule matches the pane's accessible name,
 --   which starts with the block title "Go to". Tern writes a float's position and size inline, so
 --   the rule needs !important, and a third :root wins over the zellij-keys float-size rule.
 -- - The palette box has the palette's size and sits centered, so it looks the same in the float
---   and in the tab that the picker opens in a session with no tabs. The empty dock goes away, and
---   the terminal grid turns invisible. The grid stays in the page because it holds the input that
---   sends typed keys (j, k, digits, /) to the block; with display none they never arrive.
+--   and in the tab that the picker opens in a session with no tabs. In a window too low for the
+--   box, the pane and the box end 20 px above the bottom of the window (88vh less 20 px from
+--   their top at 12vh). In the zoomed box a px is --tn-zoom px of the window but a vh is not, so
+--   there the 20 px are 20px / --tn-zoom, as in Tern's own palette rules. Tern's CSS engine does
+--   not apply a max-height of 100% here, nor shrink the box as a flex item. The empty dock goes
+--   away, and the terminal grid turns invisible. The grid stays in the page because it holds the
+--   input that sends typed keys (j, k, digits, /) to the block; with display none they never
+--   arrive.
 -- - The list fills the box above the footer, which keeps its full height. Its top padding (12 px)
 --   matches the space under the footer text. Its rows are one text line high, so the tree
 --   characters join from row to row. Rows that a second digit cannot reach dim.
@@ -36,7 +47,8 @@ local KIND = "goto.picker"
 --   width.
 -- - Plugin spans keep only Tern's own style tokens, so each moving mark is a no-break space with
 --   the "num" token as a hook (host.luau), plus a second token that picks the mark. Every busy mark
---   moves with one of Tern's own keyframes, the one that omp or Tern uses for the same thing:
+--   moves with one of Tern's own keyframes, the one that omp or Tern uses for the same thing, with
+--   the duration, steps and delays that Tern gives it:
 --   working (accent) is Tern's active step marker, a faint ring with an arc that turns (tnHdSpin);
 --   a busy terminal (em) is Tern's orbit spinner, a dot that circles a faint ring (sf-turn);
 --   compacting (ins) is the sliding bar of an indeterminate progress bar (sf-indet); running
@@ -49,14 +61,14 @@ tern.css("palette", [[
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] {
 	position: fixed !important;
 	top: 12vh !important;
-	left: calc(50vw - 320px) !important;
+	left: max(calc(50vw - 320px * var(--tn-zoom, 1)), calc(24px * var(--tn-zoom, 1))) !important;
 	right: auto !important;
 	bottom: auto !important;
-	width: 640px !important;
-	height: 511px !important;
+	width: min(calc(640px * var(--tn-zoom, 1)), calc(100vw - 48px * var(--tn-zoom, 1))) !important;
+	height: calc(511px * var(--tn-zoom, 1)) !important;
 	max-height: calc(88vh - 20px);
 	border: none;
-	border-radius: 12px;
+	border-radius: calc(16px * var(--tn-zoom, 1));
 	background: transparent;
 	box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.55);
 }
@@ -82,10 +94,11 @@ tern.css("palette", [[
 [data-surface="plugin.goto.picker"] .goto-box {
 	position: static;
 	transform: none;
-	width: 640px !important;
-	max-width: 100% !important;
+	zoom: 1;
+	font-size: var(--tv-fs) !important;
+	width: min(640px, calc(100vw - 48px)) !important;
 	height: 511px !important;
-	max-height: 100% !important;
+	max-height: calc(88vh - 20px / var(--tn-zoom, 1)) !important;
 	margin: 0 auto !important;
 	flex: none !important;
 	display: flex !important;
@@ -146,11 +159,11 @@ tern.css("palette", [[
 	border: 1.5px solid var(--accent);
 	border-right-color: transparent;
 	border-bottom-color: transparent;
-	animation: tnHdSpin 0.8s linear infinite !important;
+	animation: tnHdSpin 0.8s steps(16) infinite !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em {
 	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
-	animation: sf-turn 0.9s steps(12) infinite !important;
+	animation: sf-turn 0.9s steps(18) infinite !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em::after {
 	content: '';
@@ -180,7 +193,7 @@ tern.css("palette", [[
 	width: 30%;
 	border-radius: inherit;
 	background: var(--accent);
-	animation: sf-indet 1.3s steps(16) infinite !important;
+	animation: sf-indet 1.3s steps(26) infinite !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del {
 	width: 4px;
@@ -188,15 +201,15 @@ tern.css("palette", [[
 	margin: 0 2px 0 3px;
 	background: var(--accent);
 	text-decoration: none;
-	animation: sf-dot 1.2s steps(6) infinite !important;
+	animation: sf-dot 1.25s steps(5) infinite !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
 	margin-left: 0;
-	animation-delay: 0.16s !important;
+	animation-delay: 0.15s !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
 	margin-right: 3px;
-	animation-delay: 0.32s !important;
+	animation-delay: 0.3s !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark {
 	background: transparent !important;
@@ -208,10 +221,10 @@ tern.css("palette", [[
 	inset: 0;
 	border-radius: 50%;
 	box-shadow: inset 0 0 0 1.5px var(--warn);
-	animation: tnRing 2.8s linear infinite !important;
+	animation: tnRing 3s linear infinite !important;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark::after {
-	animation-delay: 0.35s !important;
+	animation-delay: 0.4s !important;
 }
 [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-muted {
 	box-shadow: inset 0 0 0 1.5px var(--t4);
@@ -338,10 +351,12 @@ local function omp_signals(cx, pane)
 end
 
 -- The status of a pane row (see STATUS in host.luau). An agent is exited, waits for your input, is
--- retrying, compacting or working, shows an error, has subagents or background jobs running while
--- it is idle, is done (idle with output you have not seen) or is idle. A plain terminal is running
--- a command or has an unseen alert. Nil for a quiet terminal.
-local function pane_status(cx, info, agent)
+-- retrying, compacting or working, shows an error or failed its last turn, has subagents or
+-- background jobs running while it is idle, is done (it finished a turn, or rang an alert, that you
+-- have not seen) or is idle. `finished` is the stored result of its last turn that you have not
+-- seen, "done" or "error", or nil (see the `finished` map below). A plain terminal is running a
+-- command or has an unseen alert. Nil for a quiet terminal.
+local function pane_status(cx, info, agent, finished)
 	if agent == nil then
 		if info.alert then
 			return "alert"
@@ -360,12 +375,12 @@ local function pane_status(cx, info, agent)
 		return "compacting"
 	elseif sig.working or agent.state == "working" then
 		return "working"
-	elseif sig.error then
+	elseif sig.error or finished == "error" then
 		return "error"
 	elseif sig.jobs then
 		return "background"
 	end
-	return if info.alert then "done" else "idle"
+	return if info.alert or finished == "done" then "done" else "idle"
 end
 
 -- The statuses that put a pane in the Waiting on you group, in the group's order: the pane waits
@@ -373,7 +388,7 @@ end
 -- host half hides the idle rows until you show them (ctrl+; then i).
 local ATTENTION = { input = 1, error = 2, alert = 3, done = 4, idle = 5 }
 
--- The key of a pane or tab id in the `seen` maps; JSON object keys are strings.
+-- The key of a pane or tab id in the `seen` and `finished` maps; JSON object keys are strings.
 local function seen_key(id)
 	return string.format("%d", id)
 end
@@ -417,6 +432,23 @@ local function forget_seen(field, id)
 	if seen[field][seen_key(id)] ~= nil then
 		seen[field][seen_key(id)] = nil
 		tern.kv.set("seen", seen)
+	end
+end
+
+-- The last turn result that you have not seen of each agent pane: tern.kv keeps under `finished`,
+-- by pane id, the status that the result gives the pane's row, "done" or "error" (a failed turn).
+-- A reload resets the Lua state, and every window shares the store, so the map lives there.
+local function load_finished()
+	local finished = tern.kv.get("finished")
+	return if type(finished) == "table" then finished else {}
+end
+
+-- Stores `status` ("done", "error", or nil to drop it) as the unseen turn result of `pane`.
+local function set_finished(pane, status)
+	local finished = load_finished()
+	if finished[seen_key(pane)] ~= status then
+		finished[seen_key(pane)] = status
+		tern.kv.set("finished", finished)
 	end
 end
 
@@ -481,6 +513,7 @@ local function collect(cx, focused)
 	end
 	local hosts = remote_hosts(cx)
 	local seen = load_seen()
+	local finished = load_finished()
 	local focused_tab = if focused then cx.session:tab_of(focused) else nil
 	local rows = {}
 	-- The pane of each pane row and each row of a tab with one pane, for the order of the group.
@@ -506,7 +539,10 @@ local function collect(cx, focused)
 				-- A tab with one pane is one row with that pane's status; only a split tab lists its
 				-- panes under it, so no name shows twice.
 				local single = if #panes == 1 then cx.session:pane(panes[1]) else nil
-				local status = if single then pane_status(cx, single, agents[panes[1]]) else nil
+				local status = nil
+				if single then
+					status = pane_status(cx, single, agents[panes[1]], finished[seen_key(panes[1])])
+				end
 				table.insert(rows, {
 					kind = "tab",
 					id = tab_id,
@@ -531,7 +567,7 @@ local function collect(cx, focused)
 								kind = "pane",
 								id = pane_id,
 								label = info.title,
-								status = pane_status(cx, info, agents[pane_id]),
+								status = pane_status(cx, info, agents[pane_id], finished[seen_key(pane_id)]),
 								agent = agents[pane_id] ~= nil,
 								session = session_row,
 								tab = tab_row,
@@ -681,17 +717,21 @@ tern.route.link(function(link, cx)
 	return { handled = true }
 end)
 
--- Notes each focus for the last seen order. Focus that leaves the open picker closes it.
+-- Notes each focus for the last seen order, and drops the unseen turn result of the focused pane.
+-- Focus that leaves the open picker closes it.
 tern.on("focus", function(ev, cx)
 	note_seen(cx, ev.pane, ev.tab)
+	set_finished(ev.pane, nil)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
 end)
 
--- Forgets a picker that closed some other way, and the last focus of a closed pane.
+-- Forgets a picker that closed some other way, and the last focus and unseen turn result of a
+-- closed pane.
 tern.on("pane_closed", function(ev, _cx)
 	forget_seen("panes", ev.pane)
+	set_finished(ev.pane, nil)
 	if picker and ev.pane == picker.pane then
 		picker = nil
 		set_veil(false)
@@ -701,6 +741,17 @@ end)
 -- Forgets the last focus of a closed tab.
 tern.on("tab_closed", function(ev, _cx)
 	forget_seen("tabs", ev.tab)
+end)
+
+-- Keeps the result of an agent's turn until you focus its pane: done marks the pane done, failed
+-- marks it error. A turn that ends in the focused pane is one you saw, so it changes nothing. An
+-- agent that exited or closed has no turn result to show.
+tern.on("agent_finished", function(ev, cx)
+	if ev.result == "exited" or ev.result == "closed" then
+		set_finished(ev.pane, nil)
+	elseif cx.session:focused() ~= ev.pane then
+		set_finished(ev.pane, if ev.result == "failed" then "error" else "done")
+	end
 end)
 
 -- A plugin reload starts this half with no open picker, but a picker pane from before stays open
