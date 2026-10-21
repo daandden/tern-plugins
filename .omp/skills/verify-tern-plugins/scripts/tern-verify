@@ -9,6 +9,7 @@
 #   tern-verify tern   RUN ARGS...    any `tern` CLI command against the instance
 #   tern-verify type   RUN LINE       types LINE and Enter into the focused pane
 #   tern-verify shot   RUN NAME       RUN/NAME.webp (lossless) and RUN/NAME.layout.json
+#   tern-verify lens   RUN            links RUN/link-lens: `echo PROBE_LINK URL` shows URL as a link
 #   tern-verify stop   RUN            close the window, stop its daemon, remove RUN/data
 #
 # TERN_PLUGINS_REPO overrides the checkout whose plugins load (default: the checkout of this file).
@@ -20,7 +21,7 @@ die() {
 	exit 1
 }
 
-[ $# -ge 2 ] || die "usage: tern-verify start|doctor|ctl|tern|type|shot|stop RUN [ARGS...]"
+[ $# -ge 2 ] || die "usage: tern-verify start|doctor|ctl|tern|type|shot|lens|stop RUN [ARGS...]"
 cmd=$1
 case $2 in
 /*) run=$2 ;;
@@ -65,7 +66,13 @@ start)
 	mkdir "$cfg"
 	if [ -f "$HOME/.config/tern/settings.json" ]; then
 		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
+	else
+		echo '{}' >"$cfg/settings.json"
 	fi
+	# With no `shell`, Tern starts the $SHELL of the process that runs this script. An agent's shell
+	# is often bash with no Homebrew or omp in PATH, and the recipes need fish.
+	jq '.shell = "/opt/homebrew/bin/fish"' "$cfg/settings.json" >"$cfg/settings.json.new"
+	mv "$cfg/settings.json.new" "$cfg/settings.json"
 	# A config dir with no omp state makes Tern show its native "Tern is better with omp. Install it?"
 	# alert on top of the screen. This is the state that Tern writes when you answer Not Now.
 	mkdir "$cfg/omp"
@@ -74,18 +81,22 @@ start)
 		iso tern plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
 			die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
 	done
+	/usr/bin/caffeinate -u -t 2
 	cd "$data"
 	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
 		TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" \
 		tern --control "$ctl_sock" "$data" >"$run/window.log" 2>&1 </dev/null &
 	echo $! >"$data/window.pid"
+	/usr/bin/caffeinate -d -w "$!" >/dev/null 2>&1 &
 	tries=0
 	until [ -S "$ctl_sock" ] && ctl css 2>/dev/null | grep -q '"plugin:local:'; do
 		tries=$((tries + 1))
 		[ $tries -le 60 ] || die "no plugin sheets after 30 s, see $run/window.log"
 		sleep 0.5
 	done
+	ctl ready >/dev/null || die "no shell prompt, see $run/window.log"
 	socket_owner "$daemon_sock" >"$data/daemon.pid"
+	[ -s "$data/daemon.pid" ] || die "no session daemon on $daemon_sock, see $run/window.log"
 	printf 'ready: window pid %s, daemon pid %s, repo %s\n' \
 		"$(cat "$data/window.pid")" "$(cat "$data/daemon.pid")" "$repo"
 	;;
@@ -102,14 +113,24 @@ doctor)
 		status=1
 	fi
 	printf 'ctl.sock:   owner %s\n' "$(socket_owner "$ctl_sock")"
-	printf 'daemon:     pid %s (started as %s)\n' "$(socket_owner "$daemon_sock")" \
-		"$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
+	daemon_pid=$(socket_owner "$daemon_sock")
+	if [ -n "$daemon_pid" ]; then
+		printf 'daemon:     pid %s (started as %s)\n' "$daemon_pid" "$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
+	else
+		printf 'daemon:     NOT RUNNING (started as %s)\n' "$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
+		status=1
+	fi
 	if ! ctl state >"$data/doctor-state.json" 2>&1; then
 		printf 'ctl state:  FAILED: %s\n' "$(cat "$data/doctor-state.json")"
 		status=1
 	else
 		printf 'sessions:   %s\n' "$(jq -c '[.sessions[] | {name, tabs}]' "$data/doctor-state.json")"
 		printf 'focused:    %s\n' "$(jq -c '.focused | {id, label}' "$data/doctor-state.json")"
+	fi
+	daemon_sessions=$(iso tern ls 2>&1) || status=1
+	if [ "$daemon_sessions" = "no sessions" ]; then
+		printf 'daemon sessions: NONE\n'
+		status=1
 	fi
 	printf 'plugins:\n'
 	iso tern plugin list | sed 's/^/  /'
@@ -118,6 +139,7 @@ doctor)
 		target=$(cat "$link")
 		case $target in
 		"$repo"/*) ;;
+		"$run"/link-lens) printf 'run lens:   %s\n' "$target" ;;
 		*)
 			printf 'LINK OUTSIDE REPO: %s -> %s\n' "$link" "$target"
 			status=1
@@ -162,6 +184,42 @@ await Bun.write(out, await new Bun.Image(await Bun.file(png).bytes()).webp({ los
 	mv "$layout" "$run/$name.layout.json"
 	rm -f "$png"
 	printf '%s\n%s\n' "$run/$name.webp" "$run/$name.layout.json"
+	;;
+lens)
+	# A command lens of this run only: the output block of `echo PROBE_LINK URL` shows URL as a
+	# Tern link, which `ctl click SELECTOR cmd` Cmd-clicks without coordinates.
+	lens=$run/link-lens
+	mkdir -p "$lens"
+	cat >"$lens/plugin.toml" <<'EOF'
+schema = 1
+id = "verify-link-lens"
+name = "Verify link lens"
+version = "0.1.0"
+host = "host.luau"
+
+[[lenses]]
+id = "link"
+match = ["echo PROBE_LINK *"]
+EOF
+	cat >"$lens/host.luau" <<'EOF'
+tern.lens.define("link", {
+	-- Captures the URL from the terminal command's last argument.
+	open = function(run, cx)
+		return { url = run.args[#run.args] }
+	end,
+	-- Ignores terminal output; the lens renders only the captured URL.
+	line = function(state, line) end,
+	-- Keeps no completion state.
+	finish = function(state, status) end,
+	-- Renders the URL as a clickable Tern link.
+	view = function(state)
+		return tern.ui.text({ tern.ui.link("PROBE_LINK " .. state.url, state.url) })
+	end,
+})
+EOF
+	[ -f "$cfg/plugins/verify-link-lens.path" ] || iso tern plugin link "$lens" >>"$run/start.log" 2>&1 ||
+		die "plugin link failed for $lens, see $run/start.log"
+	iso tern plugin reload
 	;;
 stop)
 	window_pid=$(cat "$data/window.pid" 2>/dev/null || true)

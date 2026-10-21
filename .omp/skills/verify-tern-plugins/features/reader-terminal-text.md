@@ -18,14 +18,15 @@ When omp runs in a Tern pane, Tern shows its chat in the Reader style. With this
 
 Preconditions:
 
-- The baseline from `README.md`. The copied `settings.json` sets `ui_font` and `adjust_cell_height`, and the composer values follow them.
+- The baseline from `README.md`. The composer values follow the copied `settings.json`, so read them from there, not from this file: `jq '{ui_font, font_size, adjust_cell_height}' "$RUN/data/config/settings.json"`.
+- The terminal row: before omp starts, run `"$V" ctl "$RUN" dump '.tn-pane.on .tv-probe' | jq -c '.elements[0] | {rect, fontSize}'` in the shell pane. Its rect height is the row height `R` and its `fontSize` the terminal size `S` (13px when `font_size` is null).
 - A helper for the composer: `ED=".sf-chat-reader .sf-col[data-role^='omp.editor']"`.
 
 - Start omp. Run `"$V" type "$RUN" 'omp'`, then poll `"$V" ctl "$RUN" tree "$ED" | jq .count` until it is 1 (one second on this Mac).
-- Composer with the plugin. Run `"$V" ctl "$RUN" dump "$ED .sf-editor" | jq -c '.elements[0] | {rect, fontFamily, fontSize}'` and `"$V" ctl "$RUN" dump "$ED .sf-ed-ph" | jq -c '.elements[0].visible'`. With the copied settings: `fontSize` `13px`, a rect height of 17, a `fontFamily` that starts with `"JetBrainsMono Nerd Font Mono"`, and a placeholder that is `false`.
+- Composer with the plugin. Run `"$V" ctl "$RUN" dump "$ED .sf-editor" | jq -c '.elements[0] | {rect, fontFamily, fontSize}'` and `"$V" ctl "$RUN" dump "$ED .sf-ed-ph" | jq -c '.elements[0].visible'`. `fontSize` is `S`, the rect height is `R`, the `fontFamily` starts with the copied `ui_font` in quotes, and the placeholder is `false`.
 - Composer without the plugin. Drop both sheets in this window only: `"$V" ctl "$RUN" css plugin:local:reader-terminal-text:reader-terminal-text` and `"$V" ctl "$RUN" css plugin:local:reader-terminal-text:composer-placeholder`. Each prints `{"ok":true,"dropped":1}`. The same dumps now give `14px`, height 22, a font list that starts with `Geist, "Berkeley Mono"`, and a placeholder that is `true`.
 - Restore. Run `"$V" tern "$RUN" plugin reload`. The dumps give the values with the plugin again, and `"$V" ctl "$RUN" css` lists both sheets.
-- Chat text. Send a short prompt with `"$V" ctl "$RUN" type '"say ok"'` and `"$V" ctl "$RUN" key enter`, wait for `tree ".sf-chat-reader [data-role^='omp.assistant'] > .sf-md"`, and dump that selector and `.sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md` with and without the `reader-terminal-text` sheet, as above. With the sheet both give `13px` and a row of 17. Without it they give `14px` and a taller row.
+- Chat text. Send a short prompt with `"$V" ctl "$RUN" type '"say ok"'` and `"$V" ctl "$RUN" key enter`, wait for `tree ".sf-chat-reader [data-role^='omp.assistant'] > .sf-md"`, and dump that selector and `.sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md` with and without the `reader-terminal-text` sheet, as above. With the sheet both give `S` and a row of `R` (one line of text is `R` high). Without it they give `14px` and a taller row.
 - Proof. Run `"$V" shot "$RUN" rtt-with` and `"$V" shot "$RUN" rtt-without` around the drop, and keep each `dump` output in `RUN/rtt-<step>.json`.
 
 ## Gotchas

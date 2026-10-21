@@ -24,7 +24,9 @@ These stay shared with your own Tern:
 - `~/.cache/tern/open-owners`, the handoff dir of `bin/open`.
 - The Neovim and omp configurations in your home directory.
 - The Stencil account of this Mac. There is no separate sign-in.
-- The login shell, fish. In it, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
+- The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
+
+Tern reloads the linked plugins when a file of the loaded checkout changes, also a file under `.omp/`. A reload closes the Go to picker and resets the Lua state of every plugin. Save no file in the checkout while a drive step runs, and do not run two agents that edit the checkout beside a run.
 
 ## Helpers
 
@@ -36,12 +38,13 @@ V=<directory of this SKILL.md>/scripts/tern-verify
 
 Every command takes the run dir first:
 
-- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance, writes the omp offer as answered with Not Now, opens the window and waits until it is ready. Without that state, Tern shows its native "Tern is better with omp. Install it?" alert on top of the screen at each start.
+- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance with `shell` set to fish, writes the omp offer as answered with Not Now, wakes the display, opens the window and waits for a shell prompt. It keeps the display awake until that window closes. With the display off, a new window can stop before it attaches to its daemon; the daemon then ends idle. Without the omp state, Tern shows its native "Tern is better with omp. Install it?" alert at each start.
 - `"$V" doctor "$RUN"` is the read-only instance check.
 - `"$V" ctl "$RUN" ARGS...` runs `tern ctl ARGS...` on the instance's control socket.
 - `"$V" tern "$RUN" ARGS...` runs a `tern` CLI command against the instance, for example `"$V" tern "$RUN" ls`.
 - `"$V" type "$RUN" 'LINE'` types LINE and Enter into the focused pane. LINE cannot hold a double quote.
 - `"$V" shot "$RUN" NAME` writes `RUN/NAME.webp` (lossless) and `RUN/NAME.layout.json`.
+- `"$V" lens "$RUN"` writes a command lens to `RUN/link-lens` and links it into this instance only. The output block of `echo PROBE_LINK URL` then shows URL as a Tern link that a Cmd-click opens (see Drive). Doctor lists it as `run lens:`.
 - `"$V" stop "$RUN"` is the cleanup.
 
 `TERN_PLUGINS_REPO=<checkout>` makes `start` load the plugins of another checkout. By default it loads the checkout that holds the helper.
@@ -58,7 +61,7 @@ Every command takes the run dir first:
 
 3. Run `"$V" start "$RUN"`. It is ready when it prints `ready: window pid N, daemon pid M, repo <checkout>`. The window opens on screen and can take the keyboard focus from you. `ctl` sends input to it either way.
 
-If `start` stops with `no plugin sheets after 30 s`, read `RUN/window.log`, run `"$V" stop "$RUN"`, and report the failure.
+If `start` stops with `no plugin sheets after 30 s`, `no shell prompt` or `no session daemon`, read `RUN/window.log`, run `"$V" stop "$RUN"`, and start a new run. Report the failure if it repeats.
 
 If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `stop` or any other command on it. Make a new `RUN` with `mktemp -d` and start again.
 
@@ -66,11 +69,11 @@ If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `
 
 Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It changes nothing. It exits 1 when a check fails. It prints:
 
-- The checkout and its commit, and the Tern version (`tern 0.9.2` at the last check of this skill).
+- The checkout and its commit, and the Tern version (`tern 0.9.5` at the last check of this skill).
 - The window pid and the owner of `RUN/data/ctl.sock`. Both must be the same pid.
-- The daemon pid, as the owner of `RUN/data/daemon.sock`.
-- The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here.
-- `tern plugin list` of the instance. Every plugin must say `ready`, and every link must point into the checkout.
+- The daemon pid, as the owner of `RUN/data/daemon.sock`. `daemon: NOT RUNNING` fails the check: the daemon of the run ended, so panes and `tern` CLI commands do not work, and the window shows a pane named `data` with no shell. Stop the run and start a new one.
+- The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here. `daemon sessions: NONE` fails Doctor even when the window's local state lists a session: the window did not attach to the daemon.
+- `tern plugin list` of the instance. Every plugin must say `ready`, and every link must point into the checkout, or be the `run lens:` of this run.
 - The plugin CSS sheets that the window loaded, named `plugin:local:<id>:<sheet>`.
 - The account: `Signed in to Stencil as @<user>`, the name of the account button. `NOT SIGNED IN` means that the button is missing. Take a shot and look for the sign-in gate before you drive anything.
 - Open native alerts of the window, from `"$V" ctl "$RUN" system`. A shot does not show a native alert. `NATIVE ALERT OPEN` means that the window waits for an answer: name it in `notes.md`, and close it with `"$V" ctl "$RUN" dialog button N`, where N counts the buttons from 0.
@@ -79,20 +82,23 @@ Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It chan
 
 Read `features/README.md`, then the feature file for the behavior under test. The stable handles are:
 
-- Keys that the copied `settings.json` binds, one key per call: `"$V" ctl "$RUN" key f1` (goto), `key alt+n` (zellij-keys `new_pane`), `key escape`, `key enter`, `key down`, `key 'ctrl+;'`. A key press is the user path. `keybinds.html` in the checkout lists every bound key.
+- Keys that the copied `settings.json` binds, one key per call: `"$V" ctl "$RUN" key f1` (goto), `key alt+n` (zellij-keys `new_pane`), `key escape`, `key enter`, `key down`, `key 'ctrl+;'`, `key pageup`. A key press is the user path. `keybinds.html` in the checkout lists every bound key.
+- Chords: a chord such as Ctrl+G M L is one `key` call per key: `key ctrl+g`, `key m`, `key l`. Tern leaves the Ctrl+G mode after the last key, so a second step needs the whole chord again. A bare `l` after it goes to the pane as text.
 - Plugin commands by id: `"$V" ctl "$RUN" plugins run plugin.<plugin id>.<command id>`. It runs the action as a key does, but skips the key binding, so it does not prove a key. It prints `{"ok":true}` also for an id that does not exist, so prove each run by a change of state.
 - The command palette: `"$V" ctl "$RUN" palette '"Break pane to new tab"'`, then `key enter`.
 - The Files pane: `key ctrl+cmd+e` shows it. Focus a shell pane in the data dir first, because the tree follows the focused pane. Then `"$V" ctl "$RUN" files focus`, `"$V" ctl "$RUN" files cursor NAME` and `key enter` open the file.
 - Typed text and command lines: `"$V" ctl "$RUN" type TEXT` and `"$V" type "$RUN" 'LINE'`.
 - Buttons by accessible name: `"$V" ctl "$RUN" a11y | jq '.. | objects | select(.role=="Button") | .name'`.
 - Elements by CSS selector: `"$V" ctl "$RUN" tree SELECTOR` (visible matches with text), `"$V" ctl "$RUN" dump SELECTOR` (rect, `visible`, font and color).
+- Clicks by CSS selector: `"$V" ctl "$RUN" click SELECTOR [MODS]`. A selector with spaces needs double quotes inside the argument, and its strings single quotes: `"$V" ctl "$RUN" click "\".tn-pane.on .sf-link[title^='$URL']\"" cmd` is a Cmd-click on a link. `#` starts a comment in a `ctl` line, so write an id as `[id=dt-el-cur]`, not `#dt-el-cur`.
+- Computed styles that `dump` does not give (animation, custom properties): run `"$V" ctl "$RUN" devtools open` and `"$V" ctl "$RUN" target devtools`. Then `click '.dt-tab:nth-child(2)'` (Console), `click .dc-input` (a click on the tab of an open Console focuses the tab, not the input), `type "\"\$('.goto-box .sf-t-num'):style('animation')\""` and `key enter`. The result is the first `.dc-row` after the last row with class `dc-in` in `tree .dc-row`; its text starts with the time. `$$(SEL)` gives all matches as a table. When done, run `"$V" ctl "$RUN" target main` and `devtools close`: every `ctl` command goes to the target that you chose last.
 - Pane ids: `"$V" tern "$RUN" ls`, `"$V" tern "$RUN" focus ID`, `"$V" tern "$RUN" capture ID`.
 - App state: `"$V" ctl "$RUN" state | jq .focused`.
-- Browser panes: `"$V" ctl "$RUN" webcall '.tn-pane.on .kit-web-page' '{"op":"eval","function":"() => document.title"}'` and `"$V" ctl "$RUN" webreports '.tn-pane.on .kit-web-page'`. `.tn-pane.on` is the focused pane. A bare `.kit-web-page` matches the first page in the window, which is not always the focused one.
+- Browser panes: `"$V" ctl "$RUN" webcall '.tn-pane.on:not(.off) .kit-web-page' '{"op":"eval","function":"() => document.title"}'` and `"$V" ctl "$RUN" webreports '.tn-pane.on:not(.off) .kit-web-page'`. `.tn-pane.on:not(.off)` is the focused pane of the visible tab. `.on` also matches a focused pane of another tab, with `off`; a dump lists it with an empty rect. A bare `.kit-web-page` matches the first page in the window.
 
 Do not use coordinates (`click X Y`, `pick X Y`). The window size and the user's fonts change them.
 
-`tern ctl` joins its arguments with spaces and reads them again, with `"..."` as one argument. So an argument with spaces needs double quotes inside single quotes, as in the palette example. Write a JSON argument compact, with no space after its `:` and `,`, in single quotes, as in the webcall example.
+`tern ctl` joins its arguments with spaces and reads them again, with `"..."` as one argument. So an argument with spaces needs double quotes inside single quotes, as in the palette and click examples. `tree` and `dump` take the rest of the line as one selector, so give their selector no inner quotes: `dump '.tn-pane.on .tv-thumb'`. Write a JSON argument compact, with no space after its `:` and `,`, in single quotes, as in the webcall example.
 
 ## Evidence
 
