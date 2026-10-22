@@ -706,13 +706,10 @@ tern.command({
 local GIT = "/opt/homebrew/bin/git"
 local OMP = "/opt/homebrew/bin/omp"
 local GIT_ENV = { GIT_TERMINAL_PROMPT = "0" }
--- How long the fetch may take before the command goes on from the remote branch that git has.
 local FETCH_TIMEOUT_MS = 30000
--- True while a worktree_agent_tab press runs its steps; a second press then does nothing.
 local worktree_busy = false
 
--- Runs `argv` and calls `cb(result, cx)` with the window cx of the callback. A Lua error in `cb`, or
--- a callback with no window, ends the press with an error toast, so worktree_busy clears.
+-- Runs `argv` and calls `cb(result, cx)` with the callback's window context.
 local function worktree_step(argv, cb)
 	tern.process.run(argv, { env = GIT_ENV }, function(result, later)
 		if not later then
@@ -750,8 +747,7 @@ local function worktree_stop(cx, level, text, sub)
 	cx:toast(level, text, sub)
 end
 
--- Opens a tab that runs omp in `path`. cx.agents:start rejects a blank prompt, and a `new_tab` in
--- Agent mode opens in the folder of the focused pane, so the tab runs omp as its command.
+-- Opens a tab that runs omp in `path`.
 local function worktree_open_tab(cx, path)
 	worktree_busy = false
 	local ok, tab = pcall(function()
@@ -807,10 +803,7 @@ local function worktree_open(cx, main, base)
 	end)
 end
 
--- Compares the default branch with origin/<branch> and opens the tab at origin/<branch>. A local
--- branch with commits that origin lacks (ahead or diverged) stops, so the new work never leaves
--- unpushed default-branch commits behind. When one of the two branches is missing, there is nothing
--- to compare: the base is origin/<branch> if it exists, else the local branch.
+-- Refuses an ahead or diverged default branch, then opens at origin/<branch> or the local fallback.
 local function worktree_compare(cx, main, branch)
 	local range = `{branch}...origin/{branch}`
 	git(main, { "rev-list", "--left-right", "--count", range }, {}, function(counts, cx)
@@ -842,10 +835,8 @@ local function worktree_update(cx, main, branch)
 	end)
 end
 
--- Checks that the main checkout has no staged, unstaged or untracked changes. The checkout may be on
--- any branch: the new worktree starts at the default branch, and the checkout stays as it is.
--- `--untracked-files=normal` overrides a repo's `status.showUntrackedFiles=no`, which would hide
--- untracked files. A repo with no origin skips the update and starts at the local default branch.
+-- Checks that the main checkout has no staged, unstaged or untracked changes.
+-- `--untracked-files=normal` overrides a repo's `status.showUntrackedFiles=no`.
 local function worktree_check(cx, main, branch, has_origin)
 	git(main, { "status", "--porcelain", "--untracked-files=normal" }, {}, function(status, cx)
 		if status.status ~= 0 then
@@ -886,9 +877,7 @@ local function worktree_branch(cx, main)
 	end)
 end
 
--- Zellij NewTab, with an agent in a new worktree: a new tab whose agent starts in a new worktree of
--- the focused pane's repo, at the default branch from origin. The main checkout keeps its branch,
--- and the command opens the tab only when that checkout has no uncommitted changes.
+-- Zellij NewTab, with an agent in a new worktree at the default branch of the focused pane's repo.
 tern.command({
 	id = "worktree_agent_tab",
 	title = "New agent tab in a new worktree",
