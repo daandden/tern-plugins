@@ -701,26 +701,17 @@ tern.command({
 	end,
 })
 
--- Git as the plugin runs it: Tern's PATH has no /opt/homebrew/bin. GIT_TERMINAL_PROMPT=0 makes a
--- fetch that needs a password fail at once instead of waiting for input that never comes.
+-- Git and omp as the plugin runs them: Tern's PATH has no /opt/homebrew/bin. GIT_TERMINAL_PROMPT=0
+-- makes a fetch that needs a password fail at once instead of waiting for input that never comes.
 local GIT = "/opt/homebrew/bin/git"
+local OMP = "/opt/homebrew/bin/omp"
 local GIT_ENV = { GIT_TERMINAL_PROMPT = "0" }
--- How long the fetch may take before the command goes on from the local branch.
 local FETCH_TIMEOUT_MS = 30000
--- True while a worktree_agent_tab press runs its git steps; a second press then does nothing.
 local worktree_busy = false
 
--- Runs git in `dir` and calls `cb(result, cx)` with the window cx of the callback. A Lua error in
--- `cb`, or a callback with no window, ends the press with an error toast, so worktree_busy clears.
-local function git(dir, args, opts, cb)
-	local argv = if opts.timeout_ms
-		then { "/opt/homebrew/bin/gtimeout", "--kill-after=1s", `{opts.timeout_ms / 1000}s`, GIT, "-C", dir }
-		else { GIT, "-C", dir }
-	for _, arg in args do
-		table.insert(argv, arg)
-	end
-	-- Tern kills only the parent on timeout; gtimeout also kills transports holding its output open.
-	tern.process.run(argv, { env = GIT_ENV }, function(result, later)
+-- Runs `argv` and calls `cb(result, cx)` with the callback's window context.
+local function worktree_step(argv, cb, cwd)
+	tern.process.run(argv, { env = GIT_ENV, cwd = cwd }, function(result, later)
 		if not later then
 			worktree_busy = false
 			return
@@ -731,6 +722,18 @@ local function git(dir, args, opts, cb)
 			later:toast("error", "Could not open a worktree agent tab", tostring(why))
 		end
 	end)
+end
+
+-- Runs git in `dir` as one step of a worktree_agent_tab press. Tern kills only the parent on
+-- timeout, so a timeout goes through gtimeout, which also kills transports holding its output open.
+local function git(dir, args, opts, cb)
+	local argv = if opts.timeout_ms
+		then { "/opt/homebrew/bin/gtimeout", "--kill-after=1s", `{opts.timeout_ms / 1000}s`, GIT, "-C", dir }
+		else { GIT, "-C", dir }
+	for _, arg in args do
+		table.insert(argv, arg)
+	end
+	worktree_step(argv, cb)
 end
 
 -- The first line of git's output, without its line end.
@@ -744,42 +747,78 @@ local function worktree_stop(cx, level, text, sub)
 	cx:toast(level, text, sub)
 end
 
--- Opens the agent tab in the main checkout, where omp's /wt branches from its HEAD.
-local function worktree_open(cx, main)
+-- Opens a tab that runs omp in `path`.
+local function worktree_open_tab(cx, path)
 	worktree_busy = false
-	local ok, why = pcall(function()
-		cx.agents:start({ prompt = "/wt", cwd = main, how = "tab" })
+	local ok, tab = pcall(function()
+		return cx.layout:new_tab({ cwd = path, command = OMP })
 	end)
-	if not ok then
-		cx:toast("error", "Could not open an agent tab", tostring(why))
+	if not ok or tab == nil then
+		cx:toast("error", "Could not open an agent tab", if ok then path else tostring(tab))
 	end
 end
 
--- Compares the default branch with origin/<branch> and opens the tab. A branch with commits that
--- origin lacks (ahead or diverged) stops, so the new work never carries unpushed commits. A branch
--- that is behind fast-forwards first.
+-- The folder of omp's worktrees: OMP_WORKTREE_DIR, else omp's setting worktree.base, else ~/.omp/wt.
+local function worktree_dir(cx, main, cb)
+	local home = tern.getenv("HOME") or ""
+	local from_env = tern.getenv("OMP_WORKTREE_DIR")
+	if from_env and from_env ~= "" then
+		cb(cx, (string.gsub(from_env, "^~", home)))
+		return
+	end
+	worktree_step({ OMP, "config", "get", "worktree.base" }, function(config, cx)
+		local base = first_line(config.stdout)
+		if config.status ~= 0 or base == "" or base == "(not set)" then
+			base = `{home}/.omp/wt`
+		end
+		cb(cx, (string.gsub(base, "^~", home)))
+	end, main)
+end
+
+-- Adds a worktree on a new wt/<time> branch at `base` and opens its agent tab. omp's worktree add
+-- clones the main checkout's ignored files (worktree.clone), checks out `base` and leaves the main
+-- checkout, its branch and its changes as they were.
+local function worktree_open(cx, main, base)
+	git(main, { "rev-parse", "--verify", "--quiet", "--short=7", base .. "^{commit}" }, {}, function(commit, cx)
+		local short = first_line(commit.stdout)
+		if commit.status ~= 0 or short == "" then
+			worktree_stop(cx, "error", `Could not find {base}`, main)
+			return
+		end
+		worktree_step({ "/bin/date", "+%Y%m%d-%H%M%S" }, function(date, cx)
+			local stamp = first_line(date.stdout)
+			worktree_dir(cx, main, function(cx, dir)
+				local path = `{dir}/wt-{stamp}-{short}`
+				local argv = { OMP, "worktree", "add", "--quiet", "-C", main, "-b", `wt/{stamp}`, path, base }
+				worktree_step(argv, function(added, cx)
+					if added.status ~= 0 then
+						local why = if added.stderr ~= "" then added.stderr else added.stdout
+						worktree_stop(cx, "error", "Could not add a worktree", first_line(why))
+					else
+						worktree_open_tab(cx, path)
+					end
+				end, main)
+			end)
+		end)
+	end)
+end
+
+-- Refuses an ahead or diverged default branch, then opens at origin/<branch> or the local fallback.
 local function worktree_compare(cx, main, branch)
 	local range = `{branch}...origin/{branch}`
 	git(main, { "rev-list", "--left-right", "--count", range }, {}, function(counts, cx)
 		local ahead, behind = string.match(counts.stdout, "^(%d+)%s+(%d+)")
 		if counts.status ~= 0 or not ahead then
-			-- origin has no such branch: nothing to compare with.
-			worktree_open(cx, main)
+			git(main, { "rev-parse", "--verify", "--quiet", `refs/remotes/origin/{branch}` }, {}, function(remote, cx)
+				worktree_open(cx, main, if remote.status == 0 then `origin/{branch}` else branch)
+			end)
 		elseif ahead ~= "0" and behind ~= "0" then
 			worktree_stop(cx, "error", `{branch} has diverged from origin/{branch}`, "Push or reset it first.")
 		elseif ahead ~= "0" then
 			local commits = if ahead == "1" then "commit" else "commits"
 			worktree_stop(cx, "error", `{branch} has {ahead} unpushed {commits}`, "Push or reset first.")
-		elseif behind == "0" then
-			worktree_open(cx, main)
 		else
-			git(main, { "merge", "--ff-only", "--quiet", `origin/{branch}` }, {}, function(merged, cx)
-				if merged.status ~= 0 then
-					worktree_stop(cx, "error", `Could not fast-forward {branch}`, first_line(merged.stderr))
-				else
-					worktree_open(cx, main)
-				end
-			end)
+			worktree_open(cx, main, `origin/{branch}`)
 		end
 	end)
 end
@@ -796,29 +835,19 @@ local function worktree_update(cx, main, branch)
 	end)
 end
 
--- Checks that the main checkout is on the default branch with no staged, unstaged or untracked
--- changes, which /wt would copy into the new worktree. `--untracked-files=normal` overrides a
--- repo's `status.showUntrackedFiles=no`, which would hide untracked files. A repo with no origin
--- skips the update.
+-- Checks that the main checkout has no staged, unstaged or untracked changes.
+-- `--untracked-files=normal` overrides a repo's `status.showUntrackedFiles=no`.
 local function worktree_check(cx, main, branch, has_origin)
-	git(main, { "symbolic-ref", "--quiet", "--short", "HEAD" }, {}, function(head, cx)
-		local current = first_line(head.stdout)
-		if current ~= branch then
-			local on = if current == "" then "a detached HEAD" else current
-			worktree_stop(cx, "error", `The main checkout is on {on}, not {branch}`, main)
-			return
+	git(main, { "status", "--porcelain", "--untracked-files=normal" }, {}, function(status, cx)
+		if status.status ~= 0 then
+			worktree_stop(cx, "error", "Could not read the main checkout", first_line(status.stderr))
+		elseif status.stdout ~= "" then
+			worktree_stop(cx, "error", "The main checkout has uncommitted changes", main)
+		elseif has_origin then
+			worktree_update(cx, main, branch)
+		else
+			worktree_open(cx, main, branch)
 		end
-		git(main, { "status", "--porcelain", "--untracked-files=normal" }, {}, function(status, cx)
-			if status.status ~= 0 then
-				worktree_stop(cx, "error", "Could not read the main checkout", first_line(status.stderr))
-			elseif status.stdout ~= "" then
-				worktree_stop(cx, "error", "The main checkout has uncommitted changes", main)
-			elseif has_origin then
-				worktree_update(cx, main, branch)
-			else
-				worktree_open(cx, main)
-			end
-		end)
 	end)
 end
 
@@ -848,10 +877,7 @@ local function worktree_branch(cx, main)
 	end)
 end
 
--- Zellij NewTab, with an agent in a new worktree: a new tab whose agent runs omp's /wt in the main
--- checkout of the focused pane's repo, after the checkout's default branch is brought up to date.
--- /wt branches from the HEAD of the folder that omp starts in and copies its uncommitted changes, so
--- the command opens the tab only when the main checkout is clean and on the default branch.
+-- Zellij NewTab, with an agent in a new worktree at the default branch of the focused pane's repo.
 tern.command({
 	id = "worktree_agent_tab",
 	title = "New agent tab in a new worktree",
