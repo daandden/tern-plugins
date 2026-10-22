@@ -67,6 +67,83 @@ local function in_view(state, i)
 	return true
 end
 
+-- Tab status priority; statuses absent from this table rank last.
+local TAB_ORDER = {
+	input = 1,
+	error = 2,
+	alert = 3,
+	done = 4,
+	idle = 5,
+	retrying = 6,
+	compacting = 7,
+	working = 8,
+	background = 9,
+	running = 10,
+	exited = 11,
+}
+local QUIET = 12
+
+-- Indexes tree rows by session and tab, preserving input order and excluding Waiting on you rows.
+local function tree_links(rows)
+	local sessions, tabs_of, panes_of = {}, {}, {}
+	for i, row in rows do
+		if row.group then
+			continue
+		elseif row.kind == "session" then
+			table.insert(sessions, i)
+			tabs_of[i] = {}
+		elseif row.kind == "tab" then
+			table.insert(tabs_of[row.session], i)
+		elseif row.kind == "pane" then
+			panes_of[row.tab] = panes_of[row.tab] or {}
+			table.insert(panes_of[row.tab], i)
+		end
+	end
+	return sessions, tabs_of, panes_of
+end
+
+-- Returns the tab's status rank, using only agent panes unless all panes are shown.
+local function tab_rank(state, i)
+	local panes = state.panes_of[i]
+	if panes == nil then
+		return TAB_ORDER[state.rows[i].status or ""] or QUIET
+	end
+	local rank = QUIET
+	for _, p in panes do
+		local pane = state.rows[p]
+		if state.all or pane.agent then
+			rank = math.min(rank, TAB_ORDER[pane.status or ""] or QUIET)
+		end
+	end
+	return rank
+end
+
+-- Orders each session's tabs by status, preserving last-seen order for ties and for split panes.
+local function tree_order(state)
+	local order = {}
+	for _, session in state.sessions do
+		table.insert(order, session)
+		local tabs = table.clone(state.tabs_of[session])
+		local rank = {}
+		for _, tab in tabs do
+			rank[tab] = tab_rank(state, tab)
+		end
+		table.sort(tabs, function(a, b)
+			if rank[a] ~= rank[b] then
+				return rank[a] < rank[b]
+			end
+			return a < b
+		end)
+		for _, tab in tabs do
+			table.insert(order, tab)
+			for _, pane in state.panes_of[tab] or {} do
+				table.insert(order, pane)
+			end
+		end
+	end
+	return order
+end
+
 -- Gives the shown rows their jump numbers. A session row that shows one tab row under it shares
 -- its number with that tab (`merged`), because both go to the same pane: the tab row
 -- shows no number, and Up/Down skips it (`skip`). Every other row gets the next number, and the
@@ -101,21 +178,23 @@ end
 -- above each match.
 local function refilter(state)
 	local shown = {}
+	local tree = tree_order(state)
 	if state.query == "" then
 		for i, row in state.rows do
 			if row.group and in_view(state, i) then
 				table.insert(shown, i)
 			end
 		end
-		for i, row in state.rows do
-			if not row.group and in_view(state, i) then
+		for _, i in tree do
+			if in_view(state, i) then
 				table.insert(shown, i)
 			end
 		end
 	else
 		local keep = {}
-		for i, row in state.rows do
-			if not row.group and in_view(state, i) and matches(state.texts[i], state.query) then
+		for _, i in tree do
+			local row = state.rows[i]
+			if in_view(state, i) and matches(state.texts[i], state.query) then
 				keep[i] = true
 				if row.session then
 					keep[row.session] = true
@@ -125,7 +204,7 @@ local function refilter(state)
 				end
 			end
 		end
-		for i in state.rows do
+		for _, i in tree do
 			if keep[i] then
 				table.insert(shown, i)
 			end
@@ -585,9 +664,13 @@ tern.block.define("picker", {
 		for i, row in rows do
 			texts[i] = search_text(row, rows)
 		end
+		local sessions, tabs_of, panes_of = tree_links(rows)
 		local state = {
 			rows = rows,
 			texts = texts,
+			sessions = sessions,
+			tabs_of = tabs_of,
+			panes_of = panes_of,
 			shown = {},
 			current = if ok and type(data) == "table" then data.current or 1 else 1,
 			cursor = 1,
