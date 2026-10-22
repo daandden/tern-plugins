@@ -485,8 +485,9 @@ local function remote_hosts(cx)
 end
 
 -- The picker's rows: each session in Tern's order, its tabs and each split tab's tiled panes last
--- seen first. Each row keeps the index of its session and tab rows, for search and for
--- the place of a Waiting on you row. A pane row, and the row of a tab with one pane, is marked
+-- seen first (host.luau then sorts the tabs by tab status). Each row keeps the index of its
+-- session and tab rows, for search and for the place of a Waiting on you row. A pane row, and
+-- the row of a tab with one pane, is marked
 -- `agent` when Tern lists its pane as an agent; a split tab row is marked `agent` when one of its
 -- panes is, and names in `solo` the row of its only agent pane, so that host.luau shows such a tab
 -- as one row with agents only. After the tree rows come the Waiting on you rows (marked `group`),
