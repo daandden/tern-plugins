@@ -48,6 +48,10 @@ Tern reloads linked plugins when a file in their checkout changes. Use `tern plu
 
 This repo does not hold the Tern configuration file. `~/.config/tern/settings.json` binds a plugin command as `plugin.<plugin id>.<command id>`, for example `plugin.zellij-keys.toggle_float` or `plugin.goto.open`. Open `keybinds.html` for the full guide to the keys, grouped by Zellij mode.
 
+Ctrl+Shift+T opens an omp tab in a new worktree based on the repository's default branch. Your original checkout can stay on a feature branch, but it must have no uncommitted changes. The shortcut fetches the default branch and uses its remote commit, or the cached remote commit if the fetch fails.
+
+These worktrees remain after you close the agent. They are created before omp starts, so omp's `worktree.onExit` cleanup does not own them. Remove a finished worktree explicitly with `git worktree remove <path>`.
+
 ## Development
 
 Run `tern plugin types <folder>` to write `<folder>/tern.d.luau`, the type definitions of the Tern Luau API for luau-lsp. The file comes from the installed Tern version, so git ignores it.

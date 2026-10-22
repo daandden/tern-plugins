@@ -710,8 +710,8 @@ local FETCH_TIMEOUT_MS = 30000
 local worktree_busy = false
 
 -- Runs `argv` and calls `cb(result, cx)` with the callback's window context.
-local function worktree_step(argv, cb)
-	tern.process.run(argv, { env = GIT_ENV }, function(result, later)
+local function worktree_step(argv, cb, cwd)
+	tern.process.run(argv, { env = GIT_ENV, cwd = cwd }, function(result, later)
 		if not later then
 			worktree_busy = false
 			return
@@ -759,7 +759,7 @@ local function worktree_open_tab(cx, path)
 end
 
 -- The folder of omp's worktrees: OMP_WORKTREE_DIR, else omp's setting worktree.base, else ~/.omp/wt.
-local function worktree_dir(cx, cb)
+local function worktree_dir(cx, main, cb)
 	local home = tern.getenv("HOME") or ""
 	local from_env = tern.getenv("OMP_WORKTREE_DIR")
 	if from_env and from_env ~= "" then
@@ -772,7 +772,7 @@ local function worktree_dir(cx, cb)
 			base = `{home}/.omp/wt`
 		end
 		cb(cx, (string.gsub(base, "^~", home)))
-	end)
+	end, main)
 end
 
 -- Adds a worktree on a new wt/<time> branch at `base` and opens its agent tab. omp's worktree add
@@ -787,7 +787,7 @@ local function worktree_open(cx, main, base)
 		end
 		worktree_step({ "/bin/date", "+%Y%m%d-%H%M%S" }, function(date, cx)
 			local stamp = first_line(date.stdout)
-			worktree_dir(cx, function(cx, dir)
+			worktree_dir(cx, main, function(cx, dir)
 				local path = `{dir}/wt-{stamp}-{short}`
 				local argv = { OMP, "worktree", "add", "--quiet", "-C", main, "-b", `wt/{stamp}`, path, base }
 				worktree_step(argv, function(added, cx)
@@ -797,7 +797,7 @@ local function worktree_open(cx, main, base)
 					else
 						worktree_open_tab(cx, path)
 					end
-				end)
+				end, main)
 			end)
 		end)
 	end)
