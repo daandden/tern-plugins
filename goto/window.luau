@@ -712,25 +712,56 @@ tern.route.link(function(link, cx)
 	return { handled = true }
 end)
 
--- Notes each focus for the last seen order, and drops the unseen turn result of the focused pane.
--- Focus that leaves the open picker closes it.
+-- Runs `fn` with a fresh cx once the event hook that calls it has returned. Tern turns a hook off
+-- until the next plugin reload after one call of it takes over 50 ms, and a tern.kv write can stall
+-- that long. So the focus and pane_closed hooks, which close the picker and forget it, leave their
+-- tern.kv work to a timer: a slow write then turns off timers, and the picker still closes.
+local function after_hook(fn)
+	tern.timer(0, function(cx)
+		if cx then
+			fn(cx)
+		end
+	end)
+end
+
+-- The number of agent_finished events of each pane since this script loaded. A deferred clear of
+-- a pane's unseen turn result reads it when its event comes and again when it runs, and clears only
+-- when they match: a turn that ended in between stored a newer result.
+local finish_count = {}
+
+-- Drops the unseen turn result of `pane` from a timer, unless a turn of `pane` ends first.
+local function clear_finished_after_hook(pane)
+	local count = finish_count[pane]
+	after_hook(function(_later)
+		if finish_count[pane] == count then
+			set_finished(pane, nil)
+		end
+	end)
+end
+
+-- Closes the open picker when focus leaves it. Then notes the focus for the last seen order, and
+-- drops the unseen turn result of the focused pane.
 tern.on("focus", function(ev, cx)
-	note_seen(cx, ev.pane, ev.tab)
-	set_finished(ev.pane, nil)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
+	after_hook(function(later)
+		note_seen(later, ev.pane, ev.tab)
+	end)
+	clear_finished_after_hook(ev.pane)
 end)
 
--- Forgets a picker that closed some other way, and the last focus and unseen turn result of a
--- closed pane.
+-- Forgets a picker that closed some other way. Then forgets the last focus and unseen turn result
+-- of the closed pane.
 tern.on("pane_closed", function(ev, _cx)
-	forget_seen("panes", ev.pane)
-	set_finished(ev.pane, nil)
 	if picker and ev.pane == picker.pane then
 		picker = nil
 		set_veil(false)
 	end
+	after_hook(function(_later)
+		forget_seen("panes", ev.pane)
+	end)
+	clear_finished_after_hook(ev.pane)
 end)
 
 -- Forgets the last focus of a closed tab.
@@ -742,6 +773,7 @@ end)
 -- marks it error. A turn that ends in the focused pane is one you saw, so it changes nothing. An
 -- agent that exited or closed has no turn result to show.
 tern.on("agent_finished", function(ev, cx)
+	finish_count[ev.pane] = (finish_count[ev.pane] or 0) + 1
 	if ev.result == "exited" or ev.result == "closed" then
 		set_finished(ev.pane, nil)
 	elseif cx.session:focused() ~= ev.pane then
