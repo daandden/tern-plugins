@@ -724,12 +724,13 @@ local function after_hook(fn)
 	end)
 end
 
--- The number of agent_finished events of each pane since this script loaded. A deferred clear of
--- a pane's unseen turn result reads it when its event comes and again when it runs, and clears only
--- when they match: a turn that ended in between stored a newer result.
+-- The number of turn results that agent_finished stored for each pane since this script loaded. A
+-- deferred clear of a pane's unseen turn result reads it when its event comes and again when it
+-- runs, and clears only when they match: a turn that ended in between stored a newer result. A turn
+-- that ends in the focused pane stores nothing and leaves the count, so the pending clear still runs.
 local finish_count = {}
 
--- Drops the unseen turn result of `pane` from a timer, unless a turn of `pane` ends first.
+-- Drops the unseen turn result of `pane` from a timer, unless a newer result is stored first.
 local function clear_finished_after_hook(pane)
 	local count = finish_count[pane]
 	after_hook(function(_later)
@@ -773,10 +774,10 @@ end)
 -- marks it error. A turn that ends in the focused pane is one you saw, so it changes nothing. An
 -- agent that exited or closed has no turn result to show.
 tern.on("agent_finished", function(ev, cx)
-	finish_count[ev.pane] = (finish_count[ev.pane] or 0) + 1
 	if ev.result == "exited" or ev.result == "closed" then
 		set_finished(ev.pane, nil)
 	elseif cx.session:focused() ~= ev.pane then
+		finish_count[ev.pane] = (finish_count[ev.pane] or 0) + 1
 		set_finished(ev.pane, if ev.result == "failed" then "error" else "done")
 	end
 end)
