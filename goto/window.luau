@@ -303,9 +303,11 @@ local WAIT_ROLES = { ["omp.ask.question"] = true, ["omp.plan.options"] = true }
 -- What omp shows about its state in the dock and layer regions of its surface (omp's TSP UI):
 -- whether it waits for you, its working row ("working", "retry" with a countdown meter, or
 -- "compacting" with a progress bar), whether an error banner is pinned, and whether a HUD pill
--- counts running subagents or background jobs ("2 agents running"). Reads only these two small
--- regions: the main region holds the whole chat. Agents without an omp surface give nothing, and
--- their status comes from Tern alone.
+-- counts running subagents or background jobs ("2 agents running"). A session that ran subagents
+-- keeps a pill segment with only a muted icon ("No agents running · 6 in this session"), so only a
+-- segment with a count text child counts. Reads only these two small regions: the main region
+-- holds the whole chat. Agents without an omp surface give nothing, and their status comes from
+-- Tern alone.
 local function omp_signals(cx, pane)
 	local sig = { waiting = false, working = nil, error = false, jobs = false }
 	local function walk(node)
@@ -315,8 +317,12 @@ local function omp_signals(cx, pane)
 			sig.waiting = true
 		elseif role == "omp.errorBanner" then
 			sig.error = true
-		elseif role == "omp.hud.pill" then
-			sig.jobs = true
+		elseif role == "omp.hud.seg" then
+			for _, child in node.c or {} do
+				if child.k == "text" then
+					sig.jobs = true
+				end
+			end
 		elseif role == "omp.working" then
 			sig.working = "working"
 			for _, child in node.c or {} do
