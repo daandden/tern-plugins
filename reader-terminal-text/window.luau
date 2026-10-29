@@ -4,9 +4,6 @@
 -- chrome (tool titles, chips, status) and sized headings keep Reader's values. Message text also
 -- gets the terminal's Font weight (--tv-weight), which Reader's `font` shorthands reset to 400.
 -- `:root` makes each rule outrank Reader's own.
---
--- The composer also gets the UI font: Reader sets it to `Geist, 'Berkeley Mono', var(--sans)`,
--- so Geist wins over `ui_font` (which Tern puts at the front of --sans).
 tern.css("reader-terminal-text", [[
 /* The terminal's size and row height, taken here before the composer redefines --sf-lh. */
 :root .sf-chat-reader {
@@ -72,7 +69,6 @@ tern.css("reader-terminal-text", [[
 }
 
 :root .sf-chat-reader .sf-col[data-role^='omp.editor'] .sf-editor:not(.code) {
-	font-family: var(--sans);
 	letter-spacing: normal;
 }
 
@@ -117,7 +113,7 @@ tern.css("reader-terminal-text", [[
 	height: var(--term-lh);
 	margin: 0 0 var(--term-lh);
 	border: 0;
-	background: linear-gradient(var(--sf-p-mdHr, var(--l2)), var(--sf-p-mdHr, var(--l2))) center / 100% 1px no-repeat;
+	background: linear-gradient(var(--omp-mdHr, var(--l2)), var(--omp-mdHr, var(--l2))) center / 100% 1px no-repeat;
 }
 
 :root:root .sf-chat-reader .sf-md .md li {

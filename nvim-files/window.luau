@@ -1,6 +1,5 @@
 -- Text and code files on this machine open in Neovim in a terminal pane, not in Tern's code view.
--- Tern's code view draws rows as tall as the font, and no setting changes that
--- (https://github.com/stencil-hq/tern-sdk/issues/20). A terminal pane follows adjust_cell_height.
+-- Tern 0.9.7's code view still ignores adjust_cell_height; terminal panes follow it.
 -- Tern still opens Markdown (rendered), notebooks, images, PDFs, databases, binary files, files
 -- over 4 MiB and files on remote hosts. Tern resolves a symlink before it asks a route, so a symlink
 -- to a text file opens its target here. HTML files stay with html-links, or with Tern for a clicked

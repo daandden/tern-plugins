@@ -189,15 +189,37 @@ local function pages_to_reload(cx)
 	return pages
 end
 
--- Reloads the focused page, or the local pages in the focused pane's tab. settings.json binds Cmd+R
--- to it after the SQLite refresh actions, because Tern drops a plugin default key that a preset binds.
+local SQLITE_RELOAD = {
+	structure = "sqlite.structure.refresh",
+	browse = "sqlite.browse.refresh",
+	execute = "sqlite.execute.execute",
+	pragmas = "sqlite.pragmas.refresh",
+}
+
+-- Runs only the active SQLite area's action, or reloads pages. In Tern 0.9.7 an inactive
+-- Execute action can consume Browse's first Cmd+R, so settings.json binds this one dispatcher.
 tern.command({
-	id = "reload_page",
-	title = "Reload page",
+	id = "reload",
+	title = "Reload page or run SQLite action",
 	available = function(cx)
+		local focused = cx.session:focused()
+		local info = focused and cx.session:pane(focused)
+		if info and info.kind == "database" then
+			return true
+		end
 		return #pages_to_reload(cx) > 0
 	end,
 	run = function(cx)
+		local focused = cx.session:focused()
+		local info = focused and cx.session:pane(focused)
+		if info and info.kind == "database" then
+			local view = cx.session:read(focused, { rows = 1, max_chars = 1 })
+			local action = type(view) == "table" and SQLITE_RELOAD[view.area]
+			if action then
+				cx:action(action)
+			end
+			return
+		end
 		for _, pane in pages_to_reload(cx) do
 			cx.browser:call({ op = "nav", block = pane, go = "reload" }):next(function(result, err, later)
 				local why = err or (result and result.error and result.error.message)

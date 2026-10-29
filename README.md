@@ -7,12 +7,16 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | Plugin | What it does |
 | --- | --- |
 | `zellij-keys` | Adds Zellij actions that Tern has no built-in command for: floating panes, floating Yazi, lazygit and btop, breaking a pane out to a tab, and focus moves between panes and tabs. |
-| `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. |
-| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page. |
+| `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. The picker follows Tern's glass palette dimming. |
+| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page, or runs the active SQLite view's refresh or Execute action. |
 | `nvim-files` | Opens local text and code files in Neovim in a terminal pane, not in Tern's code view. Markdown, notebooks, images, PDFs, databases and binary files stay in Tern. |
-| `reader-terminal-text` | In the Reader chat style, gives omp's text the font size, row height and font weight of the terminal. The plugin is CSS only. |
+| `reader-terminal-text` | In the Reader chat style, gives omp's text the terminal's font size, row height and weight. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
 
 `bin/open` replaces the macOS `open` command in a Tern pane. `open FILE...` with only local files opens each file in Tern beside the pane that ran the command. Every other call goes to `/usr/bin/open`.
+
+Verified with Tern 0.9.7 and omp 18.13.3. nvim-files remains needed because the native code view still ignores the line-height setting.
+
+Known limitation: clicking a native edge handle can preview a moved float at its cascade position. Focusing it or pressing Alt+F restores its saved position. [Issue #8](https://github.com/daandden/tern-plugins/issues/8) tracks checking this after a later Tern update.
 
 ## Requirements
 

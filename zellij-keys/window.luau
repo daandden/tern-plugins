@@ -701,7 +701,7 @@ tern.command({
 	end,
 })
 
--- Git and omp as the plugin runs them: Tern's PATH has no /opt/homebrew/bin. GIT_TERMINAL_PROMPT=0
+-- Plugin processes inherit the launcher's PATH, which may lack Homebrew. GIT_TERMINAL_PROMPT=0
 -- makes a fetch that needs a password fail at once instead of waiting for input that never comes.
 local GIT = "/opt/homebrew/bin/git"
 local OMP = "/opt/homebrew/bin/omp"
@@ -922,7 +922,6 @@ local function float_command(id, title, command)
 	})
 end
 
--- Tern runs `command` through the login shell, and bash's login PATH here lacks /opt/homebrew/bin.
 float_command("float_yazi", "Float yazi", "/opt/homebrew/bin/yazi")
 float_command("float_lazygit", "Float lazygit", "/opt/homebrew/bin/lazygit")
 float_command("float_btop", "Float btop", "/opt/homebrew/bin/btop")
