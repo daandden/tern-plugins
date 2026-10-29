@@ -8,7 +8,7 @@ A local HTML file (`.html` or `.htm`, in any case) that Tern would open as sourc
 - `html-bin-open` opens the page beside the pane that ran `bin/open FILE.html`, and `bin/open` exits 0.
 - `html-float-opener` docks the page beside the tiled pane under a float opener.
 - `html-files-pane` opens the page from the Files pane.
-- `html-reload` reloads the focused page, or from another pane the local pages in its tab (Cmd+R, or `Reload page` in the palette).
+- `html-reload` reloads the focused page, or from another pane the local pages in its tab (Cmd+R, or `Reload page or run SQLite action` in the palette). In SQLite it runs only the active area's refresh or Execute action.
 - `html-file-links` leaves a clicked `file://` link to Tern, which renders an HTML page beside the opener, also from a float. A fragment alone renders the file with the fragment dropped. A query with a fragment (`page.html?x=1#top`) opens as a Tern file block named `page.html?x=1`: an accepted cost, not a fault.
 - `html-web-links` keeps a clicked web link to this machine (`localhost`, `*.localhost`, `127.x.x.x`, `::1`, `0.0.0.0`, the host name, also with `.local`) in Tern, and opens every other clicked web link in Microsoft Edge. A link clicked inside a Tern page stays in that page.
 - `html-other-files` leaves other files to nvim-files or to Tern.
@@ -20,7 +20,7 @@ A local HTML file (`.html` or `.htm`, in any case) that Tern would open as sourc
 - Open the file from the Files pane (Ctrl+Cmd+E shows it).
 - Cmd+click a `file://` link to an HTML file, a plain path or a web link in a terminal pane.
 - Run `open -a Tern page.html`. Finder and a plain macOS `open` send HTML files to Microsoft Edge, the default app for HTML.
-- Press Cmd+R, or choose `Reload page` in the command palette.
+- Press Cmd+R, or choose `Reload page or run SQLite action` in the command palette.
 
 ## Driving it with tern-verify
 
@@ -39,12 +39,12 @@ Preconditions:
 - Nonfocused tab. Type `sleep 3; <checkout>/bin/open page2.html; echo EXIT=$status` in a shell, press Enter, then focus another tab before the delay ends. The rendered page docks in the opener's tab and the shell reports `EXIT=0`. Keep the owner handoff while open requests do not name a pane.
 - Reload. Change the `<h1>` of the file with `printf` into `RUN/data/page.html`, focus the page pane with `"$V" tern "$RUN" focus ID`, and run `"$V" ctl "$RUN" key cmd+r`. The webcall prints the new heading. Before the key, it prints the old one.
 - Reload from a shell. Focus the shell pane beside the page, change the file again, and press `key cmd+r`. Then focus the page pane and run the webcall. It prints the new heading.
-- Reload from the palette. Change the file again, focus the page pane, and run `"$V" ctl "$RUN" palette '"Reload page"'` and `"$V" ctl "$RUN" key enter`. The webcall prints the new heading.
-- SQLite key precedence. In the isolated instance, bind Cmd+R to this exact order: `sqlite.structure.refresh`, `sqlite.execute.execute`, `sqlite.pragmas.refresh`, `sqlite.browse.refresh`, then `plugin.html-links.reload_page`. Tern 0.9.7's native preset puts Browse before Execute and Pragmas. Fresh native and original-override checks left SQL unexecuted and pragma fields unchanged through eight seconds of polling; the reordered list updated both. The action ids remain valid.
-- Structure and Browse. Add a table through a separate connection, press Cmd+R in Structure, and wait for `.sq-structure` to show it. Insert a row through that connection, press Cmd+R in Browse, and wait for `.sq-br-grid` to show it.
+- Reload from the palette. Change the file again, focus the page pane, and run `"$V" ctl "$RUN" palette '"Reload page or run SQLite action"'` and `"$V" ctl "$RUN" key enter`. The webcall prints the new heading.
+- SQLite key dispatch. Bind Cmd+R to `plugin.html-links.reload` alone through `cx.settings:bind`. The command reads the focused database's `area` through `cx.session:read` with one-record and one-character caps, then runs only that area's native action. These caps minimize the returned data; zero caps are clamped to one in Tern 0.9.7, not a metadata-only read. An ordered action list is not enough: Browse before Execute and Pragmas blocks those modes, while Execute before Browse consumes the first Browse refresh in a fresh window. All four native action IDs remain valid.
+- First-use checks. Use a separate fresh window for each SQLite mode, with no earlier Cmd+R or direct refresh to warm dispatch. In Structure, add a table through a separate connection, press Cmd+R, and wait for `.sq-structure` to show it. In Browse, insert a unique row externally and wait for the first Cmd+R to show it in `.sq-br-grid`; do not run Execute first.
 - Execute. Enter a SELECT with a new numeric marker, focus the SQL editor, and press Cmd+R. Wait for the results grid to show the marker. Do not count a direct Execute-button action or Cmd+Enter as Cmd+R proof.
 - Pragmas. Open Pragmas, click `.sq-pr-top` to leave the previous editor's keyboard focus, and capture `.sq-pragmas input`. Change `PRAGMA user_version` through a separate connection. Press Cmd+R and wait for the field to show the new number. A hidden error node in a broad tree is not a visible error; inspect the actual field value or screenshot.
-- Keep the same ordered binding for all four SQLite checks and the HTML reload check. Capture effective `cx.actions:keys()` and the isolated settings before and after. `cx.actions:describe` and `list` did not discover native SQLite actions in 0.9.7, even for working ids; an Unknown action response there does not prove a rename.
+- Keep the same single-action binding for all four first-use checks and HTML reload. Then switch between modes and confirm that a Browse refresh does not run SQL left in Execute. Capture effective `cx.actions:keys()` and the isolated settings. `cx.actions:describe` and `list` do not discover native SQLite actions in 0.9.7, even for working IDs; an Unknown action response there does not prove a rename.
 - Load report. Focus the page pane and run `"$V" ctl "$RUN" webreports '.tn-pane.on .kit-web-page'`. It lists `committed` and `loaded` for the `file://` URL.
 - Clicked file link. Focus pane 5, run `"$V" type "$RUN" 'echo PROBE_LINK file://<RUN>/data/page.html'` and Cmd-click the link. `tern ls` lists a new `file:///.../page.html` browser pane right after pane 5, and the webcall on it prints the page. From a float (Alt+F), the same with `page2.html` gives a tiled browser pane right after the tiled pane under the float.
 - Query link. From pane 5, Cmd-click the link `file://<RUN>/data/page.html?x=1#top`. `tern ls` lists a new pane named `page.html?x=1` that is a Tern file block (`tree '.tn-pane.on .kit-web-page'` finds nothing in it), not a browser pane.

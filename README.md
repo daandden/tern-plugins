@@ -8,7 +8,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | --- | --- |
 | `zellij-keys` | Adds Zellij actions that Tern has no built-in command for: floating panes, floating Yazi, lazygit and btop, breaking a pane out to a tab, and focus moves between panes and tabs. |
 | `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. The picker follows Tern's glass palette dimming. |
-| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page. |
+| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page, or runs the active SQLite view's refresh or Execute action. |
 | `nvim-files` | Opens local text and code files in Neovim in a terminal pane, not in Tern's code view. Markdown, notebooks, images, PDFs, databases and binary files stay in Tern. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's text the terminal's font size, row height and weight. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
 
