@@ -11,7 +11,7 @@ A local HTML file (`.html` or `.htm`, in any case) that Tern would open as sourc
 - `html-reload` reloads the focused page, or from another pane the local pages in its tab (Cmd+R, or `Reload page or run SQLite action` in the palette). In SQLite it runs only the active area's refresh or Execute action.
 - `html-file-links` leaves a clicked `file://` link to Tern, which renders an HTML page beside the opener, also from a float. A fragment alone renders the file with the fragment dropped. A query with a fragment (`page.html?x=1#top`) opens as a Tern file block named `page.html?x=1`: an accepted cost, not a fault.
 - `html-web-links` keeps a clicked web link to this machine (`localhost`, `*.localhost`, `127.x.x.x`, `::1`, `0.0.0.0`, the host name, also with `.local`) in Tern, and opens every other clicked web link in Microsoft Edge. A link clicked inside a Tern page stays in that page.
-- `html-other-files` leaves other files to nvim-files or to Tern.
+- `html-other-files` leaves other files to Tern's native file routing.
 
 ## How to get to it (user POV)
 

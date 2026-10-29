@@ -1,6 +1,6 @@
 ---
 name: verify-tern-plugins
-description: Drives the Tern plugins of this repo (goto, html-links, nvim-files, reader-terminal-text, zellij-keys) and bin/open in an isolated Tern window, and captures proof. Use to verify a plugin change through the Tern desktop window (keys, commands, file opens, CSS), the bin/open command, or the tern CLI.
+description: Drives the Tern plugins of this repo (goto, html-links, reader-terminal-text, zellij-keys) and bin/open in an isolated Tern window, and captures proof. Use to verify a plugin change through the Tern desktop window (keys, commands, file opens, CSS), the bin/open command, or the tern CLI.
 ---
 
 # Verify tern-plugins
@@ -22,7 +22,7 @@ Drive only the instance that your run started. Every `tern` command goes through
 These stay shared with your own Tern:
 
 - `~/.cache/tern/open-owners`, the handoff dir of `bin/open`.
-- The Neovim and omp configurations in your home directory.
+- The omp configuration in your home directory.
 - The Stencil account of this Mac. There is no separate sign-in.
 - The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
 

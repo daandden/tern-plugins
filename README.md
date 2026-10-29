@@ -9,19 +9,18 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | `zellij-keys` | Adds Zellij actions that Tern has no built-in command for: floating panes, floating Yazi, lazygit and btop, breaking a pane out to a tab, and focus moves between panes and tabs. |
 | `goto` | Opens a picker of sessions, tabs and agent panes. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top. The picker follows Tern's glass palette dimming. |
 | `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page, or runs the active SQLite view's refresh or Execute action. |
-| `nvim-files` | Opens local text and code files in Neovim in a terminal pane, not in Tern's code view. Markdown, notebooks, images, PDFs, databases and binary files stay in Tern. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's text the terminal's font size, row height and weight. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
 
 `bin/open` replaces the macOS `open` command in a Tern pane. `open FILE...` with only local files opens each file in Tern beside the pane that ran the command. Every other call goes to `/usr/bin/open`.
 
-Verified with Tern 0.9.7 and omp 18.13.3. nvim-files remains needed because the native code view still ignores the line-height setting.
+Verified with Tern 0.9.8. Text and code files use Tern's native code view, which now follows the line-height setting.
 
-Known limitation: clicking a native edge handle can preview a moved float at its cascade position. Focusing it or pressing Alt+F restores its saved position. [Issue #8](https://github.com/daandden/tern-plugins/issues/8) tracks checking this after a later Tern update.
+Known limitation: clicking a native edge handle can preview a moved float at its cascade position. Alt+F show-all restores its saved position; focusing the revealed float alone may not. [Issue #8](https://github.com/daandden/tern-plugins/issues/8) tracks this limitation.
 
 ## Requirements
 
 - Tern and its `tern` command.
-- Neovim, Yazi, lazygit and btop in `/opt/homebrew/bin`, for `nvim-files` and the float commands of `zellij-keys`.
+- Yazi, lazygit and btop in `/opt/homebrew/bin`, for the float commands of `zellij-keys`.
 - Git and GNU coreutils' `gtimeout` in `/opt/homebrew/bin`, for the worktree-agent shortcut's fetch deadline.
 - The font `Symbols Nerd Font`, for the status marks of `goto`.
 - Microsoft Edge, for web links from `html-links`.
@@ -33,7 +32,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 1. Link each plugin folder into the plugins directory of Tern (`~/.config/tern/plugins`):
 
    ```sh
-   for d in goto html-links nvim-files reader-terminal-text zellij-keys; do
+   for d in goto html-links reader-terminal-text zellij-keys; do
      tern plugin link "$PWD/$d"
    done
    ```
@@ -47,6 +46,8 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
    ```
 
 Tern reloads linked plugins when a file in their checkout changes. Use `tern plugin reload` and `tern plugin list` to check that every plugin loaded.
+
+When upgrading from a version with `nvim-files` linked, run `tern plugin unlink nvim-files` before reloading. Tern 0.9.8 fixes the native code-view line-height limitation, so the Neovim routing plugin has been removed.
 
 ## Keybinds
 
