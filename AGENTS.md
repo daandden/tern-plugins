@@ -95,6 +95,10 @@ Issues live in the GitHub Issues of `daandden/tern-plugins`, and the skills use 
 
 PRs live on GitHub in `daandden/tern-plugins`, and the skills use the `gh` CLI. See `docs/vstack/code-host.md`.
 
+### CI service
+
+Builds and checks run on GitHub Actions, and the skills use the `gh` CLI. See `docs/vstack/ci.md`.
+
 ### Triage labels
 
 The repo uses the five default triage labels, and each label is the same as its role name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. See `docs/vstack/triage-labels.md`.
