@@ -26,7 +26,7 @@ These stay shared with your own Tern:
 - The Stencil account of this Mac. There is no separate sign-in.
 - The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
 
-Tern reloads the linked plugins when a file of the loaded checkout changes, also a file under `.omp/`. A reload closes the Go to picker and resets the Lua state of every plugin. Save no file in the checkout while a drive step runs, and do not run two agents that edit the checkout beside a run.
+Tern reloads linked plugins when a file of the loaded checkout changes, also under `.omp/`. A full reload resets their Lua state and closes the Go to picker. `tern plugin reload <id>` reloads only that plugin; reloading another plugin leaves goto's picker open. Save no file in the loaded checkout while a drive step runs. For concurrent work, use a private runtime copy and set `TERN_PLUGINS_REPO` to it.
 
 ## Helpers
 
@@ -38,7 +38,7 @@ V=<directory of this SKILL.md>/scripts/tern-verify
 
 Every command takes the run dir first:
 
-- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` into the instance with `shell` set to fish, writes the omp offer as answered with Not Now, wakes the display, opens the window and waits for a shell prompt. It keeps the display awake until that window closes. With the display off, a new window can stop before it attaches to its daemon; the daemon then ends idle. Without the omp state, Tern shows its native "Tern is better with omp. Install it?" alert at each start.
+- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` with fish as the shell, clears inherited pane variables, marks the omp offer answered, wakes the display, opens the window and waits for a shell prompt. It keeps the display awake until the window closes. With the display off, a new window can stop before it attaches to its daemon. Without the seeded omp state, Tern can show "Tern is better with omp. Install it?" or "Let Tern keep omp up to date?".
 - `"$V" doctor "$RUN"` is the read-only instance check.
 - `"$V" ctl "$RUN" ARGS...` runs `tern ctl ARGS...` on the instance's control socket.
 - `"$V" tern "$RUN" ARGS...` runs a `tern` CLI command against the instance, for example `"$V" tern "$RUN" ls`.
@@ -69,7 +69,7 @@ If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `
 
 Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It changes nothing. It exits 1 when a check fails. It prints:
 
-- The checkout and its commit, and the Tern version (`tern 0.9.5` at the last check of this skill).
+- The checkout and its commit, and the Tern version (`tern 0.9.7` at the last check, with omp 18.13.3).
 - The window pid and the owner of `RUN/data/ctl.sock`. Both must be the same pid.
 - The daemon pid, as the owner of `RUN/data/daemon.sock`. `daemon: NOT RUNNING` fails the check: the daemon of the run ended, so panes and `tern` CLI commands do not work, and the window shows a pane named `data` with no shell. Stop the run and start a new one.
 - The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here. `daemon sessions: NONE` fails Doctor even when the window's local state lists a session: the window did not attach to the daemon.
@@ -105,7 +105,7 @@ Do not use coordinates (`click X Y`, `pick X Y`). The window size and the user's
 Each run keeps its proof at the top level of `RUN` (`<Scratch dir>/verify/tern-plugins-<run-id>/`). Throwaway app data goes in `RUN/data`, which `stop` deletes. Never commit either.
 
 - Capture the state before and after each action, not only the final screen. Save the command output with `| tee "$RUN/<feature>-<step>.json"` or `.txt`.
-- A shot: `"$V" shot "$RUN" <feature>-<step>`. It renders the window at full resolution (2560 by 1600 for the default 1280 by 800 window) and converts the PNG to lossless WebP without a resize. Read the `.webp` path to look at it.
+- A shot: `"$V" shot "$RUN" <feature>-<step>`. It captures the full window at its actual display scale and converts the PNG to lossless WebP without resizing. A 1280 by 800 window is 2560 by 1600 on a 2x display, or 1280 by 800 on a 1x display. Read the `.webp` path.
 - Prove side effects as well: `RUN/data/config/settings.json`, `RUN/data/config/plugin-data/<id>/kv.json`, the panes in `"$V" tern "$RUN" ls`, and the exit code and output of a typed command (`"$V" tern "$RUN" capture ID`).
 - Write `RUN/notes.md`: the commit under test, each feature ID and entry point you drove, the evidence file of each, and each skipped entry point with the reason.
 
