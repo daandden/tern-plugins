@@ -40,6 +40,7 @@ repo=${TERN_PLUGINS_REPO:-$(git -C "$script_dir" rev-parse --show-toplevel)}
 # calling pane, a CLI command goes to the window of that pane.
 iso() {
 	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
+		-u TERN_IDENTITY -u TERN_EXE -u TERN_BLOB_DIR -u TERN_LENSES -u TERN_COMPLETE \
 		TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" "$@"
 }
 
@@ -82,6 +83,7 @@ start)
 	/usr/bin/caffeinate -u -t 2
 	cd "$data"
 	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
+		-u TERN_IDENTITY -u TERN_EXE -u TERN_BLOB_DIR -u TERN_LENSES -u TERN_COMPLETE \
 		TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" \
 		tern --control "$ctl_sock" "$data" >"$run/window.log" 2>&1 </dev/null &
 	echo $! >"$data/window.pid"

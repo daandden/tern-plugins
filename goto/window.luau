@@ -19,7 +19,7 @@ tern.css("palette", [[
 	border: none;
 	border-radius: calc(16px * var(--tn-zoom, 1));
 	background: transparent;
-	box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.55);
+	box-shadow: 0 0 0 4000px var(--modal-dim);
 }
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] > .tn-head,
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] > .tn-pip-grip,
@@ -109,11 +109,11 @@ tern.css("palette", [[
 	border: 1.5px solid var(--accent);
 	border-right-color: transparent;
 	border-bottom-color: transparent;
-	animation: tnHdSpin 0.8s steps(16) infinite !important;
+	animation: tnHdSpin 0.8s steps(16) infinite;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em {
 	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
-	animation: sf-turn 0.9s steps(18) infinite !important;
+	animation: sf-turn 0.9s steps(18) infinite;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em::after {
 	content: '';
@@ -143,7 +143,7 @@ tern.css("palette", [[
 	width: 30%;
 	border-radius: inherit;
 	background: var(--accent);
-	animation: sf-indet 1.3s steps(26) infinite !important;
+	animation: sf-indet 1.3s steps(26) infinite;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del {
 	width: 4px;
@@ -151,15 +151,15 @@ tern.css("palette", [[
 	margin: 0 2px 0 3px;
 	background: var(--accent);
 	text-decoration: none;
-	animation: sf-dot 1.25s steps(5) infinite !important;
+	animation: sf-dot 1.25s steps(5) infinite;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
 	margin-left: 0;
-	animation-delay: 0.15s !important;
+	animation-delay: 0.15s;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
 	margin-right: 3px;
-	animation-delay: 0.3s !important;
+	animation-delay: 0.3s;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark {
 	background: transparent !important;
@@ -171,10 +171,10 @@ tern.css("palette", [[
 	inset: 0;
 	border-radius: 50%;
 	box-shadow: inset 0 0 0 1.5px var(--warn);
-	animation: tnRing 3s linear infinite !important;
+	animation: tnRing 3s linear infinite;
 }
 :root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark::after {
-	animation-delay: 0.4s !important;
+	animation-delay: 0.4s;
 }
 [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-muted {
 	box-shadow: inset 0 0 0 1.5px var(--t4);
@@ -208,21 +208,21 @@ tern.css("palette", [[
 -- closes it. Nil when no picker is open in this window.
 local picker = nil
 
--- The palette darkens the whole window, but the picker pane's shadow stops at the pane area. This
--- sheet darkens the rest while a picker is open, and is empty otherwise (CSS cannot tell that the
--- picker is open):
--- - The tab bar strip and the window edges are the window background, which no element draws, so
---   an inset shadow on the body darkens it, with the palette's 55% black.
--- - The tab bar items and the file tree draw above that background. A brightness filter of 0.45
---   darkens them and their text the same way as the palette's veil; opacity would let the
---   background show through instead.
 local VEIL = [[
 :root:root body {
-	box-shadow: inset 0 0 0 4000px rgba(0, 0, 0, 0.55);
+	box-shadow: inset 0 0 0 4000px var(--modal-dim);
 }
-:root:root #tabbar > .tb-in,
-:root:root .tn-stage > nav.ft {
-	filter: brightness(0.45);
+:root:root #tabbar > .tb-in {
+	position: relative;
+}
+:root:root #tabbar > .tb-in::after,
+:root:root .tn-stage > nav.ft::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--modal-dim);
+	pointer-events: none;
+	z-index: 1;
 }
 ]]
 
@@ -718,44 +718,14 @@ tern.route.link(function(link, cx)
 	return { handled = true }
 end)
 
--- Runs `fn` with a fresh cx once the event hook that calls it has returned. Tern turns a hook off
--- until the next plugin reload after one call of it takes over 50 ms, and a tern.kv write can stall
--- that long. So the focus and pane_closed hooks, which close the picker and forget it, leave their
--- tern.kv work to a timer: a slow write then turns off timers, and the picker still closes.
-local function after_hook(fn)
-	tern.timer(0, function(cx)
-		if cx then
-			fn(cx)
-		end
-	end)
-end
-
--- The number of turn results that agent_finished stored for each pane since this script loaded. A
--- deferred clear of a pane's unseen turn result reads it when its event comes and again when it
--- runs, and clears only when they match: a turn that ended in between stored a newer result. A turn
--- that ends in the focused pane stores nothing and leaves the count, so the pending clear still runs.
-local finish_count = {}
-
--- Drops the unseen turn result of `pane` from a timer, unless a newer result is stored first.
-local function clear_finished_after_hook(pane)
-	local count = finish_count[pane]
-	after_hook(function(_later)
-		if finish_count[pane] == count then
-			set_finished(pane, nil)
-		end
-	end)
-end
-
 -- Closes the open picker when focus leaves it. Then notes the focus for the last seen order, and
 -- drops the unseen turn result of the focused pane.
 tern.on("focus", function(ev, cx)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
-	after_hook(function(later)
-		note_seen(later, ev.pane, ev.tab)
-	end)
-	clear_finished_after_hook(ev.pane)
+	note_seen(cx, ev.pane, ev.tab)
+	set_finished(ev.pane, nil)
 end)
 
 -- Forgets a picker that closed some other way. Then forgets the last focus and unseen turn result
@@ -765,10 +735,8 @@ tern.on("pane_closed", function(ev, _cx)
 		picker = nil
 		set_veil(false)
 	end
-	after_hook(function(_later)
-		forget_seen("panes", ev.pane)
-	end)
-	clear_finished_after_hook(ev.pane)
+	forget_seen("panes", ev.pane)
+	set_finished(ev.pane, nil)
 end)
 
 -- Forgets the last focus of a closed tab.
@@ -783,7 +751,6 @@ tern.on("agent_finished", function(ev, cx)
 	if ev.result == "exited" or ev.result == "closed" then
 		set_finished(ev.pane, nil)
 	elseif cx.session:focused() ~= ev.pane then
-		finish_count[ev.pane] = (finish_count[ev.pane] or 0) + 1
 		set_finished(ev.pane, if ev.result == "failed" then "error" else "done")
 	end
 end)
