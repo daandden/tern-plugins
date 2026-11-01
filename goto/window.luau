@@ -42,6 +42,12 @@ tern.css("palette", [[
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row[data-tone='warning'] .pk-fact.f-elapsed {
 	color: var(--warn);
 }
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-chev {
+	display: none;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-lead.none {
+	width: 16px;
+}
 ]])
 
 -- The open picker: its pane, and whether its first focus settled, so that a later focus elsewhere
