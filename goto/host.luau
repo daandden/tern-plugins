@@ -1,5 +1,5 @@
 -- Go to picker, host half: the `picker` block. It shows the sessions, tabs and panes that the window
--- half passes in as a tree in Tern's picker node, each with its status dot, a jump number and its
+-- half passes in as a tree in Tern's picker node, each with a jump number, its status mark and its
 -- working time or waiting time, and reports the row you pick as a goto: link. Under their own
 -- header above the tree, the Waiting on you rows (marked `group`) repeat the panes that wait for
 -- you, each named by its session, tab and pane. It opens with agent panes only. Idle agents stay
@@ -376,27 +376,32 @@ local function highlighted(text, query, tokens)
 	return spans
 end
 
--- What each pane status shows: a dot in a Tern tone before the row, and the status's words as the
--- row's tooltip. Every busy status takes the pending dot, the one dot that Tern pulses.
+-- What each pane status shows: a mark after the jump number, and the status's words as the row's
+-- tooltip. A busy status is a mark that moves and an idle one a hollow ring, which window.luau
+-- draws on a no-break space, because Tern keeps only its own style tokens: "num" is the hook, and
+-- the second token picks the mark (accent: turning arc, em: orbiting dot, ins: sliding bar, del:
+-- one of three dots, mark: widening rings, muted: hollow ring). A status that waits for you is a
+-- still Nerd Font glyph in a Tern tone, with the "icon" token as its hook. window.luau sizes every
+-- mark, and the empty mark of a row with no status, to one slot, so the names line up.
 local STATUS = {
-	input = { dot = "warning", words = "Waits for your input" },
-	retrying = { dot = "pending", words = "Retrying" },
-	compacting = { dot = "pending", words = "Compacting" },
-	working = { dot = "pending", words = "Working" },
-	error = { dot = "error", words = "Error" },
-	background = { dot = "pending", words = "Background jobs running" },
-	done = { dot = "success", words = "Done" },
-	idle = { dot = "muted", words = "Idle" },
-	exited = { dot = "error", words = "Exited" },
-	running = { dot = "pending", words = "Running a command" },
-	alert = { dot = "error", words = "Alert" },
+	input = { glyph = "\u{F059}", tokens = "icon warning", words = "Waits for your input" },
+	retrying = { tokens = "num mark", words = "Retrying" },
+	compacting = { tokens = "num ins", words = "Compacting" },
+	working = { tokens = "num accent", words = "Working" },
+	error = { glyph = "\u{F071}", tokens = "icon error", words = "Error" },
+	background = { tokens = "num del", count = 3, words = "Background jobs running" },
+	done = { glyph = "\u{F00C}", tokens = "icon success", words = "Done" },
+	idle = { tokens = "num muted", words = "Idle" },
+	exited = { glyph = "\u{F00D}", tokens = "icon error", words = "Exited" },
+	running = { tokens = "num em", words = "Running a command" },
+	alert = { glyph = "\u{F0F3}", tokens = "icon error", words = "Alert" },
 }
 
 -- The row tone of each kind of time, which the palette sheet in window.luau gives the time column:
 -- working time in the accent, waiting time in the warning tone.
 local TIME_TONE = { working = "accent", waiting = "warning" }
 
--- The indent of each kind of tree row, before its jump number: tabs under their session, panes
+-- The indent of each kind of tree row, after its status mark: tabs under their session, panes
 -- under their tab. Spaces, not the picker's tree guides and chevrons, keep the rows compact.
 local INDENT = { session = "", tab = "\u{00A0}\u{00A0}", pane = "\u{00A0}\u{00A0}\u{00A0}\u{00A0}" }
 
@@ -425,26 +430,35 @@ local function place_spans(state, row, dim)
 	return spans
 end
 
--- One row as a picker item: the indent of a tree row and its jump number, then the label (search
--- matches highlighted) or the place of a Waiting on you row. A row with no number keeps the
--- number's width in figure spaces, so the names line up. The dot, tooltip and working or waiting
--- time are those of the pane the row stands for.
+-- One row as a picker item: the jump number and the status mark of the pane the row stands for,
+-- then the indent of a tree row and its label (search matches highlighted), or the place of a
+-- Waiting on you row. A row with no number keeps the number's width in figure spaces, so the marks
+-- and names line up. The tooltip and the working or waiting time are those of the same pane.
 local function picker_item(state, position, i)
 	local row = state.rows[i]
 	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
 	local dim = if reachable then nil else "dim"
 	local label: { any } = {}
-	if not row.group and INDENT[row.kind] ~= "" then
-		table.insert(label, ui.span(INDENT[row.kind]))
-	end
 	if state.skip[i] then
-		table.insert(label, ui.span(string.rep("\u{2007}", if #state.jumps <= 9 then 1 else 2) .. " ", dim))
+		table.insert(label, ui.span(string.rep("\u{2007}", if #state.jumps <= 9 then 1 else 2), dim))
 	elseif number then
 		for _, span in number_spans(state, number, dim) do
 			table.insert(label, span)
 		end
-		table.insert(label, ui.span(" ", dim))
+	end
+	local shown = target(state, row)
+	local status = STATUS[shown.status or ""]
+	if status then
+		local tokens = with(status.tokens, dim)
+		for _ = 1, status.count or 1 do
+			table.insert(label, ui.span(status.glyph or "\u{00A0}", tokens))
+		end
+	else
+		table.insert(label, ui.span("\u{00A0}", "icon"))
+	end
+	if not row.group and INDENT[row.kind] ~= "" then
+		table.insert(label, ui.span(INDENT[row.kind]))
 	end
 	if row.group then
 		for _, span in place_spans(state, row, dim) do
@@ -459,10 +473,7 @@ local function picker_item(state, position, i)
 		end
 	end
 	local item: { [string]: any } = { id = tostring(i), label = label }
-	local shown = target(state, row)
-	local status = STATUS[shown.status or ""]
 	if status then
-		item.dot = status.dot
 		item.title = status.words
 	end
 	if shown.time then

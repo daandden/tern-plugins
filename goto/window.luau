@@ -45,8 +45,110 @@ tern.css("palette", [[
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-chev {
 	display: none;
 }
-[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-lead.none {
-	width: 16px;
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-lead {
+	display: none;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-dim {
+	opacity: 0.3;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-icon {
+	display: inline-block;
+	width: 22px;
+	text-align: center;
+	font-family: "Symbols Nerd Font", monospace !important;
+	margin: 0 !important;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num {
+	position: relative;
+	display: inline-block;
+	box-sizing: border-box;
+	width: 12px;
+	height: 12px;
+	margin: 0 5px;
+	border-radius: 50%;
+	vertical-align: middle;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-accent {
+	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-accent::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	border-radius: 50%;
+	border: 1.5px solid var(--accent);
+	border-right-color: transparent;
+	border-bottom-color: transparent;
+	animation: tnHdSpin 0.8s steps(16) infinite;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-em {
+	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
+	animation: sf-turn 0.9s steps(18) infinite;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-em::after {
+	content: '';
+	position: absolute;
+	left: 4.5px;
+	top: 0;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	background: var(--accent);
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-ins {
+	width: 14px;
+	height: 4px;
+	margin: 0 4px;
+	border-radius: 999px;
+	overflow: hidden;
+	background: var(--l2);
+	text-decoration: none;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-ins::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 30%;
+	border-radius: inherit;
+	background: var(--accent);
+	animation: sf-indet 1.3s steps(26) infinite;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-del {
+	width: 4px;
+	height: 4px;
+	margin: 0 2px 0 3px;
+	background: var(--accent);
+	text-decoration: none;
+	animation: sf-dot 1.25s steps(5) infinite;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
+	margin-left: 0;
+	animation-delay: 0.15s;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
+	margin-right: 3px;
+	animation-delay: 0.3s;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-mark {
+	background: transparent !important;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-mark::before,
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-mark::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 1.5px var(--warn);
+	animation: tnRing 3s linear infinite;
+}
+:root:root:root [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-mark::after {
+	animation-delay: 0.4s;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-num.sf-t-muted {
+	box-shadow: inset 0 0 0 1.5px var(--t4);
 }
 ]])
 
