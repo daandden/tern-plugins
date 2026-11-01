@@ -396,8 +396,9 @@ local STATUS = {
 -- working time in the accent, waiting time in the warning tone.
 local TIME_TONE = { working = "accent", waiting = "warning" }
 
--- The depth of each kind of tree row, for the picker's tree guides.
-local DEPTH = { session = 0, tab = 1, pane = 2 }
+-- The indent of each kind of tree row, before its jump number: tabs under their session, panes
+-- under their tab. Spaces, not the picker's tree guides and chevrons, keep the rows compact.
+local INDENT = { session = "", tab = "\u{00A0}\u{00A0}", pane = "\u{00A0}\u{00A0}\u{00A0}\u{00A0}" }
 
 -- The jump number as plain muted text. After the first of two digits, a row that the second digit
 -- reaches shows that digit in the accent.
@@ -424,17 +425,21 @@ local function place_spans(state, row, dim)
 	return spans
 end
 
--- One row as a picker item: the jump number, then the label (search matches highlighted) or the
--- place of a Waiting on you row. The dot, tooltip and working or waiting time are those of the
--- pane the row stands for. A tree row with shown rows under it gets an open chevron.
-local function picker_item(state, position, i, has_children)
+-- One row as a picker item: the indent of a tree row and its jump number, then the label (search
+-- matches highlighted) or the place of a Waiting on you row. A row with no number keeps the
+-- number's width in figure spaces, so the names line up. The dot, tooltip and working or waiting
+-- time are those of the pane the row stands for.
+local function picker_item(state, position, i)
 	local row = state.rows[i]
 	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
 	local dim = if reachable then nil else "dim"
 	local label: { any } = {}
+	if not row.group and INDENT[row.kind] ~= "" then
+		table.insert(label, ui.span(INDENT[row.kind]))
+	end
 	if state.skip[i] then
-		table.insert(label, ui.span(string.rep("\u{00A0}", if #state.jumps <= 9 then 1 else 2) .. " ", dim))
+		table.insert(label, ui.span(string.rep("\u{2007}", if #state.jumps <= 9 then 1 else 2) .. " ", dim))
 	elseif number then
 		for _, span in number_spans(state, number, dim) do
 			table.insert(label, span)
@@ -459,10 +464,6 @@ local function picker_item(state, position, i, has_children)
 	if status then
 		item.dot = status.dot
 		item.title = status.words
-	end
-	if not row.group then
-		item.depth = DEPTH[row.kind]
-		item.open = if has_children then true else nil
 	end
 	if shown.time then
 		item.facts = { time = math.max(0, os.time() - shown.time.at) * 1000 }
@@ -490,20 +491,9 @@ end
 -- pane. The Waiting on you rows come under their own group header, the tree under "Sessions". The
 -- action bar holds the two view switches (pressed while on), Close and Go.
 local function picker_view(state)
-	local has_children = {}
-	for _, i in state.shown do
-		local row = state.rows[i]
-		if not row.group then
-			if row.kind == "tab" then
-				has_children[row.session] = true
-			elseif row.kind == "pane" then
-				has_children[row.tab] = true
-			end
-		end
-	end
 	local items, waiting, tree = {}, {}, {}
 	for p, i in state.shown do
-		table.insert(items, picker_item(state, p, i, has_children[i]))
+		table.insert(items, picker_item(state, p, i))
 		table.insert(if state.rows[i].group then waiting else tree, tostring(i))
 	end
 	local order = {}
