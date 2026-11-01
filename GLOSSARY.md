@@ -44,6 +44,14 @@ _Avoid_: Needs attention (its old name), needs you (Orca), inbox (Tern's own F6 
 The number on the session, tab and pane rows of the Go to picker. Typing it goes to that row. A session that shows one tab shares one number with that tab, because both go to the same pane. A Waiting on you row keeps its own number.
 _Avoid_: Label, hint, row number
 
+**Working time**:
+How long an agent's current turn has run, shown on its rows of the Go to picker. It counts only turns whose start the picker saw; an agent that was already working shows none.
+_Avoid_: Age, turn time, busy for, time in state
+
+**Waiting time**:
+How long a pane has been waiting on you: since its agent asked for input, showed an error or finished a turn you did not see, or its terminal rang an alert. It counts only waits whose start the picker saw. Idle agents have none.
+_Avoid_: Age, idle time, time in state
+
 **Rendered page**:
 An HTML file shown rendered in a browser pane inside Tern, not as its source text.
 _Avoid_: Page (the Tab entry already uses that word), preview, HTML view
