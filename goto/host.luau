@@ -401,12 +401,21 @@ local STATUS = {
 -- working time in the accent, waiting time in the warning tone.
 local TIME_TONE = { working = "accent", waiting = "warning" }
 
--- The tree lines after each row's status mark, by shown position: a tab hangs off its session, a
--- pane off its tab. "├─" is a branch with more below, "└─" the last branch, "│" the line of a
--- parent tab that has more tabs below. The palette sheet stretches the lines to the row's height,
--- so they join, and draws them as one inline block, so their spaces are no-break spaces. The
--- Waiting on you rows are not part of the tree and get no lines.
-local function tree_prefixes(state)
+-- The style tokens of each tree cell, which the palette sheet draws as lines one row tall, so the
+-- lines of rows join at every interface size. Tern keeps only its own tokens: "code" is the cell,
+-- "info" a line from top to bottom, "success" a branch (a line to the middle, then right), so
+-- "code info success" is a branch with more below (├─) and "code success" the last one (└─).
+local TREE_CELL = {
+	blank = "code",
+	pipe = "code info",
+	tee = "code info success",
+	elbow = "code success",
+}
+
+-- The tree cells after each row's status mark, by shown position: a tab hangs off its session, a
+-- pane off its tab, and a pane has a pipe left of its branch while its tab has more tabs below.
+-- The Waiting on you rows are not part of the tree and get no cells.
+local function tree_cells(state)
 	local last = {}
 	local seen_tab, seen_pane = {}, {}
 	for p = #state.shown, 1, -1 do
@@ -422,21 +431,19 @@ local function tree_prefixes(state)
 			seen_pane[row.tab] = true
 		end
 	end
-	local prefixes = {}
+	local cells = {}
 	for p, i in state.shown do
 		local row = state.rows[i]
-		local branch = if last[i] then "└─" else "├─"
-		if row.group then
-			prefixes[p] = ""
+		local branch = if last[i] then "elbow" else "tee"
+		if row.group or row.kind == "session" then
+			cells[p] = {}
 		elseif row.kind == "tab" then
-			prefixes[p] = branch
-		elseif row.kind == "pane" then
-			prefixes[p] = (if last[row.tab] then "\u{00A0}\u{00A0}\u{00A0}" else "│\u{00A0}\u{00A0}") .. branch
+			cells[p] = { branch }
 		else
-			prefixes[p] = ""
+			cells[p] = { if last[row.tab] then "blank" else "pipe", branch }
 		end
 	end
-	return prefixes
+	return cells
 end
 
 -- The jump number as plain muted text. After the first of two digits, a row that the second digit
@@ -465,10 +472,10 @@ local function place_spans(state, row, dim)
 end
 
 -- One row as a picker item: the jump number and the status mark of the pane the row stands for,
--- then the tree lines and the label (search matches highlighted), or the place of a Waiting on
+-- then the tree cells and the label (search matches highlighted), or the place of a Waiting on
 -- you row. A row with no number keeps the number's width in figure spaces, so the marks and names
 -- line up. The tooltip and the working or waiting time are those of the same pane.
-local function picker_item(state, position, i, prefix)
+local function picker_item(state, position, i, cells)
 	local row = state.rows[i]
 	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
@@ -491,8 +498,10 @@ local function picker_item(state, position, i, prefix)
 	else
 		table.insert(label, ui.span("\u{00A0}", "icon"))
 	end
-	if prefix ~= "" then
-		table.insert(label, ui.span(prefix, with("code", dim)))
+	for _, cell in cells do
+		table.insert(label, ui.span("\u{00A0}", with(TREE_CELL[cell], dim)))
+	end
+	if #cells > 0 then
 		table.insert(label, ui.span(" ", dim))
 	end
 	if row.group then
@@ -538,9 +547,9 @@ end
 -- action bar holds the two view switches (pressed while on), Close and Go.
 local function picker_view(state)
 	local items, waiting, tree = {}, {}, {}
-	local prefixes = tree_prefixes(state)
+	local cells = tree_cells(state)
 	for p, i in state.shown do
-		table.insert(items, picker_item(state, p, i, prefixes[p]))
+		table.insert(items, picker_item(state, p, i, cells[p]))
 		table.insert(if state.rows[i].group then waiting else tree, tostring(i))
 	end
 	local order = {}

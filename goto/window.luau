@@ -52,16 +52,48 @@ tern.css("palette", [[
 	line-height: 24px;
 }
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-code {
+	position: relative;
 	display: inline-block;
+	box-sizing: border-box;
+	width: 16px;
+	height: 24px;
+	margin: 0 !important;
 	padding: 0 !important;
 	border: none !important;
 	border-radius: 0 !important;
 	box-shadow: none !important;
 	outline: none !important;
 	background: none !important;
-	font: inherit !important;
-	color: var(--t4) !important;
-	transform: scaleY(1.3);
+	vertical-align: top;
+	color: transparent !important;
+	text-decoration: none !important;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-code.sf-t-success::before {
+	content: '';
+	position: absolute;
+	left: 7px;
+	top: 0;
+	width: 1px;
+	height: 12px;
+	background: var(--t4);
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-code.sf-t-info::before {
+	content: '';
+	position: absolute;
+	left: 7px;
+	top: 0;
+	width: 1px;
+	height: 24px;
+	background: var(--t4);
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-code.sf-t-success::after {
+	content: '';
+	position: absolute;
+	left: 7px;
+	right: 0;
+	top: 12px;
+	height: 1px;
+	background: var(--t4);
 }
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-dim {
 	opacity: 0.3;
