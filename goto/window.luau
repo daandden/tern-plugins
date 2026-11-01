@@ -1,8 +1,8 @@
 -- Go to picker, window half. plugin.goto.open lists every session, tab and tiled pane of this window
 -- in a picker block (host.luau), or closes the open picker. The block is a floating pane that the
--- palette sheet below draws like Tern's command palette. It reports the row you pick as a goto:
--- link, and the link route here moves focus there. The picker closes after a jump, on Esc and when
--- focus leaves it.
+-- palette sheet below places where Tern's command palette sits; Tern's own picker node draws its
+-- content. It reports the row you pick as a goto: link, and the link route here moves focus there.
+-- The picker closes after a jump, on Esc and when focus leaves it.
 
 local KIND = "goto.picker"
 
@@ -36,171 +36,11 @@ tern.css("palette", [[
 	inset: 0 !important;
 	padding: 0 !important;
 }
-[data-surface="plugin.goto.picker"].sf-main {
-	height: 100%;
-	padding: 0 !important;
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row[data-tone='accent'] .pk-fact.f-elapsed {
+	color: var(--accent);
 }
-[data-surface="plugin.goto.picker"] .goto-box {
-	position: static;
-	transform: none;
-	animation: none !important;
-	zoom: 1;
-	font-size: var(--tv-fs) !important;
-	width: min(640px, calc(100vw - 48px)) !important;
-	height: 511px !important;
-	max-height: calc(88vh - 20px / var(--tn-zoom, 1)) !important;
-	margin: 0 auto !important;
-	flex: none !important;
-	display: flex !important;
-	flex-direction: column !important;
-}
-[data-surface="plugin.goto.picker"] .goto-box > .sf-list {
-	flex: 1 1 auto !important;
-	min-height: 0 !important;
-	padding: 12px 8px 6px;
-}
-[data-surface="plugin.goto.picker"] .goto-box > .sf-list[data-role='goto.flat'] {
-	padding-bottom: 19px;
-}
-[data-surface="plugin.goto.picker"] .goto-box > .ck-foot {
-	flex: none !important;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-list-scroll {
-	max-height: 100% !important;
-	height: 100%;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item {
-	min-height: 0 !important;
-	padding-top: 0 !important;
-	padding-bottom: 0 !important;
-	padding-left: 10px;
-	line-height: 22px;
-	border-radius: 6px;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-t-dim {
-	opacity: 0.3;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-icon {
-	display: inline-block;
-	width: 22px;
-	text-align: center;
-	font-family: "Symbols Nerd Font", monospace !important;
-	margin: 0 !important;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num {
-	position: relative;
-	display: inline-block;
-	box-sizing: border-box;
-	width: 12px;
-	height: 12px;
-	margin: 0 5px;
-	border-radius: 50%;
-	vertical-align: middle;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-accent {
-	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-accent::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	box-sizing: border-box;
-	border-radius: 50%;
-	border: 1.5px solid var(--accent);
-	border-right-color: transparent;
-	border-bottom-color: transparent;
-	animation: tnHdSpin 0.8s steps(16) infinite;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em {
-	box-shadow: inset 0 0 0 1.5px rgb(from var(--accent) r g b/22%) !important;
-	animation: sf-turn 0.9s steps(18) infinite;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-em::after {
-	content: '';
-	position: absolute;
-	left: 4.5px;
-	top: 0;
-	width: 3px;
-	height: 3px;
-	border-radius: 50%;
-	background: var(--accent);
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-ins {
-	width: 14px;
-	height: 4px;
-	margin: 0 4px;
-	border-radius: 999px;
-	overflow: hidden;
-	background: var(--l2);
-	text-decoration: none;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-ins::after {
-	content: '';
-	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 30%;
-	border-radius: inherit;
-	background: var(--accent);
-	animation: sf-indet 1.3s steps(26) infinite;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del {
-	width: 4px;
-	height: 4px;
-	margin: 0 2px 0 3px;
-	background: var(--accent);
-	text-decoration: none;
-	animation: sf-dot 1.25s steps(5) infinite;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
-	margin-left: 0;
-	animation-delay: 0.15s;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-del + .sf-t-num.sf-t-del + .sf-t-num.sf-t-del {
-	margin-right: 3px;
-	animation-delay: 0.3s;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark {
-	background: transparent !important;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark::before,
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	border-radius: 50%;
-	box-shadow: inset 0 0 0 1.5px var(--warn);
-	animation: tnRing 3s linear infinite;
-}
-:root:root:root [data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-mark::after {
-	animation-delay: 0.4s;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item-label .sf-t-num.sf-t-muted {
-	box-shadow: inset 0 0 0 1.5px var(--t4);
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item[data-role='goto.sep'] {
-	position: relative;
-	height: 13px !important;
-	line-height: 13px !important;
-	pointer-events: none;
-	background: transparent !important;
-	box-shadow: none !important;
-}
-[data-surface="plugin.goto.picker"] .goto-box .sf-item[data-role='goto.sep']::after {
-	content: '';
-	position: absolute;
-	left: 10px;
-	right: 10px;
-	top: 6px;
-	height: 1px;
-	background: var(--l2);
-}
-[data-surface="plugin.goto.picker"] .goto-where {
-	flex: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row[data-tone='warning'] .pk-fact.f-elapsed {
+	color: var(--warn);
 }
 ]])
 
@@ -237,9 +77,7 @@ set_veil(false)
 -- to the user's value. The user's value waits in tern.kv meanwhile, so a reload or crash in between
 -- restores it at the next window start. While reduce_motion is on and the window is idle, a
 -- tern.timer fires only at the next input, so the wait is a `/bin/sleep 0.4` process, whose end
--- Tern reports on time. zellij-keys does the same for its floats. The box's own palette animation
--- (cmdkIn of the cmdk class) is CSS: Tern replays it when reduce_motion goes back off, so the
--- palette sheet turns it off.
+-- Tern reports on time. zellij-keys does the same for its floats.
 local MOTION_KEY = "reduce_motion_before_open"
 -- The number of the last quiet_motion call. Only the wait of the last call restores the value.
 local motion_wait = 0
@@ -450,6 +288,41 @@ local function set_finished(pane, status)
 	end
 end
 
+-- When goto saw each agent pane's working time or waiting time (GLOSSARY.md) start: tern.kv keeps
+-- under `since`, by pane id, `kind` ("working" or "waiting"), `input` (true for a wait for your
+-- input, which a focus does not end), `turn` (the start of the turn that a wait for input
+-- interrupts) and `at` (os.time seconds). A start that goto did not see, such as a turn that was
+-- running before a reload, is not stored, so its rows show no time.
+local function load_since()
+	local since = tern.kv.get("since")
+	return if type(since) == "table" then since else {}
+end
+
+-- Stores `entry` (or nil to drop it) as the start of the time of `pane`.
+local function set_since(pane, entry)
+	local since = load_since()
+	if since[seen_key(pane)] ~= nil or entry ~= nil then
+		since[seen_key(pane)] = entry
+		tern.kv.set("since", since)
+	end
+end
+
+-- The pane statuses that working time and waiting time go with: waiting time goes with each status
+-- of the Waiting on you group except idle.
+local WORKING = { working = true, retrying = true, compacting = true }
+local WAITING = table.clone(ATTENTION)
+WAITING.idle = nil
+
+-- The time that the rows of `pane` show for `status`: `kind` and `at` from `since` when the stored
+-- start matches the status, else nil.
+local function row_time(since, pane, status)
+	local entry = since[seen_key(pane)]
+	if entry and ((entry.kind == "working" and WORKING[status]) or (entry.kind == "waiting" and WAITING[status])) then
+		return { kind = entry.kind, at = entry.at }
+	end
+	return nil
+end
+
 -- Whether the item with last focus count `count_a` and place `place_a` comes before the other one
 -- in last seen order: counted items newest first, then the others by place.
 local function seen_before(count_a, count_b, place_a, place_b)
@@ -513,6 +386,7 @@ local function collect(cx, focused)
 	local hosts = remote_hosts(cx)
 	local seen = load_seen()
 	local finished = load_finished()
+	local since = load_since()
 	local focused_tab = if focused then cx.session:tab_of(focused) else nil
 	local rows = {}
 	-- The pane of each pane row and each row of a tab with one pane, for the order of the group.
@@ -538,15 +412,17 @@ local function collect(cx, focused)
 				-- A tab with one pane is one row with that pane's status; only a split tab lists its
 				-- panes under it, so no name shows twice.
 				local single = if #panes == 1 then cx.session:pane(panes[1]) else nil
-				local status = nil
+				local status, time = nil, nil
 				if single then
 					status = pane_status(cx, single, agents[panes[1]], finished[seen_key(panes[1])])
+					time = row_time(since, panes[1], status)
 				end
 				table.insert(rows, {
 					kind = "tab",
 					id = tab_id,
 					label = tab_label(tab),
 					status = status,
+					time = time,
 					agent = single ~= nil and agents[panes[1]] ~= nil,
 					session = session_row,
 				})
@@ -562,11 +438,13 @@ local function collect(cx, focused)
 					for _, pane_id in last_seen_first(panes, seen.panes) do
 						local info = cx.session:pane(pane_id)
 						if info then
+							local pane_state = pane_status(cx, info, agents[pane_id], finished[seen_key(pane_id)])
 							table.insert(rows, {
 								kind = "pane",
 								id = pane_id,
 								label = info.title,
-								status = pane_status(cx, info, agents[pane_id], finished[seen_key(pane_id)]),
+								status = pane_state,
+								time = row_time(since, pane_id, pane_state),
 								agent = agents[pane_id] ~= nil,
 								session = session_row,
 								tab = tab_row,
@@ -719,17 +597,22 @@ tern.route.link(function(link, cx)
 end)
 
 -- Closes the open picker when focus leaves it. Then notes the focus for the last seen order, and
--- drops the unseen turn result of the focused pane.
+-- drops the unseen turn result of the focused pane with its waiting time. A wait for your input
+-- goes on until the agent's state changes.
 tern.on("focus", function(ev, cx)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
 	note_seen(cx, ev.pane, ev.tab)
 	set_finished(ev.pane, nil)
+	local entry = load_since()[seen_key(ev.pane)]
+	if entry and entry.kind == "waiting" and not entry.input then
+		set_since(ev.pane, nil)
+	end
 end)
 
--- Forgets a picker that closed some other way. Then forgets the last focus and unseen turn result
--- of the closed pane.
+-- Forgets a picker that closed some other way. Then forgets the last focus, unseen turn result and
+-- time start of the closed pane.
 tern.on("pane_closed", function(ev, _cx)
 	if picker and ev.pane == picker.pane then
 		picker = nil
@@ -737,6 +620,7 @@ tern.on("pane_closed", function(ev, _cx)
 	end
 	forget_seen("panes", ev.pane)
 	set_finished(ev.pane, nil)
+	set_since(ev.pane, nil)
 end)
 
 -- Forgets the last focus of a closed tab.
@@ -745,14 +629,50 @@ tern.on("tab_closed", function(ev, _cx)
 end)
 
 -- Keeps the result of an agent's turn until you focus its pane: done marks the pane done, failed
--- marks it error. A turn that ends in the focused pane is one you saw, so it changes nothing. An
--- agent that exited or closed has no turn result to show.
+-- marks it error, and either starts its waiting time. A turn that ends in the focused pane is one
+-- you saw, so it changes nothing. An agent that exited or closed has no turn result to show.
 tern.on("agent_finished", function(ev, cx)
 	if ev.result == "exited" or ev.result == "closed" then
 		set_finished(ev.pane, nil)
+		set_since(ev.pane, nil)
 	elseif cx.session:focused() ~= ev.pane then
 		set_finished(ev.pane, if ev.result == "failed" then "error" else "done")
+		set_since(ev.pane, { kind = "waiting", at = os.time() })
 	end
+end)
+
+-- Starts working time when an agent starts working, and waiting time when it starts waiting for
+-- your input. A wait for input keeps the start of the turn it interrupts (`turn`), so working time
+-- goes on from there when you answer; a turn whose start goto did not see gets no working time.
+-- An agent that goto had not seen before (`old` nil) may have started long ago, so it gets no
+-- start, and an entry left under its pane id from an earlier pane goes. Any other change ends
+-- working time and a wait for input; the waiting time of a turn result goes on until you focus the
+-- pane.
+tern.on("agent_state", function(ev, _cx)
+	if ev.old == nil then
+		set_since(ev.pane, nil)
+		return
+	elseif ev.old == ev.new then
+		return
+	end
+	local entry = load_since()[seen_key(ev.pane)]
+	if ev.new == "working" then
+		if entry and entry.input then
+			set_since(ev.pane, if entry.turn then { kind = "working", at = entry.turn } else nil)
+		else
+			set_since(ev.pane, { kind = "working", at = os.time() })
+		end
+	elseif ev.new == "waiting_input" then
+		local turn = if entry and entry.kind == "working" then entry.at else nil
+		set_since(ev.pane, { kind = "waiting", input = true, turn = turn, at = os.time() })
+	elseif entry and (ev.new == "exited" or entry.kind == "working" or entry.input) then
+		set_since(ev.pane, nil)
+	end
+end)
+
+-- Drops any time start left under a new pane's id by an earlier pane.
+tern.on("pane_created", function(ev, _cx)
+	set_since(ev.pane, nil)
 end)
 
 -- A plugin reload starts this half with no open picker, but a picker pane from before stays open

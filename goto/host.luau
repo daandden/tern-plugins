@@ -1,12 +1,12 @@
 -- Go to picker, host half: the `picker` block. It shows the sessions, tabs and panes that the window
--- half passes in as a tree, each with its status mark and a jump number, and reports the row you
--- pick as a goto: link. Above the tree and a thin line, the Waiting on you rows (marked `group`)
--- repeat the panes that wait for you, each named by its session, tab and pane. It opens with agent
--- panes only. Idle agents stay out of the group until you show them; tern.kv keeps that choice
--- under `waiting_idle`.
+-- half passes in as a tree in Tern's picker node, each with its status dot, a jump number and its
+-- working time or waiting time, and reports the row you pick as a goto: link. Under their own
+-- header above the tree, the Waiting on you rows (marked `group`) repeat the panes that wait for
+-- you, each named by its session, tab and pane. It opens with agent panes only. Idle agents stay
+-- out of the group until you show them; tern.kv keeps that choice under `waiting_idle`.
 --
 -- Keys: a typed letter or space goes into the search at once. The search filters the tree rows
--- (the Waiting on you rows hide), highlights the matching characters and shows in the footer.
+-- (the Waiting on you rows hide), highlights the matching characters and shows in the head.
 -- A digit is a jump number and goes to its row, so a search holds no digits. A session row that
 -- shows one tab row under it shares its number with that tab, which shows no number and which
 -- Up/Down skips. With more than 9 numbers, every jump number has two digits; after the first
@@ -15,12 +15,10 @@
 -- then the search; with nothing to undo it closes. Backspace clears the first digit, else deletes
 -- the last character.
 -- Actions sit behind the prefix ctrl+;: then a switches agents only and all panes, i shows or
--- hides idle agents in the group, and any other key only ends the prefix.
+-- hides idle agents in the group, and any other key only ends the prefix. The action bar's
+-- buttons do the same on a click.
 
 local ui = tern.ui
-
--- The box and footer use the palette's own class names (cmdk, ck-foot, kbd), and the palette sheet
--- in window.luau does the rest of the look.
 
 -- The words of a row that a search matches, in lower case: the text the row shows (its label and a
 -- remote host) and the names of its tab and session, so a search like "alpha tmp" finds a pane by
@@ -340,61 +338,6 @@ local function press_digit(state, digit, cx)
 	end
 end
 
--- The id prefix of each row: the list node is keyed "rows" inside the box element keyed "box" in
--- the main region. The list's `selected` prop and its select/activate events use these ids.
-local LIST_ID = "main.box.rows."
-
--- The tree lines left of each row, by shown position: a tab hangs off its session, a pane off its
--- tab. "├─ " is a branch with more below, "└─ " the last branch, "│  " the line of a parent tab
--- that has more tabs below. The rows are as tall as a text line, so the line characters join. The
--- Waiting on you rows are not part of the tree and get no lines.
-local function tree_prefixes(state)
-	local last = {}
-	local seen_tab, seen_pane = {}, {}
-	for p = #state.shown, 1, -1 do
-		local i = state.shown[p]
-		local row = state.rows[i]
-		if row.group then
-			continue
-		elseif row.kind == "tab" then
-			last[i] = not seen_tab[row.session]
-			seen_tab[row.session] = true
-		elseif row.kind == "pane" then
-			last[i] = not seen_pane[row.tab]
-			seen_pane[row.tab] = true
-		end
-	end
-	local prefixes = {}
-	for p, i in state.shown do
-		local row = state.rows[i]
-		local branch = if last[i] then "└─ " else "├─ "
-		if row.group then
-			prefixes[p] = ""
-		elseif row.kind == "tab" then
-			prefixes[p] = branch
-		elseif row.kind == "pane" then
-			prefixes[p] = (if last[row.tab] then "   " else "│  ") .. branch
-		else
-			prefixes[p] = ""
-		end
-	end
-	return prefixes
-end
-
--- A keycap, as the palette draws its key chords.
-local function kbd(text)
-	return ui.el("span", { class = "kbd", text = text })
-end
-
--- A span of `class` that shows `text`. The text sits in a child span, with a second child after
--- it: Tern sizes such a span in the palette's flex rows by its last child only.
-local function text_span(class, text)
-	return ui.el("span", { class = class }, {
-		ui.el("span", { text = text }),
-		ui.el("span", { text = "\u{00A0}" }),
-	})
-end
-
 -- Adds `extra` to the style tokens `tokens`.
 local function with(tokens, extra)
 	if extra == nil then
@@ -433,26 +376,28 @@ local function highlighted(text, query, tokens)
 	return spans
 end
 
--- What each pane status from window.luau shows: a mark with no word, after the jump number. A
--- busy status is a mark that moves and an idle one a hollow ring, which window.luau draws on a
--- no-break space, because Tern keeps only its own style tokens: "num" is the hook, and the second
--- token picks the mark (accent: turning arc, em: orbiting dot, ins: sliding bar, del: one of three
--- dots, mark: widening rings, muted: hollow ring). A status that waits for you is a still Nerd
--- Font glyph in a Tern tone, with the "icon" token as its hook. window.luau sizes every mark, and
--- the empty mark of a row with no status, to one 22 px slot, so the numbers and names line up.
+-- What each pane status shows: a dot in a Tern tone before the row, and the status's words as the
+-- row's tooltip. Every busy status takes the pending dot, the one dot that Tern pulses.
 local STATUS = {
-	input = { glyph = "\u{F059}", tokens = "icon warning" },
-	retrying = { tokens = "num mark" },
-	compacting = { tokens = "num ins" },
-	working = { tokens = "num accent" },
-	error = { glyph = "\u{F071}", tokens = "icon error" },
-	background = { tokens = "num del", count = 3 },
-	done = { glyph = "\u{F00C}", tokens = "icon success" },
-	idle = { tokens = "num muted" },
-	exited = { glyph = "\u{F00D}", tokens = "icon error" },
-	running = { tokens = "num em" },
-	alert = { glyph = "\u{F0F3}", tokens = "icon error" },
+	input = { dot = "warning", words = "Waits for your input" },
+	retrying = { dot = "pending", words = "Retrying" },
+	compacting = { dot = "pending", words = "Compacting" },
+	working = { dot = "pending", words = "Working" },
+	error = { dot = "error", words = "Error" },
+	background = { dot = "pending", words = "Background jobs running" },
+	done = { dot = "success", words = "Done" },
+	idle = { dot = "muted", words = "Idle" },
+	exited = { dot = "error", words = "Exited" },
+	running = { dot = "pending", words = "Running a command" },
+	alert = { dot = "error", words = "Alert" },
 }
+
+-- The row tone of each kind of time, which the palette sheet in window.luau gives the time column:
+-- working time in the accent, waiting time in the warning tone.
+local TIME_TONE = { working = "accent", waiting = "warning" }
+
+-- The depth of each kind of tree row, for the picker's tree guides.
+local DEPTH = { session = 0, tab = 1, pane = 2 }
 
 -- The jump number as plain muted text. After the first of two digits, a row that the second digit
 -- reaches shows that digit in the accent.
@@ -479,9 +424,10 @@ local function place_spans(state, row, dim)
 	return spans
 end
 
--- One row as a list item: the jump number and the status mark (of the pane it stands for), then
--- the tree lines and the label (search matches highlighted), or the place of a Waiting on you row.
-local function row_item(state, position, i, prefix)
+-- One row as a picker item: the jump number, then the label (search matches highlighted) or the
+-- place of a Waiting on you row. The dot, tooltip and working or waiting time are those of the
+-- pane the row stands for. A tree row with shown rows under it gets an open chevron.
+local function picker_item(state, position, i, has_children)
 	local row = state.rows[i]
 	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
@@ -495,22 +441,11 @@ local function row_item(state, position, i, prefix)
 		end
 		table.insert(label, ui.span(" ", dim))
 	end
-	local status = STATUS[target(state, row).status or ""]
-	if status then
-		local tokens = with(status.tokens, dim)
-		for _ = 1, status.count or 1 do
-			table.insert(label, ui.span(status.glyph or "\u{00A0}", tokens))
-		end
-	else
-		table.insert(label, ui.span("\u{00A0}", "icon"))
-	end
-	table.insert(label, ui.span(" ", dim))
 	if row.group then
 		for _, span in place_spans(state, row, dim) do
 			table.insert(label, span)
 		end
 	else
-		table.insert(label, ui.span(prefix, with("muted", dim)))
 		for _, span in highlighted(row.label, state.query, with(if row.kind == "session" then "strong" else nil, dim)) do
 			table.insert(label, span)
 		end
@@ -518,99 +453,120 @@ local function row_item(state, position, i, prefix)
 			table.insert(label, ui.span("  @" .. row.host, with("muted", dim)))
 		end
 	end
-	return { label = label }
+	local item: { [string]: any } = { id = tostring(i), label = label }
+	local shown = target(state, row)
+	local status = STATUS[shown.status or ""]
+	if status then
+		item.dot = status.dot
+		item.title = status.words
+	end
+	if not row.group then
+		item.depth = DEPTH[row.kind]
+		item.open = if has_children then true else nil
+	end
+	if shown.time then
+		item.facts = { time = math.max(0, os.time() - shown.time.at) * 1000 }
+		item.tone = TIME_TONE[shown.time.kind]
+	end
+	return item
 end
 
--- Every shown row in a Tern list: it scrolls with the mouse wheel and keeps the row under the
--- cursor in view. A thin line (an item with the role goto.sep, drawn by window.luau) follows the
--- last Waiting on you row; it has no row index, so the cursor, jump numbers and clicks skip it. A
--- list with no line gets the role goto.flat, and window.luau keeps the line's height empty under
--- it, so 20 rows show either way and no part of a 21st row peeks in.
-local function list_view(state)
-	local items = {}
-	local keys = {}
-	local prefixes = tree_prefixes(state)
+-- The head's title while the ctrl+; prefix waits: the action keys, each named by what it does now.
+local function prefix_title(state)
+	if not state.prefix then
+		return nil
+	end
+	return {
+		ui.span("a", "key"),
+		ui.span(if state.all then " agents only  " else " all panes  "),
+		ui.span("i", "key"),
+		ui.span(if state.idle then " hide idle  " else " show idle  "),
+		ui.span("esc", "key"),
+		ui.span(" cancel"),
+	}
+end
+
+-- The picker: Tern's picker node, drawn in the block's layer as a sheet over the whole floating
+-- pane. The Waiting on you rows come under their own group header, the tree under "Sessions". The
+-- action bar holds the two view switches (pressed while on), Close and Go.
+local function picker_view(state)
+	local has_children = {}
+	for _, i in state.shown do
+		local row = state.rows[i]
+		if not row.group then
+			if row.kind == "tab" then
+				has_children[row.session] = true
+			elseif row.kind == "pane" then
+				has_children[row.tab] = true
+			end
+		end
+	end
+	local items, waiting, tree = {}, {}, {}
 	for p, i in state.shown do
-		table.insert(items, row_item(state, p, i, prefixes[p]))
-		table.insert(keys, tostring(i))
-		local next_row = state.shown[p + 1]
-		if state.rows[i].group and next_row and not state.rows[next_row].group then
-			table.insert(items, { label = { ui.span("\u{00A0}") } })
-			table.insert(keys, "sep")
-		end
+		table.insert(items, picker_item(state, p, i, has_children[i]))
+		table.insert(if state.rows[i].group then waiting else tree, tostring(i))
 	end
-	local list = ui.list(items)
-	local kids = list.c or {}
-	for k, key in keys do
-		kids[k].p = kids[k].p or {}
-		kids[k].p.key = key
-		if key == "sep" then
-			kids[k].p.role = "goto.sep"
-		end
+	local order = {}
+	if #waiting > 0 then
+		table.insert(order, { group = "waiting", label = "Waiting on you", count = #waiting })
+		table.move(waiting, 1, #waiting, #order + 1, order)
 	end
-	list.p = list.p or {}
-	list.p.key = "rows"
-	list.p.role = if table.find(keys, "sep") then nil else "goto.flat"
-	list.p.selected = LIST_ID .. tostring(state.cursor)
-	list.p.empty = { ui.span("Nothing matches the search.", "muted") }
-	list.p.max = { lines = 30 }
-	return list
-end
-
--- The palette's footer: the search while there is one, then the keys. The empty search span still
--- fills the space, so the keys stay on the right. While the ctrl+; prefix waits, the keys are the
--- actions, each named by what it does now.
-local function foot_view(state)
-	local left = text_span("goto-where", if state.query ~= "" then state.query .. "\u{258F}" else "")
-	local keys
-	if state.prefix then
-		keys = {
-			kbd("a"),
-			ui.el("span", { text = if state.all then " agents " else " all " }),
-			kbd("i"),
-			ui.el("span", { text = if state.idle then " hide idle " else " show idle " }),
-			kbd("esc"),
-			ui.el("span", { text = " cancel" }),
-		}
-	else
-		keys = {
-			kbd("↑"),
-			kbd("↓"),
-			ui.el("span", { text = " move " }),
-			kbd("↵"),
-			ui.el("span", { text = " go " }),
-			kbd("⌃;"),
-			ui.el("span", { text = " actions" }),
-		}
+	if #tree > 0 then
+		table.insert(order, { group = "tree", label = "Sessions" })
+		table.move(tree, 1, #tree, #order + 1, order)
 	end
-	return ui.el("div", { class = "ck-foot" }, {
-		left,
-		ui.el("span", { class = "grow" }, keys),
+	return ui.node("picker", {
+		key = "goto",
+		role = "goto.picker",
+		size = "screen",
+		layout = "tree",
+		preview = "none",
+		title = prefix_title(state),
+		query = state.query,
+		placeholder = "Go to…",
+		noun = "panes",
+		items = items,
+		order = order,
+		selected = tostring(state.cursor),
+		columns = { { id = "time", format = "elapsed" } },
+		actions = {
+			{ id = "all", label = "All panes", keys = { "ctrl+;", "a" }, on = state.all },
+			{ id = "idle", label = "Show idle", keys = { "ctrl+;", "i" }, on = state.idle },
+			{ id = "close", label = "Close", keys = { "esc" } },
+			{ id = "go", label = "Go", keys = { "enter" }, primary = true },
+		},
 	})
 end
 
--- Handles the key after the ctrl+; prefix: a switches agents only and all panes, i shows or hides
--- idle agents in the Waiting on you group. Every key ends the prefix, and any other key does
--- nothing else. A cursor whose row the filter hides starts again where it starts on open, and a
+-- Switches agents only and all panes ("all"), or shows or hides idle agents in the Waiting on you
+-- group ("idle"). A cursor whose row the filter hides starts again where it starts on open, and a
 -- cursor on a tab row that now shares its session's number moves to the session row.
-local function action_key(state, key)
-	state.prefix = false
-	if key.ctrl or key.alt or key.meta then
-		return
-	end
-	if key.text == "a" then
+local function toggle(state, which)
+	if which == "all" then
 		state.all = not state.all
-	elseif key.text == "i" then
+	elseif which == "idle" then
 		state.idle = not state.idle
 		tern.kv.set("waiting_idle", state.idle)
-	else
-		return
 	end
 	refilter(state)
 	if cursor_position(state) == 0 then
 		place_cursor(state)
 	elseif state.skip[state.cursor] then
 		state.cursor = state.rows[state.cursor].session
+	end
+end
+
+-- Handles the key after the ctrl+; prefix: a switches agents only and all panes, i shows or hides
+-- idle agents. Every key ends the prefix, and any other key does nothing else.
+local function action_key(state, key)
+	state.prefix = false
+	if key.ctrl or key.alt or key.meta then
+		return
+	end
+	if key.text == "a" then
+		toggle(state, "all")
+	elseif key.text == "i" then
+		toggle(state, "idle")
 	end
 end
 
@@ -690,14 +646,7 @@ tern.block.define("picker", {
 	end,
 
 	view = function(state, _cx)
-		return {
-			main = ui.col({
-				ui.el("div", { class = "cmdk tn-cmdk goto-box", key = "box" }, {
-					list_view(state),
-					foot_view(state),
-				}),
-			}),
-		}
+		return { layer = ui.col({ picker_view(state) }) }
 	end,
 
 	-- The key after ctrl+; is used up by the prefix.
@@ -709,12 +658,23 @@ tern.block.define("picker", {
 		return picker_key(state, key, cx)
 	end,
 
-	-- A click on a row goes there.
+	-- A click on a row goes there. The action bar's buttons switch the view, close the picker or go
+	-- to the row under the cursor, and the empty search's Clear button clears the search.
 	event = function(state, ev, cx)
 		if (ev.ev == "select" or ev.ev == "activate") and type(ev.item) == "string" then
-			local i = tonumber(string.sub(ev.item, #LIST_ID + 1))
+			local i = tonumber(ev.item)
 			if i and state.rows[i] then
 				go(state, i, cx)
+			end
+		elseif ev.ev == "action" then
+			if ev.act == "all" or ev.act == "idle" then
+				toggle(state, ev.act)
+			elseif ev.act == "close" then
+				cx:open("goto:close")
+			elseif ev.act == "go" and state.rows[state.cursor] and cursor_position(state) > 0 then
+				go(state, state.cursor, cx)
+			elseif ev.act == "clear" then
+				set_query(state, "")
 			end
 		end
 	end,
