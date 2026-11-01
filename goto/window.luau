@@ -48,6 +48,21 @@ tern.css("palette", [[
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row .pk-lead {
 	display: none;
 }
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-row:not(.grp) .pk-l1 {
+	line-height: 24px;
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-code {
+	display: inline-block;
+	padding: 0 !important;
+	border: none !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	outline: none !important;
+	background: none !important;
+	font: inherit !important;
+	color: var(--t4) !important;
+	transform: scaleY(1.3);
+}
 [data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-label .sf-t-dim {
 	opacity: 0.3;
 }
