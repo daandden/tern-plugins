@@ -30,7 +30,7 @@ Preconditions:
 
 - The baseline from `README.md`.
 - Two tiled panes: press `"$V" ctl "$RUN" key alt+n` once.
-- Read the rows as text: `opts() { "$V" ctl "$RUN" tree '.sf-picker .pk-row' | jq -c '[.nodes[].text]'; }`. Group headers show as rows too (`Waiting on you1`, `Sessions`), and a row's time ends its text (`… fish10.5s`). The picker is open when `"$V" ctl "$RUN" tree "[aria-label^='Go to']" | jq .count` prints 1.
+- Read the rows as text: `opts() { "$V" ctl "$RUN" tree '.sf-picker .pk-row' | jq -c '[.nodes[].text]'; }`. Group headers show as rows too (`Waiting on you1`, `Sessions`), and a row's time ends its text (`… fish10.5s`). The picker is open when `"$V" ctl "$RUN" tree "[aria-label^='Go to,']" | jq .count` prints 1. Keep the comma: the picker's own sheet is named `Go to…` and also matches `Go to`.
 
 - Open with F1. Run `"$V" ctl "$RUN" key f1`, then poll the picker count until it is 1. `opts` prints `["Sessions","1 Default"]` when no pane runs an agent. The box is at `[320,96,640,511]` (`dump "[aria-label^='Go to,']"`) after its open animation ends.
 - Open from the palette. With the picker closed, run `"$V" ctl "$RUN" palette '"Go to session, tab or pane"'` and `"$V" ctl "$RUN" key enter`. The picker count is 1.
