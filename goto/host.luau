@@ -401,9 +401,43 @@ local STATUS = {
 -- working time in the accent, waiting time in the warning tone.
 local TIME_TONE = { working = "accent", waiting = "warning" }
 
--- The indent of each kind of tree row, after its status mark: tabs under their session, panes
--- under their tab. Spaces, not the picker's tree guides and chevrons, keep the rows compact.
-local INDENT = { session = "", tab = "\u{00A0}\u{00A0}", pane = "\u{00A0}\u{00A0}\u{00A0}\u{00A0}" }
+-- The tree lines after each row's status mark, by shown position: a tab hangs off its session, a
+-- pane off its tab. "├─" is a branch with more below, "└─" the last branch, "│" the line of a
+-- parent tab that has more tabs below. The palette sheet stretches the lines to the row's height,
+-- so they join, and draws them as one inline block, so their spaces are no-break spaces. The
+-- Waiting on you rows are not part of the tree and get no lines.
+local function tree_prefixes(state)
+	local last = {}
+	local seen_tab, seen_pane = {}, {}
+	for p = #state.shown, 1, -1 do
+		local i = state.shown[p]
+		local row = state.rows[i]
+		if row.group then
+			continue
+		elseif row.kind == "tab" then
+			last[i] = not seen_tab[row.session]
+			seen_tab[row.session] = true
+		elseif row.kind == "pane" then
+			last[i] = not seen_pane[row.tab]
+			seen_pane[row.tab] = true
+		end
+	end
+	local prefixes = {}
+	for p, i in state.shown do
+		local row = state.rows[i]
+		local branch = if last[i] then "└─" else "├─"
+		if row.group then
+			prefixes[p] = ""
+		elseif row.kind == "tab" then
+			prefixes[p] = branch
+		elseif row.kind == "pane" then
+			prefixes[p] = (if last[row.tab] then "\u{00A0}\u{00A0}\u{00A0}" else "│\u{00A0}\u{00A0}") .. branch
+		else
+			prefixes[p] = ""
+		end
+	end
+	return prefixes
+end
 
 -- The jump number as plain muted text. After the first of two digits, a row that the second digit
 -- reaches shows that digit in the accent.
@@ -431,10 +465,10 @@ local function place_spans(state, row, dim)
 end
 
 -- One row as a picker item: the jump number and the status mark of the pane the row stands for,
--- then the indent of a tree row and its label (search matches highlighted), or the place of a
--- Waiting on you row. A row with no number keeps the number's width in figure spaces, so the marks
--- and names line up. The tooltip and the working or waiting time are those of the same pane.
-local function picker_item(state, position, i)
+-- then the tree lines and the label (search matches highlighted), or the place of a Waiting on
+-- you row. A row with no number keeps the number's width in figure spaces, so the marks and names
+-- line up. The tooltip and the working or waiting time are those of the same pane.
+local function picker_item(state, position, i, prefix)
 	local row = state.rows[i]
 	local number = jump_number(state, state.jump_of[position])
 	local reachable = state.digit == nil or (number ~= nil and string.sub(number, 1, 1) == state.digit)
@@ -457,8 +491,9 @@ local function picker_item(state, position, i)
 	else
 		table.insert(label, ui.span("\u{00A0}", "icon"))
 	end
-	if not row.group and INDENT[row.kind] ~= "" then
-		table.insert(label, ui.span(INDENT[row.kind]))
+	if prefix ~= "" then
+		table.insert(label, ui.span(prefix, with("code", dim)))
+		table.insert(label, ui.span(" ", dim))
 	end
 	if row.group then
 		for _, span in place_spans(state, row, dim) do
@@ -503,8 +538,9 @@ end
 -- action bar holds the two view switches (pressed while on), Close and Go.
 local function picker_view(state)
 	local items, waiting, tree = {}, {}, {}
+	local prefixes = tree_prefixes(state)
 	for p, i in state.shown do
-		table.insert(items, picker_item(state, p, i))
+		table.insert(items, picker_item(state, p, i, prefixes[p]))
 		table.insert(if state.rows[i].group then waiting else tree, tostring(i))
 	end
 	local order = {}
