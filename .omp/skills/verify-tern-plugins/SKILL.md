@@ -1,13 +1,13 @@
 ---
 name: verify-tern-plugins
-description: Drives the Tern plugins of this repo (goto, html-links, reader-terminal-text, zellij-keys) and bin/open in an isolated Tern window, and captures proof. Use to verify a plugin change through the Tern desktop window (keys, commands, file opens, CSS), the bin/open command, or the tern CLI.
+description: Drives goto, reader-terminal-text, zellij-keys, native file opens, and bin/open in an isolated Tern window, and captures proof. Use to verify plugin keys, commands, CSS, native floats, file opens, bin/open, or the tern CLI.
 ---
 
 # Verify tern-plugins
 
 The app is a set of Tern plugins. Tern loads each plugin folder of a checkout and runs it in its desktop window. The surfaces are:
 
-- The Tern desktop window (primary): plugin commands on keys and in the palette, file open routes, link routes, the goto picker block, and CSS sheets.
+- The Tern desktop window (primary): plugin commands on keys and in the palette, native floats and file opens, the goto picker block, and CSS sheets.
 - The `bin/open` command, run in a Tern pane.
 - The `tern` CLI that a user runs in a pane: `tern open`, `tern plugin reload`, `tern plugin list`.
 
@@ -21,7 +21,6 @@ Drive only the instance that your run started. Every `tern` command goes through
 
 These stay shared with your own Tern:
 
-- `~/.cache/tern/open-owners`, the handoff dir of `bin/open`.
 - The omp configuration in your home directory.
 - The Stencil account of this Mac. There is no separate sign-in.
 - The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
@@ -82,7 +81,7 @@ Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It chan
 
 Read `features/README.md`, then the feature file for the behavior under test. The stable handles are:
 
-- Keys that the copied `settings.json` binds, one key per call: `"$V" ctl "$RUN" key f1` (goto), `key alt+n` (zellij-keys `new_pane`), `key escape`, `key enter`, `key down`, `key 'ctrl+;'`, `key pageup`. A key press is the user path. `keybinds.html` in the checkout lists every bound key.
+- Keys that the copied `settings.json` binds, one key per call: `"$V" ctl "$RUN" key f1` (goto), `key alt+n` (native `split_right`), `key escape`, `key enter`, `key down`, `key 'ctrl+;'`, `key pageup`. A key press is the user path. `keybinds.html` in the checkout lists every bound key.
 - Chords: a chord such as Ctrl+G M L is one `key` call per key: `key ctrl+g`, `key m`, `key l`. Tern leaves the Ctrl+G mode after the last key, so a second step needs the whole chord again. A bare `l` after it goes to the pane as text.
 - Plugin commands by id: `"$V" ctl "$RUN" plugins run plugin.<plugin id>.<command id>`. It runs the action as a key does, but skips the key binding, so it does not prove a key. It prints `{"ok":true}` also for an id that does not exist, so prove each run by a change of state.
 - The command palette: `"$V" ctl "$RUN" palette '"Break pane to new tab"'`, then `key enter`.

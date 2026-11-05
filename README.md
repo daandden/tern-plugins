@@ -6,23 +6,19 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 
 | Plugin | What it does |
 | --- | --- |
-| `zellij-keys` | Adds Zellij actions that Tern has no built-in command for: floating panes, floating Yazi, lazygit and btop, breaking a pane out to a tab, and focus moves between panes and tabs. |
+| `zellij-keys` | Wraps native show-all and stash-all across tabs, keeps focus among shown floats when one closes, opens floating Yazi, lazygit and btop, grows or shrinks a float, breaks a pane out to a tab, and moves focus between panes and tabs. Tern draws and moves the floats natively. |
 | `goto` | Opens a picker of sessions, tabs and agent panes, drawn by Tern's own picker node. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top, and agent rows show how long they have been working or waiting. The picker follows Tern's glass palette dimming. |
-| `html-links` | Renders local HTML files opened through Files, the palette or `tern open` beside their opener. Clicked `file://` HTML links use Tern's renderer. Web links to this machine stay in Tern; other web links open in Microsoft Edge. Cmd+R reloads the page, or runs the active SQLite view's refresh or Execute action. |
-| `reader-terminal-text` | In the Reader chat style, gives omp's text the terminal's font size, row height and weight. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
+| `reader-terminal-text` | In the Reader chat style, gives omp's prose, composer, advisor notes, notices, and tool-result prose the terminal's font size, row height, and weight. Single-line chrome uses the terminal size and row height with Reader's own weights. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
 
-`bin/open` replaces the macOS `open` command in a Tern pane. `open FILE...` with only local files opens each file in Tern beside the pane that ran the command. Every other call goes to `/usr/bin/open`.
+`bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as source. Every other call goes to `/usr/bin/open`. Web links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action.
 
 Verified with Tern 0.9.8. Text and code files use Tern's native code view, which now follows the line-height setting.
-
-Known limitation: clicking a native edge handle can preview a moved float at its cascade position. Alt+F show-all restores its saved position; focusing the revealed float alone may not. [Issue #8](https://github.com/daandden/tern-plugins/issues/8) tracks this limitation.
 
 ## Requirements
 
 - Tern and its `tern` command.
 - Yazi, lazygit and btop in `/opt/homebrew/bin`, for the float commands of `zellij-keys`.
 - Git and GNU coreutils' `gtimeout` in `/opt/homebrew/bin`, for the worktree-agent shortcut's fetch deadline.
-- Microsoft Edge, for web links from `html-links`.
 
 ## Install
 
@@ -31,9 +27,9 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 1. Link each plugin folder into the plugins directory of Tern (`~/.config/tern/plugins`):
 
    ```sh
-   for d in goto html-links reader-terminal-text zellij-keys; do
-     tern plugin link "$PWD/$d"
-   done
+   	for d in goto reader-terminal-text zellij-keys; do
+   		tern plugin link "$PWD/$d"
+   	done
    ```
 
 2. Load the plugins with `tern plugin reload`. The command exits with code 1 if a plugin fails to load.
@@ -50,7 +46,7 @@ When upgrading from a version with `nvim-files` linked, run `tern plugin unlink 
 
 ## Keybinds
 
-This repo does not hold the Tern configuration file. `~/.config/tern/settings.json` binds a plugin command as `plugin.<plugin id>.<command id>`, for example `plugin.zellij-keys.toggle_float` or `plugin.goto.open`. Open `keybinds.html` for the full guide to the keys, grouped by Zellij mode.
+This repo does not hold the Tern configuration file. `~/.config/tern/settings.json` binds a plugin command as `plugin.<plugin id>.<command id>`, for example `plugin.zellij-keys.float_yazi` or `plugin.goto.open`. Open `keybinds.html` for the full guide to the keys, grouped by Zellij mode.
 
 Ctrl+Shift+T opens an omp tab in a new worktree based on the repository's default branch. Your original checkout can stay on a feature branch, but it must have no uncommitted changes. The shortcut fetches the default branch and uses its remote commit, or the cached remote commit if the fetch fails.
 

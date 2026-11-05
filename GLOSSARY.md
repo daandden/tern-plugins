@@ -52,18 +52,10 @@ _Avoid_: Age, turn time, busy for, time in state
 How long a pane has been waiting on you: since its agent asked for input, showed an error or finished a turn you did not see, or its terminal rang an alert. It counts only waits whose start the picker saw. Idle agents have none.
 _Avoid_: Age, idle time, time in state
 
-**Rendered page**:
-An HTML file shown rendered in a browser pane inside Tern, not as its source text.
-_Avoid_: Page (the Tab entry already uses that word), preview, HTML view
-
 **Opener pane**:
 The pane where an open starts: the pane that holds a clicked link, or the pane whose program ran the open command. The file opens beside it, in its tab.
 _Avoid_: Owner, caller, source pane, focused pane
 
 **Floating pane**:
-A pane that sits over the tiled panes of its tab, at its cascade place until you move or resize it. The floating panes of a tab are shown or hidden, together. When focus goes to a tiled pane of the tab, they hide, and their programs keep running. The Go to picker also floats, but it is not a floating pane: it closes when focus leaves it.
-_Avoid_: Popup, PiP, picture in picture, glance
-
-**Cascade place**:
-The spot where a floating pane opens: half the tab in size, a little lower and to the right of the floating pane opened before it. A floating pane that you move or resize leaves its cascade place and keeps its own spot until it closes.
-_Avoid_: Home spot, slot, corner
+A pane that sits over the tiled panes of its tab, in a corner. The floating panes of a tab are shown or hidden together, and their programs keep running while hidden. A shown floating pane without focus shrinks to a small glance in its corner. The Go to picker also floats, but it is not a floating pane: it closes when focus leaves it.
+_Avoid_: Popup, PiP, picture in picture
