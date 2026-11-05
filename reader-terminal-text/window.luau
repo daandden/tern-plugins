@@ -1,9 +1,10 @@
 -- Tern's Reader chat style gives omp's text its own sizes and line heights (prose 14px/1.65,
--- composer 14px/22px). These rules put that text on the terminal's font size and row height
--- instead (--sf-fs and --sf-lh, which follow font_size and adjust_cell_height). Single-line
--- chrome (tool titles, chips, status) and sized headings keep Reader's values. Message text also
--- gets the terminal's Font weight (--tv-weight), which Reader's `font` shorthands reset to 400.
--- `:root` makes each rule outrank Reader's own.
+-- composer 14px/22px, advisor notes 13.5px/1.55, tool prose 12.5px/1.55, chrome 11 to 13px). These
+-- rules put that text on the terminal's font size and row height instead (--sf-fs and --sf-lh,
+-- which follow font_size and adjust_cell_height), so the chat reads like a terminal. Single-line
+-- chrome (tool titles and meta, card heads, the advisor label, chips, status) keeps Reader's
+-- weights. Message text gets the terminal's Font weight (--tv-weight), which Reader's `font`
+-- shorthands reset to 400. `:root` makes each rule outrank Reader's own.
 tern.css("reader-terminal-text", [[
 /* The terminal's size and row height, taken here before the composer redefines --sf-lh. */
 :root .sf-chat-reader {
@@ -11,14 +12,16 @@ tern.css("reader-terminal-text", [[
 	--term-lh: var(--sf-lh, 17px);
 }
 
-/* Message text at the terminal's size: user and assistant prose, body-size (annotated)
-   headings, questions from `ask`, and the composer draft. */
 :root .sf-chat-reader .sf-card[data-role='omp.user'] .sf-md .md,
 :root .sf-chat-reader [data-role^='omp.assistant'] > .sf-md,
 :root .sf-chat-reader.sf-h-annotated [data-role^='omp.assistant'] > .sf-md .md h1,
 :root .sf-chat-reader.sf-h-annotated [data-role^='omp.assistant'] > .sf-md .md h2,
 :root .sf-chat-reader.sf-h-annotated [data-role^='omp.assistant'] > .sf-md .md h3,
 :root .sf-chat-reader.sf-h-annotated [data-role^='omp.assistant'] > .sf-md .md h4,
+:root .sf-chat-reader [data-role='omp.advisor.note'],
+:root .sf-chat-reader .sf-row[data-role^='omp.notice.'],
+:root .sf-chat-reader .sf-section[data-role^='omp.notice.'] > :is(.sf-section-head, .sf-section-body),
+:root .sf-chat-reader .sf-tool-body > .sf-md,
 :root .sf-chat-reader .sf-md[data-role='omp.ask.question'],
 :root .sf-chat-reader .sf-col[data-role^='omp.editor'] .sf-editor:not(.code) {
 	font-size: var(--term-fs);
@@ -36,6 +39,9 @@ tern.css("reader-terminal-text", [[
 :root .sf-chat-reader .sf-md .md .mfig-src,
 :root .sf-chat-reader .sf-section[data-role^='omp.thinking'] > .sf-section-body,
 :root .sf-chat-reader .sf-row[data-role='omp.recap'],
+:root .sf-chat-reader [data-role='omp.advisor.note'],
+:root .sf-chat-reader .sf-row[data-role^='omp.notice.'],
+:root .sf-chat-reader .sf-section[data-role^='omp.notice.'] > .sf-section-body,
 :root .sf-chat-reader .sf-tool-body > .sf-md,
 :root .sf-chat-reader .sf-md[data-role='omp.ask.question'],
 :root .sf-chat-reader .sf-col[data-role^='omp.editor'] .sf-editor {
@@ -57,8 +63,25 @@ tern.css("reader-terminal-text", [[
 :root .sf-chat-reader .sf-md .md .mfig-src,
 :root .sf-chat-reader .sf-section[data-role^='omp.thinking'] > .sf-section-body,
 :root .sf-chat-reader .sf-row[data-role='omp.recap'],
+:root .sf-chat-reader [data-role='omp.advisor.note'],
+:root .sf-chat-reader .sf-row[data-role^='omp.notice.'],
+:root .sf-chat-reader .sf-section[data-role^='omp.notice.'] > :is(.sf-section-head, .sf-section-body),
 :root .sf-chat-reader .sf-tool-body > .sf-md,
 :root .sf-chat-reader .sf-md[data-role='omp.ask.question'] {
+	line-height: var(--term-lh);
+}
+
+:root:root .sf-chat-reader .sf-row[data-role='omp.advisor.head'],
+:root:root .sf-chat-reader [data-role='omp.advisor.source'],
+:root:root .sf-chat-reader :is(.sf-tool-title, .sf-tool-target, .sf-tool-meta, .sf-tool-time),
+:root:root .sf-chat-reader .sf-tool > .sf-tool-more,
+:root:root .sf-chat-reader .sf-card-head :is(.sf-head, .sf-card-meta),
+:root:root .sf-chat-reader .sf-chip,
+:root:root .sf-chat-reader .sf-row:is([data-role='omp.working'], [data-role='omp.hint.retry']),
+:root:root .sf-chat-reader [data-role='omp.working'] :is(.sf-shimmer, [data-role='omp.working.label']),
+:root:root .sf-chat-reader .sf-status[data-role='omp.status'],
+:root:root .sf-chat-reader .sf-status[data-role='omp.status'] .sf-seg-t {
+	font-size: var(--term-fs);
 	line-height: var(--term-lh);
 }
 
