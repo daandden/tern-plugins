@@ -266,11 +266,16 @@ local function open_float(cx, command, size)
 	focus_pane(cx, pane)
 end
 
--- Plugin processes inherit the launcher's PATH, which may lack Homebrew. GIT_TERMINAL_PROMPT=0
--- makes a fetch that needs a password fail at once instead of waiting for input that never comes.
+-- Plugin processes inherit the launcher's PATH, which may lack Homebrew. Git hooks and filters,
+-- such as Git LFS's, look up Homebrew programs by name, so PATH puts Homebrew first.
+-- GIT_TERMINAL_PROMPT=0 makes a fetch that needs a password fail at once instead of waiting for
+-- input that never comes.
 local GIT = "/opt/homebrew/bin/git"
 local OMP = "/opt/homebrew/bin/omp"
-local GIT_ENV = { GIT_TERMINAL_PROMPT = "0" }
+local GIT_ENV = {
+	GIT_TERMINAL_PROMPT = "0",
+	PATH = "/opt/homebrew/bin:" .. (tern.getenv("PATH") or "/usr/bin:/bin:/usr/sbin:/sbin"),
+}
 local FETCH_TIMEOUT_MS = 30000
 local worktree_busy = false
 
@@ -304,6 +309,11 @@ end
 -- The first line of git's output, without its line end.
 local function first_line(text)
 	return string.match(text, "^([^\n]*)") or ""
+end
+
+-- The first line of a failed command's output that is not blank. Hooks can start with an empty line.
+local function first_message(text)
+	return string.match(text, "([^\n]*%S[^\n]*)") or ""
 end
 
 -- Ends a press of worktree_agent_tab with a toast.
@@ -340,6 +350,82 @@ local function worktree_dir(cx, main, cb)
 	end, main)
 end
 
+-- Whether `list`, the output of `git worktree list --porcelain`, has a worktree at `path`, and the
+-- branch checked out there.
+local function listed_worktree(list, path)
+	for entry in string.gmatch(`{list}\n\n`, "(.-)\n\n") do
+		if string.match(entry, "^worktree ([^\n]+)") == path then
+			return true, string.match(entry, "\nbranch refs/heads/([^\n]+)")
+		end
+	end
+	return false, nil
+end
+
+-- Cleans up resources claimed by a failed worktree add, then ends the press.
+local function worktree_undo(cx, main, path, branch)
+	-- Ends the press, reporting a cleanup failure if one occurred.
+	local function done(removed, cx, what)
+		if removed.status ~= 0 then
+			worktree_stop(cx, "error", `Could not remove {what}`, first_message(removed.stderr))
+		else
+			worktree_busy = false
+		end
+	end
+	git(main, { "worktree", "list", "--porcelain" }, {}, function(list, cx)
+		if list.status ~= 0 then
+			worktree_stop(cx, "error", "Could not remove the new worktree", path)
+			return
+		end
+		local listed, checked_out = listed_worktree(list.stdout, path)
+		if not listed then
+			worktree_step({ "/bin/rm", "-rf", path }, function(removed, cx)
+				done(removed, cx, path)
+			end)
+			return
+		end
+		git(main, { "worktree", "remove", "--force", path }, {}, function(removed, cx)
+			if removed.status ~= 0 or checked_out ~= branch then
+				done(removed, cx, path)
+			else
+				git(main, { "branch", "-D", branch }, {}, function(deleted, cx)
+					done(deleted, cx, branch)
+				end)
+			end
+		end)
+	end)
+end
+
+-- Claims the new worktree's names and calls `cb(cx, path)` on success, with the folder's real path
+-- from `pwd -P`. git lists a worktree by a normalized path, without doubled slashes, so the press
+-- adds and later looks for its worktree by that one spelling.
+local function worktree_claim(cx, main, dir, path, branch, cb)
+	git(main, { "rev-parse", "--verify", "--quiet", `refs/heads/{branch}` }, {}, function(found, cx)
+		if found.status == 0 then
+			worktree_stop(cx, "error", `{branch} already exists`, "Press again in a second.")
+		elseif found.status ~= 1 then
+			worktree_stop(cx, "error", "Could not read the branches", first_message(found.stderr))
+		else
+			worktree_step({ "/bin/mkdir", "-p", dir }, function(_, cx)
+				worktree_step({ "/bin/mkdir", path }, function(made, cx)
+					if made.status ~= 0 then
+						worktree_stop(cx, "error", "Could not make the worktree folder", first_message(made.stderr))
+						return
+					end
+					worktree_step({ "/bin/pwd", "-P" }, function(real, cx)
+						local claimed = first_line(real.stdout)
+						if real.status ~= 0 or claimed == "" then
+							cx:toast("error", "Could not read the worktree folder", first_message(real.stderr))
+							worktree_undo(cx, main, path, branch)
+						else
+							cb(cx, claimed)
+						end
+					end, path)
+				end)
+			end)
+		end
+	end)
+end
+
 -- Adds a worktree on a new wt/<time> branch at `base` and opens its agent tab. omp's worktree add
 -- clones the main checkout's ignored files (worktree.clone), checks out `base` and leaves the main
 -- checkout, its branch and its changes as they were.
@@ -354,15 +440,19 @@ local function worktree_open(cx, main, base)
 			local stamp = first_line(date.stdout)
 			worktree_dir(cx, main, function(cx, dir)
 				local path = `{dir}/wt-{stamp}-{short}`
-				local argv = { OMP, "worktree", "add", "--quiet", "-C", main, "-b", `wt/{stamp}`, path, base }
-				worktree_step(argv, function(added, cx)
-					if added.status ~= 0 then
-						local why = if added.stderr ~= "" then added.stderr else added.stdout
-						worktree_stop(cx, "error", "Could not add a worktree", first_line(why))
-					else
-						worktree_open_tab(cx, path)
-					end
-				end, main)
+				local branch = `wt/{stamp}`
+				worktree_claim(cx, main, dir, path, branch, function(cx, claimed)
+					local argv = { OMP, "worktree", "add", "--quiet", "-C", main, "-b", branch, claimed, base }
+					worktree_step(argv, function(added, cx)
+						if added.status ~= 0 then
+							local why = if added.stderr ~= "" then added.stderr else added.stdout
+							cx:toast("error", "Could not add a worktree", first_message(why))
+							worktree_undo(cx, main, claimed, branch)
+						else
+							worktree_open_tab(cx, claimed)
+						end
+					end, main)
+				end)
 			end)
 		end)
 	end)

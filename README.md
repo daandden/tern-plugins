@@ -51,7 +51,7 @@ This repo does not hold the Tern configuration file. `~/.config/tern/settings.js
 
 Ctrl+Shift+T opens an omp tab in a new worktree based on the repository's default branch. Your original checkout can stay on a feature branch, but it must have no uncommitted changes. The shortcut fetches the default branch and uses its remote commit, or the cached remote commit if the fetch fails.
 
-These worktrees remain after you close the agent. They are created before omp starts, so omp's `worktree.onExit` cleanup does not own them. Remove a finished worktree explicitly with `git worktree remove <path>`.
+These worktrees remain after you close the agent. They are created before omp starts, so omp's `worktree.onExit` cleanup does not own them. Remove a finished worktree explicitly with `git worktree remove <path>`. When the worktree cannot be added, for example because a hook of the repo fails, the error toast names the cause, and the shortcut removes the new worktree folder. It also deletes the new `wt/<time>` branch when git had registered the worktree on it; otherwise the branch stays. A cleanup step that fails shows a second toast.
 
 ## Development
 
