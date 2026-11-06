@@ -1,0 +1,6 @@
+schema = 1
+id = "vstack-flow"
+name = "vstack Flow"
+version = "0.1.0"
+description = "A Cmd-click on a vstack Flow link opens the Flow page in Tern beside the pane that holds the link, or goes to the clicked question in the tab's open page of that Flow. Every other web link follows Tern's link setting."
+window = "window.luau"

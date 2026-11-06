@@ -59,3 +59,7 @@ _Avoid_: Owner, caller, source pane, focused pane
 **Floating pane**:
 A pane that sits over the tiled panes of its tab, in a corner. The floating panes of a tab are shown or hidden together, and their programs keep running while hidden. A shown floating pane without focus shrinks to a small glance in its corner. The Go to picker also floats, but it is not a floating pane: it closes when focus leaves it.
 _Avoid_: Popup, PiP, picture in picture
+
+**Flow link**:
+A link to a vstack Flow page on this machine, the page where an agent shows its questions and results. omp shows one before each question it asks there. The click that opens links (Cmd-click) opens it in Tern beside the opener pane, while other web links go to the default browser.
+_Avoid_: Flow URL, Grilling page link, local link
