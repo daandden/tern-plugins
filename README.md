@@ -9,8 +9,9 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | `zellij-keys` | Wraps native show-all and stash-all across tabs, keeps focus among shown floats when one closes, opens floating Yazi, lazygit and btop, grows or shrinks a float, breaks a pane out to a tab, and moves focus between panes and tabs. Tern draws and moves the floats natively. |
 | `goto` | Opens a picker of sessions, tabs and agent panes, drawn by Tern's own picker node. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top, and agent rows show how long they have been working or waiting. The picker follows Tern's glass palette dimming. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's prose, composer, advisor notes, notices, and tool-result prose the terminal's font size, row height, and weight. Single-line chrome uses the terminal size and row height with Reader's own weights. Preserves the UI font and Markdown theme colours, and hides the empty composer's placeholder. The plugin is CSS only. |
+| `vstack-flow` | A Cmd-click on a vstack Flow link opens the Flow page in Tern beside the pane that holds the link, or goes to the clicked question in the tab's open page of that Flow. Every other web link, and Cmd+⌥-click, follows Tern's link setting. |
 
-`bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as source. Every other call goes to `/usr/bin/open`. Web links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action.
+`bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as source. Every other call goes to `/usr/bin/open`. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action.
 
 Verified with Tern 0.9.8. Text and code files use Tern's native code view, which now follows the line-height setting.
 
@@ -27,7 +28,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 1. Link each plugin folder into the plugins directory of Tern (`~/.config/tern/plugins`):
 
    ```sh
-   	for d in goto reader-terminal-text zellij-keys; do
+   	for d in goto reader-terminal-text zellij-keys vstack-flow; do
    		tern plugin link "$PWD/$d"
    	done
    ```

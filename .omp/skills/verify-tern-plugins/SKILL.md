@@ -1,13 +1,13 @@
 ---
 name: verify-tern-plugins
-description: Drives goto, reader-terminal-text, zellij-keys, native file opens, and bin/open in an isolated Tern window, and captures proof. Use to verify plugin keys, commands, CSS, native floats, file opens, bin/open, or the tern CLI.
+description: Drives goto, reader-terminal-text, zellij-keys, vstack-flow, native file opens, and bin/open in an isolated Tern window, and captures proof. Use to verify plugin keys, commands, CSS, native floats, file opens, Flow link clicks, bin/open, or the tern CLI.
 ---
 
 # Verify tern-plugins
 
 The app is a set of Tern plugins. Tern loads each plugin folder of a checkout and runs it in its desktop window. The surfaces are:
 
-- The Tern desktop window (primary): plugin commands on keys and in the palette, native floats and file opens, the goto picker block, and CSS sheets.
+- The Tern desktop window (primary): plugin commands on keys and in the palette, native floats and file opens, clicked links, the goto picker block, and CSS sheets.
 - The `bin/open` command, run in a Tern pane.
 - The `tern` CLI that a user runs in a pane: `tern open`, `tern plugin reload`, `tern plugin list`.
 
