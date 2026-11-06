@@ -15,7 +15,7 @@ The harness is Tern's own developer tooling (`tern help dev`). A window started 
 
 ## Isolation
 
-Each run gets its own Tern instance: its own configuration directory (`TERN_CONFIG_DIR`), daemon socket (`TERN_DAEMON_SOCKET`) and control socket, all under `RUN/data`. The daemon of that instance loads the plugins of the checkout under test, through `<id>.path` links in its own plugins directory. Your own Tern window, its daemon, its sessions and `~/.config/tern` stay untouched. Runs can go side by side, one run dir each.
+Each run gets its own Tern instance: its own configuration directory (`TERN_CONFIG_DIR`), daemon socket (`TERN_DAEMON_SOCKET`) and control socket, all under `RUN/data`. The daemon of that instance loads the plugins of the checkout under test, through `<id>.path` links in its own plugins directory. Your own Tern window, its daemon, its sessions and `~/.config/tern` stay untouched. Runs can go side by side, one run dir each. `start` opens the window with launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), the one a Tern opened from the Dock gets, so plugin processes find no Homebrew program by name, as in the user's Tern.
 
 Drive only the instance that your run started. Every `tern` command goes through the helper, because a bare `tern ls` or `tern plugin reload` in an agent pane acts on the Tern window of that pane.
 
@@ -25,7 +25,7 @@ These stay shared with your own Tern:
 - The Stencil account of this Mac. There is no separate sign-in.
 - The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
 
-Tern reloads linked plugins when a file of the loaded checkout changes, also under `.omp/`. A full reload resets their Lua state and closes the Go to picker. `tern plugin reload <id>` reloads only that plugin; reloading another plugin leaves goto's picker open. Save no file in the loaded checkout while a drive step runs. For concurrent work, use a private runtime copy and set `TERN_PLUGINS_REPO` to it.
+Tern reloads linked plugins when a file of the loaded checkout changes, also under `.omp/`, but a run can keep the old code of an edited `window.luau`. After an edit, run `"$V" tern "$RUN" plugin reload <id>` before you drive the change. A full reload resets their Lua state and closes the Go to picker. `tern plugin reload <id>` reloads only that plugin; reloading another plugin leaves goto's picker open. Save no file in the loaded checkout while a drive step runs. For concurrent work, use a private runtime copy and set `TERN_PLUGINS_REPO` to it.
 
 ## Helpers
 
