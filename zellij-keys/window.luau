@@ -350,19 +350,24 @@ local function worktree_dir(cx, main, cb)
 	end, main)
 end
 
--- Whether `list`, the output of `git worktree list --porcelain`, has a worktree at `path`, and the
--- branch checked out there.
+-- Whether `list`, the output of `git worktree list --porcelain`, has a worktree at `path`.
 local function listed_worktree(list, path)
 	for entry in string.gmatch(`{list}\n\n`, "(.-)\n\n") do
 		if string.match(entry, "^worktree ([^\n]+)") == path then
-			return true, string.match(entry, "\nbranch refs/heads/([^\n]+)")
+			return true
 		end
 	end
-	return false, nil
+	return false
 end
 
--- Cleans up resources claimed by a failed worktree add, then ends the press.
-local function worktree_undo(cx, main, path, branch)
+-- Deletes `branch` only while it still points at `commit`, the commit this press created it at.
+local function worktree_release(main, branch, commit, cb)
+	git(main, { "update-ref", "-d", `refs/heads/{branch}`, commit }, {}, cb)
+end
+
+-- Removes what a failed add left of this press's claim, the worktree or folder at `path` and
+-- `branch`, then ends the press.
+local function worktree_undo(cx, main, path, branch, commit)
 	-- Ends the press, reporting a cleanup failure if one occurred.
 	local function done(removed, cx, what)
 		if removed.status ~= 0 then
@@ -371,83 +376,90 @@ local function worktree_undo(cx, main, path, branch)
 			worktree_busy = false
 		end
 	end
+	-- After the worktree or folder is gone, deletes the claimed branch and ends the press.
+	local function release(removed, cx)
+		if removed.status ~= 0 then
+			done(removed, cx, path)
+		else
+			worktree_release(main, branch, commit, function(deleted, cx)
+				done(deleted, cx, branch)
+			end)
+		end
+	end
 	git(main, { "worktree", "list", "--porcelain" }, {}, function(list, cx)
 		if list.status ~= 0 then
 			worktree_stop(cx, "error", "Could not remove the new worktree", path)
-			return
+		elseif listed_worktree(list.stdout, path) then
+			git(main, { "worktree", "remove", "--force", path }, {}, release)
+		else
+			worktree_step({ "/bin/rm", "-rf", path }, release)
 		end
-		local listed, checked_out = listed_worktree(list.stdout, path)
-		if not listed then
-			worktree_step({ "/bin/rm", "-rf", path }, function(removed, cx)
-				done(removed, cx, path)
-			end)
-			return
-		end
-		git(main, { "worktree", "remove", "--force", path }, {}, function(removed, cx)
-			if removed.status ~= 0 or checked_out ~= branch then
-				done(removed, cx, path)
-			else
-				git(main, { "branch", "-D", branch }, {}, function(deleted, cx)
-					done(deleted, cx, branch)
-				end)
-			end
-		end)
 	end)
 end
 
 -- Claims the new worktree's names and calls `cb(cx, path)` on success, with the folder's real path
--- from `pwd -P`. git lists a worktree by a normalized path, without doubled slashes, so the press
--- adds and later looks for its worktree by that one spelling.
-local function worktree_claim(cx, main, dir, path, branch, cb)
-	git(main, { "rev-parse", "--verify", "--quiet", `refs/heads/{branch}` }, {}, function(found, cx)
-		if found.status == 0 then
-			worktree_stop(cx, "error", `{branch} already exists`, "Press again in a second.")
-		elseif found.status ~= 1 then
-			worktree_stop(cx, "error", "Could not read the branches", first_message(found.stderr))
-		else
-			worktree_step({ "/bin/mkdir", "-p", dir }, function(_, cx)
-				worktree_step({ "/bin/mkdir", path }, function(made, cx)
-					if made.status ~= 0 then
-						worktree_stop(cx, "error", "Could not make the worktree folder", first_message(made.stderr))
-						return
-					end
-					worktree_step({ "/bin/pwd", "-P" }, function(real, cx)
-						local claimed = first_line(real.stdout)
-						if real.status ~= 0 or claimed == "" then
-							cx:toast("error", "Could not read the worktree folder", first_message(real.stderr))
-							worktree_undo(cx, main, path, branch)
-						else
-							cb(cx, claimed)
-						end
-					end, path)
-				end)
-			end)
+-- from `pwd -P`. update-ref with a zero old value creates `branch` at `commit` only if no branch
+-- has that name, so nobody else can own it, and a plain mkdir does the same for the folder. git
+-- lists a worktree by a normalized path, so the press adds and looks for it by one spelling.
+local function worktree_claim(cx, main, dir, path, branch, commit, cb)
+	git(main, { "update-ref", `refs/heads/{branch}`, commit, string.rep("0", 40) }, {}, function(made_ref, cx)
+		if made_ref.status ~= 0 then
+			if string.find(made_ref.stderr, "already exists", 1, true) then
+				worktree_stop(cx, "error", `{branch} already exists`, "Press again in a second.")
+			else
+				worktree_stop(cx, "error", `Could not make {branch}`, first_message(made_ref.stderr))
+			end
+			return
 		end
+		worktree_step({ "/bin/mkdir", "-p", dir }, function(_, cx)
+			worktree_step({ "/bin/mkdir", path }, function(made, cx)
+				if made.status ~= 0 then
+					cx:toast("error", "Could not make the worktree folder", first_message(made.stderr))
+					worktree_release(main, branch, commit, function(deleted, cx)
+						if deleted.status ~= 0 then
+							worktree_stop(cx, "error", `Could not remove {branch}`, first_message(deleted.stderr))
+						else
+							worktree_busy = false
+						end
+					end)
+					return
+				end
+				worktree_step({ "/bin/pwd", "-P" }, function(real, cx)
+					local claimed = first_line(real.stdout)
+					if real.status ~= 0 or claimed == "" then
+						cx:toast("error", "Could not read the worktree folder", first_message(real.stderr))
+						worktree_undo(cx, main, path, branch, commit)
+					else
+						cb(cx, claimed)
+					end
+				end, path)
+			end)
+		end)
 	end)
 end
 
 -- Adds a worktree on a new wt/<time> branch at `base` and opens its agent tab. omp's worktree add
--- clones the main checkout's ignored files (worktree.clone), checks out `base` and leaves the main
--- checkout, its branch and its changes as they were.
+-- clones the main checkout's ignored files (worktree.clone), checks out the claimed branch and
+-- leaves the main checkout, its branch and its changes as they were.
 local function worktree_open(cx, main, base)
-	git(main, { "rev-parse", "--verify", "--quiet", "--short=7", base .. "^{commit}" }, {}, function(commit, cx)
-		local short = first_line(commit.stdout)
-		if commit.status ~= 0 or short == "" then
+	git(main, { "rev-parse", "--verify", "--quiet", base .. "^{commit}" }, {}, function(found, cx)
+		local commit = first_line(found.stdout)
+		if found.status ~= 0 or commit == "" then
 			worktree_stop(cx, "error", `Could not find {base}`, main)
 			return
 		end
 		worktree_step({ "/bin/date", "+%Y%m%d-%H%M%S" }, function(date, cx)
 			local stamp = first_line(date.stdout)
 			worktree_dir(cx, main, function(cx, dir)
-				local path = `{dir}/wt-{stamp}-{short}`
+				local path = `{dir}/wt-{stamp}-{string.sub(commit, 1, 7)}`
 				local branch = `wt/{stamp}`
-				worktree_claim(cx, main, dir, path, branch, function(cx, claimed)
-					local argv = { OMP, "worktree", "add", "--quiet", "-C", main, "-b", branch, claimed, base }
+				worktree_claim(cx, main, dir, path, branch, commit, function(cx, claimed)
+					local argv = { OMP, "worktree", "add", "--quiet", "-C", main, claimed, branch }
 					worktree_step(argv, function(added, cx)
 						if added.status ~= 0 then
 							local why = if added.stderr ~= "" then added.stderr else added.stdout
 							cx:toast("error", "Could not add a worktree", first_message(why))
-							worktree_undo(cx, main, claimed, branch)
+							worktree_undo(cx, main, claimed, branch, commit)
 						else
 							worktree_open_tab(cx, claimed)
 						end
