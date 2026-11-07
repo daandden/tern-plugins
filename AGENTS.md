@@ -1,29 +1,86 @@
-# Tern plugins
+# Repository Guidelines
 
-This repo holds custom Tern plugins. Each top-level folder other than `bin/` and `docs/` is one plugin, with a `plugin.toml` manifest and a `window.luau` script. The folder name is the `id` in `plugin.toml`. `bin/` holds shell commands that work with the plugins.
+## Project Overview
 
-## Loading
+Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), and Flow links that open in Tern (`vstack-flow`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
 
-Tern loads each plugin from its folder in this repo. `tern plugin link <folder>` wrote a `<id>.path` file into the plugins directory (`tern plugin dir`, `~/.config/tern/plugins`), and that file names the folder. An edit here is the live plugin after a reload.
+## Architecture & Data Flow
 
-After each change:
+A plugin is a top-level folder with a `plugin.toml`, and the folder name is its `id`. `html-links/` is left over from a plugin removed in #16 and holds only an ignored `tern.d.luau`. Tern loads each plugin from its folder here through `<id>.path` links that `tern plugin link` wrote into `~/.config/tern/plugins` (`tern plugin dir`), so an edit is the live plugin after a reload.
 
-1. Run `tern plugin reload`. It exits 1 when a plugin fails to load.
-2. Run `tern plugin list` and make sure that each plugin shows `ready`.
+Tern runs `window.luau` once per window. The script registers handlers at load time, and Tern calls them with `cx`, the window context:
 
-To add a plugin, create `<id>/plugin.toml` and `<id>/window.luau`, then run `tern plugin link` once with the absolute path of the folder.
+- `tern.command(id, fn)` adds a command that keys bind as `plugin.<plugin id>.<command id>`. `tern.override(name, fn)` replaces a native command (zellij-keys overrides `pip_stash_all`).
+- `tern.on(event, fn)` handles `window_start`, `focus`, `pane_created`, `pane_closed`, `tab_closed`, `agent_state` and `agent_finished`.
+- `tern.route.link(fn)` sees clicked links. A nil return leaves the link to Tern.
+- `tern.css(name, sheet)` adds a sheet. The sheets select Tern's internal classes (`.sf-*`, `.tn-*`, `.pk-*`) and omp TSP roles. These are not an API, so a Tern or omp update can break them silently.
+- `cx.session`, `cx.layout`, `cx.agents`, `cx.browser` and `cx.settings` read and change Tern state. `cx:command`, `cx:action("focus_pane:left")`, `cx:toast(level, title, detail)` and `cx:open(url)` act on the window.
 
-## Luau API
+goto has two halves. `goto/window.luau` collects sessions, tabs, panes and their statuses, encodes them as JSON launch arguments, and opens the `picker` block as a floating pane. `goto/plugin.toml` declares the block (`host = "host.luau"`, `[[blocks]]`). `goto/host.luau` defines it with `tern.block.define("picker", { init, title, view, key, event })`, draws Tern's `picker` node, takes the keys, and answers with `cx:open("goto:pane/<id>")` (or `goto:tab/`, `goto:session/`, `goto:close`). The window's link route accepts only links from its current picker and focuses the target. `docs/adr/0001-goto-picker-as-floating-block.md` records why the picker is a floating block.
 
-`tern plugin types <folder>` writes `<folder>/tern.d.luau`, the type definitions for luau-lsp. Read it for the API that the plugins use (`tern.command`, `tern.css`, `tern.route`, `cx.layout`, `cx.session`). The file comes from the installed Tern version, so `.gitignore` keeps it out of the repo. The SDK and its example plugins are at https://github.com/stencil-hq/tern-sdk.
+State lives in two places:
 
-## Conventions
+- Module-level locals (`picker`, `worktree_busy`, `pending_focus`) last until the plugin reloads. `window_start` does not run after a reload, so cleanup that must survive one runs from a load-time `tern.timer(0, fn)`, such as goto closing orphaned pickers.
+- `tern.kv.get`/`tern.kv.set` persist per plugin in `~/.config/tern/plugin-data/<id>/kv.json`. goto keeps `seen`, `finished`, `since`, `waiting_idle` and `reduce_motion_before_open`; zellij-keys keeps `last_float`. Plugin settings have no API, so preferences live here too.
 
-Indent Luau with tabs. Each `window.luau` starts with a comment that says what the plugin does, and each function or command has a comment above it that says what it does. In zellij-keys, that comment names the Zellij action that the command copies.
+## Key Directories
 
-## Plugin notes
+- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`: the plugins. Only goto has a `host.luau`; reader-terminal-text is CSS only.
+- `bin/`: shell commands for Tern panes (`bin/open`).
+- `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
+- `.omp/skills/verify-tern-plugins/`: the Verify skill, its `scripts/tern-verify` helper and per-feature recipes in `features/`.
 
-zellij-keys: `~/.config/tern/settings.json` binds its commands as `plugin.zellij-keys.<command id>`. If you rename a command id, change its keybind in `settings.json` too. A running Tern keeps its settings in memory, does not read an edit of the file, and writes the whole file again at each change of a preference. So a hand edit of the file while Tern runs is lost. Bind keys with Tern's Keyboard settings, or with `cx.settings:bind` from a plugin, which applies the key at once and saves it. Keep the absolute `/opt/homebrew/bin` tool paths: plugin processes inherit Tern's launcher PATH, which may lack Homebrew, even when the interactive fish pane finds those programs.
+## Development Commands
+
+There is no build step. Tern reads the Luau sources directly.
+
+```sh
+tern plugin reload            # all plugins; exits 1 when one fails to load
+tern plugin reload zellij-keys  # one plugin; reloading any plugin but goto leaves its picker open
+tern plugin list              # every plugin must show `ready`
+tern plugin types goto        # writes goto/tern.d.luau for luau-lsp (gitignored)
+tern plugin link "$PWD/<id>"  # once, for a new plugin folder
+```
+
+Run reload and list after each change. They act on the user's running Tern, which loads this checkout. To add a plugin, create `<id>/plugin.toml` (`schema = 1`, `id`, `name`, `version`, `description`, `window = "window.luau"`) and `<id>/window.luau`, then link it.
+
+## Code Conventions & Common Patterns
+
+- Indent Luau with tabs. Each `window.luau` starts with a comment that says what the plugin does, and each function or command has a comment above it that says what it does. In zellij-keys, that comment names the Zellij action that the command copies.
+- Names: snake_case for locals, functions and command ids (`float_yazi`, `worktree_agent_tab`), UPPER_CASE for constants (`GIT_ENV`, `TAB_ORDER`, `ATTENTION`).
+- Async work uses callbacks: `tern.process.run(argv, { env, cwd }, function(result, later) ... end)`, `tern.timer(ms, fn)`, `cx.browser:call(...):next(fn)`. The callback gets a fresh context, `later`, which is nil when the window is gone. Run the callback body under `pcall`, toast a failure on `later`, and reset busy flags on every exit path; `worktree_step` in `zellij-keys/window.luau` is the model. Chain steps by nesting callbacks.
+- User-visible failures are `cx:toast("error", title, detail)`, with the first non-blank line of a command's stderr as the detail.
+- Run external programs by absolute path (`/opt/homebrew/bin/git`, `omp`, `gtimeout`, `yazi`, `lazygit`, `btop`). Plugin processes get Tern's launcher `PATH`, which lacks Homebrew.
+- The Lua time of each hook has a budget. Keep handlers short and let native calls (`tern.kv`, `cx.session`) do the work.
+- `keybinds.html` is the guide to every bound key, grouped by Zellij mode, plus Tern's own Cmd+R. When you add, remove or change a keybind or a zellij-keys command, change its row (columns Keys, What it does, Zellij action, From, with `data-label` attributes) and the sequence count at the top. Several sequences can share a row, so count sequences, not rows.
+
+## Important Files
+
+- `goto/window.luau`: row collection, last seen and status tracking, the `goto:` route. `goto/host.luau`: picker rendering, search, jump numbers, tab order.
+- `zellij-keys/window.luau`: commands, the `pip_stash_all` override, float focus on close, the worktree agent tab.
+- `vstack-flow/window.luau`: the Flow link route. `reader-terminal-text/window.luau`: Reader CSS.
+- `~/.config/tern/settings.json` (outside the repo): keybinds `plugin.<id>.<command id>`, `link_target`, `agent_placement`.
+- `<folder>/tern.d.luau`: generated API types from the installed Tern version. Read it for signatures; regenerate it after a Tern update. SDK and example plugins: https://github.com/stencil-hq/tern-sdk.
+
+## Runtime/Tooling Preferences
+
+- Tern 0.9.12 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
+- Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
+- The user's login shell is fish. Commits use imperative sentence-case titles, with the PR number on merge (`Claim the worktree branch atomically before a press adds it (#20)`).
+
+## Testing & QA
+
+The repo has no automated tests and no `.github/workflows`. `tern plugin list` proves only that a plugin loaded. Prove behavior with the `verify-tern-plugins` skill (`.omp/skills/verify-tern-plugins/SKILL.md`): its `scripts/tern-verify` starts an isolated Tern instance on the checkout (`start`, `doctor`, `ctl`, `tern`, `shot`, `stop`), and `features/<plugin>.md` holds the recipe for each feature.
+
+- In a verify run, send every `tern` command through the helper. A bare `tern` command in an agent pane acts on the user's own window.
+- `ctl plugins run plugin.<id>.<command>` prints `{"ok":true}` even for a missing id and skips the keybind. Prove each step by a change of state, and press the real key to prove a binding.
+- After an edit, reload the changed plugin in the run (`"$V" tern "$RUN" plugin reload <id>`) before you drive it.
+
+omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts Tern instances for its checks. An isolated instance there needs the same omp state before it starts; its Verify skill writes it since https://github.com/daandden/omp-tools/pull/19. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
+
+## Plugin Notes
+
+zellij-keys: `~/.config/tern/settings.json` binds its commands as `plugin.zellij-keys.<command id>`. If you rename a command id, change its keybind in `settings.json` too. Tern reads the file only at start and on Reload settings, and writes the whole file again at each change of a preference, so a hand edit of the file while Tern runs can be lost. Bind keys with Tern's Keyboard settings, or with `cx.settings:bind` from a plugin, which applies the key at once and saves it. Keep the absolute `/opt/homebrew/bin` tool paths: plugin processes inherit Tern's launcher PATH, which may lack Homebrew, even when the interactive fish pane finds those programs.
 
 zellij-keys floats: Alt+F and Ctrl+G P W run Tern's `pip_stash_all`. Its override hides the active tab's floats when any are shown, else shows them all without changing focus. `stash_all` checks the result and runs the native command again if its first call went the wrong way. Tern picks the direction from its last call anywhere in the window rather than the active tab's state. See [Tern SDK #255](https://github.com/stencil-hq/tern-sdk/issues/255) and [issue #15](https://github.com/daandden/tern-plugins/issues/15). A tab with no floats uses Tern's own behavior.
 
@@ -45,8 +102,6 @@ zellij-keys worktree settings: both `omp config get worktree.base` and `omp work
 
 zellij-keys fetch deadline: `/opt/homebrew/bin/gtimeout` (GNU coreutils) wraps the fetch and terminates its process group after 30 seconds, with `--kill-after=1s` for a process that ignores TERM. Tern's own `tern.process.run` timeout kills only the parent; a surviving SSH transport can keep its output pipes open and delay the callback past the deadline. The group deadline lets the command continue with the cached origin branch without waiting for the transport.
 
-`keybinds.html` is the guide to every key that `~/.config/tern/settings.json` binds, grouped by zellij mode. When you add, remove or change a keybind or a zellij-keys command, change its row in the guide and the key count at the top.
-
 reader-terminal-text: the plugin is CSS only, through `tern.css`. Its selectors use Tern's Reader classes and omp roles: `.sf-chat-reader`, `omp.assistant`, `omp.editor`, `omp.advisor.note`, `omp.notice.*`, and `.sf-tool-body > .sf-md`. Prose, advisor notes, notice rows and section bodies, and tool-result prose use the terminal size, weight, and row height. Single-line chrome uses the terminal size and row height with Reader's own weights: advisor heads and labels, tool title, target, meta, time and more, card heads, chips, the working row, and status. If Tern changes these selectors, the rules stop working. The `:root` and `:root:root` prefixes outrank Reader's rules.
 
 reader-terminal-text weight: Tern's Font weight setting (`font_weight`) sets `--tv-weight`, which only the terminal grid uses. Reader's `font` shorthands set message text back to 400, so the plugin gives that text `var(--tv-weight, 400)`, and its strong text and headings `bolder` (700 from 400, 900 from 600 or 700). Tern's CSS engine does not apply `min(900, calc(var(--tv-weight) + 300))` in `font-weight`, so bold cannot follow the grid's +300 exactly. Single-line chrome (tool titles, chips, status) keeps Reader's own weights.
@@ -57,7 +112,7 @@ Native text files: Tern 0.9.8's code view follows `adjust_cell_height`, so text 
 
 vstack-flow: the user keeps `link_target` at `Browser`, so web links open in Edge, but wants Flow links (GLOSSARY.md) in Tern. The plugin's `tern.route.link` claims a link whose URL is `http://127.0.0.1` or `http://localhost`, any port, with the path `/f/<project>/<flow>/<64 hex>/` and nothing after it but an optional fragment, so user information, a query or more path leave the link to Tern; the Local Flow host's port is `42000 + uid % 10000` unless `VSTACK_FLOW_PORT` or an isolated `--home` moves it. Tern applies `link_click` before the route, so only the opening click (Cmd-click) arrives. Cmd+⌥-click also arrives, with `mods.alt`, and the route returns nil so Tern handles it: ⌥ opens the other target, which is Tern. If the opener pane's tab has a browser pane whose URL names the same Flow (the URL up to the capability segment), the route sends it to the clicked URL with the browser op `goto`, which keeps the document because only the fragment changes, and focuses it. Otherwise the browser op `open` with `how = "beside"` docks a new page right of the opener pane, or of the tiled pane under a floating opener, and the route then `release`s it, because an opened page stays driven by automation. Tern gives automation pages the `agent` website data store, while its own link opens use the shared store; `tern browser --help` names no store option for `open`. `cx.layout:open` of the URL is no substitute: it follows `link_target` and opens Edge. Tern 0.9.12 calls the route for Cmd-clicks on native links, including the Markdown link of omp's Flow page popup.
 
-bin/open: `~/.local/bin/open` is a symlink to `bin/open`, and `~/.local/bin` comes before `/usr/bin` in `PATH`. In a Tern pane (`TERN_PANE` is set), `open FILE...` with only local files runs `tern open` for each file. The file opens beside that pane in its tab, also when you were looking at another tab. Every other call goes to `/usr/bin/open`. The script returns a failing `tern open` status if any file fails.
+bin/open: `~/.local/bin/open` is a symlink to `bin/open`, and fish puts `~/.local/bin` before `/usr/bin` in `PATH`. In a Tern pane (`TERN_PANE` is set), `open FILE...` with only local files runs `tern open` for each file. The file opens beside that pane in its tab, also when you were looking at another tab. Every other call goes to `/usr/bin/open`, also when `tern` is missing or any argument is an option or not a regular file. The script returns a failing `tern open` status if any file fails.
 
 Yazi: `~/.config/yazi/yazi.toml` (outside this repo) sends `*.{html,htm}` to the openers `open` and `edit`. Enter runs `open %s`. The login shell is fish, which finds `bin/open`, so `tern open` shows HTML source in Tern. The "open with" menu (`O`) also offers `$EDITOR`. In zsh and bash login shells, `/usr/bin` comes before `~/.local/bin`, so those shells miss `bin/open`.
 
@@ -90,10 +145,6 @@ goto motion: Tern animates the picker's float as it grows into view, outside CSS
 goto finished: Tern sends `agent_finished` when an agent's turn ends, for every agent kind. `tern.kv` keeps under `finished` the result of each agent pane's last turn that you have not seen: `done`, or `error` for a `failed` turn. A turn that ends while its pane has focus stores nothing, because you saw it. `exited` and `closed` clear the entry, and so do a focus of the pane and its close. `pane_status` shows a stored `error` as `error` and a stored `done` as `done`, after the live states (input, retrying, compacting, working). An exited agent keeps its `exited` mark and stays out of Waiting on you. Tern also raises its own finished or failed inbox alert after each turn, which shows as `done` through `info.alert`. An Esc cancel in omp sends no event and leaves Tern's state `working`.
 
 goto times: rows show working time and waiting time (GLOSSARY.md) in the picker's `elapsed` column. Tern gives no start time, so the window half keeps under `since` in `tern.kv`, by pane id, `kind` (`working` or `waiting`), `input`, `turn` and `at` (`os.time()` seconds). `agent_state` starts working time on a change to `working` and a wait on a change to `waiting_input`. A wait for input keeps the start of the turn it interrupts in `turn`, and the change back to `working` restores it, so answering a question does not restart working time. An event with `old` nil (an agent new to goto, which may have started long before) starts nothing and drops any entry under its pane id, and so does `pane_created`, so an id that a later pane reuses shows no stale time. Any other change ends working time and a wait for input. `agent_finished` in an unfocused pane starts waiting time for its done or error result; a focus of the pane ends that wait, and an exit or close ends any. If the next turn is already working when Tern looks again, that finish replaces the working entry and the row shows no time. `row_time` gives a row the stored start only when it matches the row's status (working, retrying, compacting for working time; the Waiting on you statuses except idle for waiting time), so a status whose start goto did not see, such as an omp ask that Tern still reports as working or a terminal alert, shows no time. Idle agents show none. The host half sends the time so far at each render, and the row's tone (`accent` for working, `warning` for waiting) colors it through the `palette` sheet. Every row of the pane shows it: its Waiting on you row, its tree row, and the row of a tab with one pane.
-
-## Sibling repo
-
-omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts Tern instances for its checks. An isolated instance there needs the same omp state before it starts; its Verify skill writes it since https://github.com/daandden/omp-tools/pull/19. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
 
 ## vstack
 
