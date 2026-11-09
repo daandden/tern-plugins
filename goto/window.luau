@@ -293,21 +293,16 @@ end
 -- ask tool, or the plan approval list. Tern reports such an agent as working.
 local WAIT_ROLES = { ["omp.ask.question"] = true, ["omp.plan.options"] = true }
 
--- What omp shows about its state in the dock and layer regions of its surface (omp's TSP UI):
--- whether it waits for you, its working row ("working", "retry" with a countdown meter, or
--- "compacting" with a progress bar), whether an error banner is pinned, and whether a HUD pill
--- counts running subagents or background jobs ("2 agents running"). A session that ran subagents
--- keeps a pill segment with only a muted icon ("No agents running · 6 in this session"), so only a
--- segment with a count text child counts. Reads only these two small regions: the main region
--- holds the whole chat. Agents without an omp surface give nothing, and their status comes from
--- Tern alone.
+-- Reads omp's dock and layer surface roles for pane status.
 local function omp_signals(cx, pane)
-	local sig = { waiting = false, working = nil, error = false, jobs = false }
-	local function walk(node)
+	local sig = { paused = false, waiting = false, working = nil, error = false, jobs = false }
+	local function walk(node, root)
 		local p = node.p or {}
 		local role = p.role
 		if WAIT_ROLES[role] then
 			sig.waiting = true
+		elseif role == "omp.overlay.pause" and root == "layer" then
+			sig.paused = true
 		elseif role == "omp.errorBanner" then
 			sig.error = true
 		elseif role == "omp.hud.seg" then
@@ -327,7 +322,7 @@ local function omp_signals(cx, pane)
 			end
 		end
 		for _, child in node.c or {} do
-			walk(child)
+			walk(child, root)
 		end
 	end
 	for _, root in { "dock", "layer" } do
@@ -335,18 +330,13 @@ local function omp_signals(cx, pane)
 			return cx.session:surface(pane, { as = "table", root = root, depth = 24, nodes = 2000, max_chars = 80 })
 		end)
 		if ok and type(tree) == "table" and type(tree.main) == "table" then
-			walk(tree.main)
+			walk(tree.main, root)
 		end
 	end
 	return sig
 end
 
--- The status of a pane row (see STATUS in host.luau). An agent is exited, waits for your input, is
--- retrying, compacting or working, shows an error or failed its last turn, has subagents or
--- background jobs running while it is idle, is done (it finished a turn, or rang an alert, that you
--- have not seen) or is idle. `finished` is the stored result of its last turn that you have not
--- seen, "done" or "error", or nil (see the `finished` map below). A plain terminal is running a
--- command or has an unseen alert. Nil for a quiet terminal.
+-- Chooses the displayed status of an agent or terminal pane.
 local function pane_status(cx, info, agent, finished)
 	if agent == nil then
 		if info.alert then
@@ -358,7 +348,9 @@ local function pane_status(cx, info, agent, finished)
 		return "exited"
 	end
 	local sig = omp_signals(cx, info.pane)
-	if sig.waiting or agent.state == "waiting_input" then
+	if sig.paused then
+		return "paused"
+	elseif sig.waiting or agent.state == "waiting_input" then
 		return "input"
 	elseif sig.working == "retry" then
 		return "retrying"
@@ -374,10 +366,7 @@ local function pane_status(cx, info, agent, finished)
 	return if info.alert or finished == "done" then "done" else "idle"
 end
 
--- The statuses that put a pane in the Waiting on you group, in the group's order: the pane waits
--- for your input, shows an error, has an unseen terminal alert, is done, or is an idle agent. The
--- host half hides the idle rows until you show them (ctrl+; then i).
-local ATTENTION = { input = 1, error = 2, alert = 3, done = 4, idle = 5 }
+local ATTENTION = { input = 1, error = 2, alert = 3, done = 4, paused = 5, idle = 6 }
 
 -- The key of a pane or tab id in the `seen` and `finished` maps; JSON object keys are strings.
 local function seen_key(id)
@@ -462,11 +451,10 @@ local function set_since(pane, entry)
 	end
 end
 
--- The pane statuses that working time and waiting time go with: waiting time goes with each status
--- of the Waiting on you group except idle.
 local WORKING = { working = true, retrying = true, compacting = true }
 local WAITING = table.clone(ATTENTION)
 WAITING.idle = nil
+WAITING.paused = nil
 
 -- The time that the rows of `pane` show for `status`: `kind` and `at` from `since` when the stored
 -- start matches the status, else nil.
