@@ -1,6 +1,6 @@
 # Go to picker
 
-The Go to picker is a sheet in the middle of the window, in the place of the command palette, drawn by Tern's own picker node. It lists the sessions, tabs and panes of the window as a tree with jump numbers, and moves the focus to the row that you pick. It opens with agent panes only. Panes that wait for you (needs input, error, alert, done, idle) show again under the group header `Waiting on you`, above the tree's header `Sessions`. Agent rows show their working time or waiting time.
+The Go to picker is a sheet in the middle of the window, in the place of the command palette, drawn by Tern's own picker node. It lists the sessions, tabs and panes of the window as a tree with jump numbers, and moves the focus to the row that you pick. It opens with agent panes only. Panes that wait for you (needs input, error, alert, done, paused, idle) show again under the group header `Waiting on you`, above the tree's header `Sessions`. Agent rows show their working time or waiting time, except idle and paused rows.
 
 ## Sub-features
 
@@ -11,13 +11,14 @@ The Go to picker is a sheet in the middle of the window, in the place of the com
 - `goto-jump` moves the focus to the row of a typed jump number and closes the picker. With more than nine numbers, each number has two digits (`01`), the first digit waits, and Esc clears it.
 - `goto-enter` moves the focus to the cursor row with Up, Down and Enter.
 - `goto-waiting` shows a pane that waits for you under `Waiting on you`, named `session / tab / pane`, without the tab when its name is the pane's name. It leaves out the pane that you opened the picker from.
-- `goto-tab-order` lists the tabs of a session by their tab status (input, error, alert, done, idle, retrying, compacting, working, background, running, exited, then quiet), and tabs of the same status last seen first. A split tab takes the most urgent status of its panes in the view.
+- `goto-tab-order` lists the tabs of a session by their tab status (input, error, alert, done, paused, idle, retrying, compacting, working, background, running, exited, then quiet), and tabs of the same status last seen first. A split tab takes the most urgent status of its panes in the view.
 - `goto-finished` shows an agent whose turn ended while its pane had no focus as `done` in the Waiting on you rows, and one whose turn failed as `error`, until you focus that pane. A turn that ends while its pane has focus adds no row. An agent that exits stays out of the group.
 - `goto-idle` shows or hides idle agents in the Waiting on you rows with ctrl+; then `i`, or `Show idle` in the action bar, and keeps the choice.
 - `goto-close` closes the picker on Esc with no search, on a second F1, when the focus goes to another pane (also by a click outside the box), and on `tern plugin reload`.
 - `goto-zoom` puts the box where Tern's command palette sits, as wide as it, at each interface size, with the action bar in the window.
 - `goto-marks` gives each row the status mark of its pane after the jump number; busy panes have a moving mark.
 - `goto-times` shows the working time of a working agent in the accent, and the waiting time of an agent that waits on you in the warning tone, on every row of its pane.
+- `goto-paused` shows omp's `/pause` as a still muted pause glyph with tooltip `Paused`. It outranks every status except exited, joins Waiting on you after done and before idle even with idle hidden, and shows no time. Resume restores the other status and keeps the turn's original working-time start.
 
 ## How to get to it (user POV)
 
@@ -56,6 +57,8 @@ Preconditions:
 - Failed turn. Write `RUN/data/fail.yml` as `quiet.yml` plus `retry:` `fallbackChains:` with `default: []`, `slow: []`, `vision: []` and `plan: []`. In a pane C (Alt+N), run `omp --config=<RUN>/data/fail.yml --provider anthropic --model claude-sonnet-4-5 --api-key=sk-ant-invalid-verify 'Reply with OK'` and focus A at once. `.finished` holds C's id with `"error"` within a few seconds. After `inbox clear`, F1 shows C under `Waiting on you` with the `title` `Error` and the `sf-t-icon sf-t-error` warning glyph. This request fails at the API and costs nothing.
 - Exit. Focus C, run `"$V" ctl "$RUN" type '"/exit"'` and `key enter`, then focus A and run `inbox clear` (the shell's completed omp command can raise a new done alert). `.finished` and `.since` lose C, and F1 with all panes shows no Waiting on you row for C.
 - Busy mark. In pane B after `/exit`, or a new shell pane, type `sleep 300` with `ctl type` and press Enter, then focus A, open F1 and switch to all panes. B's row has the `title` `Running a command`, no time, and a `sf-t-num sf-t-em` span whose `transform` in `ctl dump '.sf-picker .pk-label .sf-t-num.sf-t-em'` changes between two dumps 100 ms apart (screenshots freeze animations, so compare dumps). A working omp row has `sf-t-num sf-t-accent`.
+- Pause without a model request. In an idle omp pane B, type `/pause` with `ctl type` and press Enter. The layer sheet reads `Paused`. Focus pane A and press F1. With idle rows hidden, B has a Waiting on you row and a tree row, both titled `Paused`; `tree ".sf-picker .pk-row[title='Paused'] .sf-t-icon.sf-t-muted"` shows U+F04C, and `tree ".sf-picker .pk-row[title='Paused'] .pk-fact"` has count 0. Close the picker, focus B and press Esc to resume. Focus A and press F1 again: B is `Idle` and absent from Waiting on you. Keep the before, paused and resumed row dumps and shots.
+- Pause precedence and time at the local protocol boundary. A disposable TSP sender can emit the same `omp.overlay.pause` role in the layer, alongside ask, retry, compacting or error nodes, and report OSC 7501 `working`, `done` or `error` with `app=omp`. Open F1 from another pane. Paused wins over those statuses and has no elapsed fact, including with a stored done or error. Remove the layer pause and check that the earlier status returns. With `working` unchanged, compare the visible working time before and after the hold: it includes the hold. A pause role under main or dock, or composer badges `Goal`, `Loop paused` and `Plan (paused)`, must not produce Paused. Use this boundary only for combinations; keep the real `/pause` check above as proof of the integration.
 - Proof. Run `"$V" shot "$RUN" goto-<step>` with the picker open. The shot shows the sheet with its rows and action bar over the dimmed window.
 
 ## Gotchas

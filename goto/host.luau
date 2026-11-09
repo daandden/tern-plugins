@@ -71,15 +71,16 @@ local TAB_ORDER = {
 	error = 2,
 	alert = 3,
 	done = 4,
-	idle = 5,
-	retrying = 6,
-	compacting = 7,
-	working = 8,
-	background = 9,
-	running = 10,
-	exited = 11,
+	paused = 5,
+	idle = 6,
+	retrying = 7,
+	compacting = 8,
+	working = 9,
+	background = 10,
+	running = 11,
+	exited = 12,
 }
-local QUIET = 12
+local QUIET = 13
 
 -- Indexes tree rows by session and tab, preserving input order and excluding Waiting on you rows.
 local function tree_links(rows)
@@ -391,6 +392,7 @@ local STATUS = {
 	error = { glyph = "\u{F071}", tokens = "icon error", words = "Error" },
 	background = { tokens = "num del", count = 3, words = "Background jobs running" },
 	done = { glyph = "\u{F00C}", tokens = "icon success", words = "Done" },
+	paused = { glyph = "\u{F04C}", tokens = "icon muted", words = "Paused" },
 	idle = { tokens = "num muted", words = "Idle" },
 	exited = { glyph = "\u{F00D}", tokens = "icon error", words = "Exited" },
 	running = { tokens = "num em", words = "Running a command" },

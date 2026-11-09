@@ -37,8 +37,12 @@ When a pane last had focus, however briefly. A tab was last seen when one of its
 _Avoid_: Recent, last used, MRU, last active
 
 **Waiting on you**:
-The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or failed its last turn, or is done (it finished a turn while you were not looking at its pane), or its terminal rang an alert. An agent whose program exited stays out of the group. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, idle), and inside each, last seen first by the pane's own last seen, also for a tab with one pane. The panes also stay in their place in the tree below.
+The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or failed its last turn, or is done (it finished a turn while you were not looking at its pane), or is paused, or its terminal rang an alert. An agent whose program exited stays out of the group. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, paused, idle), and inside each, last seen first by the pane's own last seen, also for a tab with one pane. The panes also stay in their place in the tree below.
 _Avoid_: Needs attention (its old name), needs you (Orca), inbox (Tern's own F6 list)
+
+**Paused**:
+An agent pane held by omp's pause until you resume it. Calls already under way can finish. The hold covers agents in that omp process, not independently running agents. A paused agent waits on you, even when it also had a question, an error or an unseen result. An omp goal, loop or plan that only stopped repeating is not paused, and neither is a program stopped with Ctrl+Z.
+_Avoid_: Suspended, frozen, on hold
 
 **Jump number**:
 The number on the session, tab and pane rows of the Go to picker. Typing it goes to that row. A session that shows one tab shares one number with that tab, because both go to the same pane. A Waiting on you row keeps its own number.
@@ -49,7 +53,7 @@ How long an agent's current turn has run, shown on its rows of the Go to picker.
 _Avoid_: Age, turn time, busy for, time in state
 
 **Waiting time**:
-How long a pane has been waiting on you: since its agent asked for input, showed an error or finished a turn you did not see, or its terminal rang an alert. It counts only waits whose start the picker saw. Idle agents have none.
+How long a pane has been waiting on you: since its agent asked for input, showed an error or finished a turn you did not see, or its terminal rang an alert. It counts only waits whose start the picker saw. Idle and paused agents have none.
 _Avoid_: Age, idle time, time in state
 
 **Opener pane**:
