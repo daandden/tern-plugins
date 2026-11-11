@@ -217,3 +217,12 @@ tern.css("composer-placeholder", [[
 	visibility: hidden;
 }
 ]])
+
+-- Reader pads the top of every dock region by 24px. omp keeps empty dock regions for content it
+-- shows later, so each one adds a blank row above the composer, 72px with three of them. Hide a
+-- region until it holds something other than void or hidden nodes.
+tern.css("dock-gap", [[
+:root .tv-dock > .sf-region.sf-dock.sf-chat-reader:not(:has(> :not(.sf-void, .sf-hidden))) {
+	display: none;
+}
+]])
