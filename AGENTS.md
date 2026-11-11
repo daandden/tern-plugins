@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), and Flow links that open in Tern (`vstack-flow`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
+Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), Flow links that open in Tern (`vstack-flow`), and unfocused panes without Tern's dimming (`no-pane-dim`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
 
 ## Architecture & Data Flow
 
@@ -25,7 +25,7 @@ State lives in two places:
 
 ## Key Directories
 
-- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`: the plugins. Only goto has a `host.luau`; reader-terminal-text is CSS only.
+- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`, `no-pane-dim/`: the plugins. Only goto has a `host.luau`; reader-terminal-text and no-pane-dim are CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
 - `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
 - `.omp/skills/verify-tern-plugins/`: the Verify skill, its `scripts/tern-verify` helper and per-feature recipes in `features/`.
@@ -109,6 +109,8 @@ reader-terminal-text weight: Tern's Font weight setting (`font_weight`) sets `--
 reader-terminal-text on Tern 0.9.7: Reader supplies the composer UI font, so no font-family override is needed. Keep the terminal size, row height, weight, normal letter spacing and hidden placeholder rules. Markdown horizontal rules use the theme's `--omp-mdHr` colour.
 
 reader-terminal-text dock gap: Reader gives every dock region (`.sf-region.sf-dock.sf-chat-reader`) a 24px top padding. An omp pane can hold several Reader dock regions whose children are all `.sf-void` (one pane on Tern 0.9.16 held 10), and each one adds a blank 24px row between the transcript and the composer. The `dock-gap` sheet hides a region that has no child other than `.sf-void` or `.sf-hidden` nodes, so only regions with content keep their padding. Tern 0.9.16 supports `:has()`.
+
+no-pane-dim: Tern dims each unfocused pane (class `.tn-pane.dim`) with a veil over its body (`.tn-veil`) and its head (`.tn-head::after`). Both paint `--tn-veil`, which `.tn-stage` defines, so the plugin's one rule `:root .tn-stage { --tn-veil: transparent; }` turns off both. Tern 0.9.12 has no setting for this. The classes and the variable are Tern internals, so an update can bring the dimming back.
 
 Native text files: Tern 0.9.8's code view follows `adjust_cell_height`, so text and code files, including HTML source, use Tern's native routing. No plugin intercepts file opens or `file://` links. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action. Native code text still does not inherit the terminal's font weight.
 

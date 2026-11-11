@@ -10,6 +10,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | `goto` | Opens a picker of sessions, tabs and agent panes, drawn by Tern's own picker node. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top, and agent rows show how long they have been working or waiting. The picker follows Tern's glass palette dimming. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's prose, composer, advisor notes, notices, and tool-result prose the terminal's font size, row height, and weight. Single-line chrome uses the terminal size and row height with Reader's own weights. Preserves the UI font and Markdown theme colours, hides the empty composer's placeholder, and hides empty dock regions, which would leave blank rows above the composer. The plugin is CSS only. |
 | `vstack-flow` | A Cmd-click on a vstack Flow link opens the Flow page in Tern beside the pane that holds the link, or goes to the clicked question in the tab's open page of that Flow. Every other web link, and Cmd+⌥-click, follows Tern's link setting. |
+| `no-pane-dim` | Turns off Tern's dimming of unfocused panes, so every pane keeps its full colours, as in Zellij. The plugin is CSS only. |
 
 The Go to picker marks omp's `/pause` with a still, muted pause glyph. Paused panes join Waiting on you after done and before idle, even when idle rows are hidden. They show no time. Resume in omp to restore the pane's other status; working time still counts from the turn's start, pause included. Paused goal, loop and plan modes and Ctrl+Z do not count as `/pause`.
 
@@ -30,7 +31,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 1. Link each plugin folder into the plugins directory of Tern (`~/.config/tern/plugins`):
 
    ```sh
-   	for d in goto reader-terminal-text zellij-keys vstack-flow; do
+   	for d in goto reader-terminal-text zellij-keys vstack-flow no-pane-dim; do
    		tern plugin link "$PWD/$d"
    	done
    ```
