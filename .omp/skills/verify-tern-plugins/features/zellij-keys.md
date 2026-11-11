@@ -1,13 +1,12 @@
 # Zellij floats and panes
 
-The zellij-keys plugin wraps Tern's show-all and stash-all command, keeps focus among shown floats when one closes, opens floating tools, grows or shrinks a float, breaks panes out to tabs, and adds focus-or-tab keys. Tern draws floats in native corner decks. Directional focus, moving, docking, splitting, and resizing use Tern's own actions.
+The zellij-keys plugin keeps focus among shown floats when one closes, opens floating tools, grows or shrinks a float, breaks panes out to tabs, and adds focus-or-tab keys. Tern draws floats in native corner decks. Hiding and showing floats, directional focus, moving, docking, splitting, and resizing use Tern's own actions.
 
 ## Sub-features
 
-- `zk-stash-all` hides all floats of the active tab when any are shown, else shows them all without changing focus. Alt+F and Ctrl+G, P, W target `pip_stash_all`. The wrapper corrects the native command's direction across tabs and mixed shown and hidden states.
 - `zk-close-float` focuses the last used shown float when the focused float closes, else the one before it in open order, else the one after it. Closing the last float leaves focus tiled.
 - `zk-picker` returns to the float that opened Go to when Esc closes the picker. A jump to another pane keeps that target.
-- `zk-float-tool` opens yazi, lazygit, or btop with F2, F3, or F4. Native `size = { 0.8, 0.8 }` sets glance size. Focus grows the float to Tern's cap: 892 by 511 px in a 1280 by 800 window on 0.9.12. The float closes when its tool exits.
+- `zk-float-tool` opens yazi, lazygit, or btop with F2, F3, or F4. Native `size = { 0.8, 0.8 }` sets glance size. Focus grows the float to Tern's cap: 892 by 511 px in a 1280 by 800 window on 0.9.16. The float closes when its tool exits.
 - `zk-corners` uses native corner decks, at most four drawn floats per corner, fanned on hover. An unfocused float shrinks to a glance. Mouse dragging and float motion remain native.
 - `zk-grow` grows or shrinks the focused float with Alt+=, Alt+Shift+=, Alt+-, Ctrl+G, R, +, or Ctrl+G, R, -. Each press runs one native `resize_split` step in width and one in height, with directions picked from the float's corner: right and down grow a `tl` float, left and down a `tr` float, right and up a `bl` float, left and up a `br` float. The float stays in its corner. These commands do nothing in a tiled pane.
 - `zk-native-layout` uses native `split_right` on Alt+N and Ctrl+G, P, N, native `pip` on Ctrl+G, P, E, native `move_pane:*` on Ctrl+G, M, and native `resize_split:*` on Ctrl+G, R. Ctrl+G, R, = runs native `equalize` for tiled panes only.
@@ -21,7 +20,7 @@ The zellij-keys plugin wraps Tern's show-all and stash-all command, keeps focus 
 
 - The keys above, from `settings.json`. `keybinds.html` lists them under the Zellij mode of each.
 - The plugin palette entries `Float yazi`, `Float lazygit`, `Float btop`, `Grow the floating pane`, `Shrink the floating pane`, `Break pane to new tab`, `Break pane to the tab on the left`, `Break pane to the tab on the right`, `Focus the pane or tab on the left`, `Focus the pane or tab on the right`, and `New agent tab in a new worktree`.
-- Tern's native show-all and stash-all, split, float and dock, move, focus, resize, equalize, and `New agent block` actions.
+- Tern's native split, float and dock, move, focus, resize, equalize, and `New agent block` actions.
 
 ## Driving it with tern-verify
 
@@ -33,13 +32,10 @@ Preconditions:
 
 - Split. Run `"$V" ctl "$RUN" key alt+n`. `L` shows a second tiled pane. Repeat Ctrl+G, P, N from a focused float and confirm native splitting, not another floating shell.
 - Create floats. With two tiled panes, focus one and send `key ctrl+g`, `key p`, `key e`. `L` shows it as `pip <corner> over <other>`. F2, F3, and F4 create additional tool floats. Use those paths for float fixtures.
-- Stash and show. With two shown floats, run `"$V" ctl "$RUN" key alt+f`. Every float is stashed. Press Alt+F again: all floats show, and focus is unchanged. Repeat through Ctrl+G, P, W and Tern's palette entry for `pip_stash_all`.
-- Cross-tab direction. Hide the floats in tab A. Run `"$V" ctl "$RUN" tab new`, create floats in tab B, and hide them there. Return to A and press Alt+F: A's floats show. Hide them, return to B, and press Alt+F: B's floats show. Capture each tab's state before and after. Repeat with Ctrl+G, P, W. The direction follows that tab's state, not the window's previous call.
-- Mixed state. Hide two floats, then run `"$V" tern "$RUN" focus <older float id>` and poll `.focused.id`. One float shows and another remains stashed. Alt+F hides both, and the next Alt+F shows both. This covers the wrapper for [Tern SDK #255](https://github.com/stencil-hq/tern-sdk/issues/255), tracked by [issue #15](https://github.com/daandden/tern-plugins/issues/15).
-- Tiled focus. With floats shown, run `"$V" tern "$RUN" focus <tiled id>`. The floats remain shown as native glances. A tab or session round trip leaves their shown or stashed state unchanged.
+- Tiled focus. With floats shown, run `"$V" tern "$RUN" focus <tiled id>`. The floats remain shown as native glances.
 - Close focus. With three floats shown, focus a middle float and close it with `"$V" ctl "$RUN" close`. Focus goes to the previous float in open order, else the next. Close the last float and confirm tiled focus. To check last-used focus, open the Go to picker from a non-newest float and close it with Esc: focus returns to that float. Reload zellij-keys and repeat to check that the last-used choice survives reload.
 - Picker target. From a shown float, run `"$V" ctl "$RUN" plugins run plugin.goto.open`, then `key escape`. Repeat with F1. Both return to the opener float. For a jump in a split tab, open F1, press `ctrl+;`, and type `a` to show plain panes. Read `opts` from `goto.md`, choose a tiled pane other than the one under the picker, and jump to it. That target keeps focus, and the floats remain shown as glances.
-- Tool size. Run F2 and record `L`, `ctl state`, and `dump '.tn-stage > .pip:not(.off)'`. Move focus to a tiled pane and record the Yazi glance rectangle. Focus Yazi again and record the grown rectangle. On 0.9.12 in a 1280 by 800 window, `.size` is `[1019,584]` and the settled focused rect is 892 by 511. Repeat with F3 and F4, and quit each tool or close its pane to confirm close-on-exit behavior.
+- Tool size. Run F2 and record `L`, `ctl state`, and `dump '.tn-stage > .pip:not(.off)'`. Move focus to a tiled pane and record the Yazi glance rectangle. Focus Yazi again and record the grown rectangle. On 0.9.16 in a 1280 by 800 window, `.size` is `[1019,584]` and the settled focused rect is 892 by 511 over a full-width owner (446 by 511 over a half-width one). Repeat with F3 and F4, and quit each tool or close its pane to confirm close-on-exit behavior.
 - Corner decks. Open five tool floats in one corner. Record `ctl state` and `dump '.tn-stage > .pip:not(.off)'` before hovering. At most four are drawn in that corner. Use `"$V" ctl "$RUN" pip fan '"#1"'` for the stack of the oldest float, as a controlled equivalent of hovering, and record the fanned deck. Fan another corner to fold the first deck. No automatic distribution among corners is expected.
 - Native move. Focus a float and send Ctrl+G, M, H or Left, then L or Right, then K or Up, then J or Down, always with the whole chord. `L` shows its native corner change. Repeat in tiled panes and record the native pane move.
 - Grow and shrink. Use a float small enough to grow without reaching Tern's frame limit. Record its corner and `.pip-focus` rectangle. Alt+= and Alt+Shift+= grow it by 32 px in width and height. Alt+- shrinks it by the same. Repeat Ctrl+G, R, `shift+=` and Ctrl+G, R, `-`. Do this in each of the four corners (Ctrl+G, M moves the float between corners). The corner stays fixed. Repeat on a tiled pane and confirm that these plugin commands change nothing.
@@ -82,5 +78,5 @@ Preconditions:
 - goto closes its picker before focusing a jump target. A jump to the tiled pane under the picker gives the same events as Esc and returns to the last used float.
 - The stage retains panes of tabs already visited, with `off`. Select drawn panes with `.tn-stage > .pip:not(.off)`.
 - `tern ls` lists floats in no fixed order, and pane sizes can lag behind the window. Measure rectangles with `dump`.
-- The stash wrapper corrects [Tern SDK #255](https://github.com/stencil-hq/tern-sdk/issues/255). A direct native call through `cx:command` bypasses the override, so drive the key or palette entry.
+- Alt+F and Ctrl+G, P, W are unbound. Confirm that neither key changes `.pips[].mode` of a tab with shown floats.
 - A hand edit of the running window's `settings.json` does not apply and can be overwritten. Bind through Keyboard settings or `cx.settings:bind`, or prepare the keymap before starting the isolated window.

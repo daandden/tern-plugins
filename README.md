@@ -6,7 +6,7 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 
 | Plugin | What it does |
 | --- | --- |
-| `zellij-keys` | Wraps native show-all and stash-all across tabs, keeps focus among shown floats when one closes, opens floating Yazi, lazygit and btop, grows or shrinks a float, breaks a pane out to a tab, and moves focus between panes and tabs. Tern draws and moves the floats natively. |
+| `zellij-keys` | Keeps focus among shown floats when one closes, opens floating Yazi, lazygit and btop, grows or shrinks a float, breaks a pane out to a tab, and moves focus between panes and tabs. Tern draws, moves, hides and shows the floats natively. |
 | `goto` | Opens a picker of sessions, tabs and agent panes, drawn by Tern's own picker node. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top, and agent rows show how long they have been working or waiting. The picker follows Tern's glass palette dimming. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's prose, composer, advisor notes, notices, and tool-result prose the terminal's font size, row height, and weight. Single-line chrome uses the terminal size and row height with Reader's own weights. Preserves the UI font and Markdown theme colours, hides the empty composer's placeholder, and hides empty dock regions, which would leave blank rows above the composer. The plugin is CSS only. |
 | `vstack-flow` | A Cmd-click on a vstack Flow link opens the Flow page in Tern beside the pane that holds the link, or goes to the clicked question in the tab's open page of that Flow. Every other web link, and Cmd+⌥-click, follows Tern's link setting. |
@@ -14,9 +14,9 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 
 The Go to picker marks omp's `/pause` with a still, muted pause glyph. Paused panes join Waiting on you after done and before idle, even when idle rows are hidden. They show no time. Resume in omp to restore the pane's other status; working time still counts from the turn's start, pause included. Paused goal, loop and plan modes and Ctrl+Z do not count as `/pause`.
 
-`bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as source. Every other call goes to `/usr/bin/open`. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action.
+`bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as a rendered page. Every other call goes to `/usr/bin/open`. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R uses Tern's own action.
 
-Verified with Tern 0.9.8. Text and code files use Tern's native code view, which now follows the line-height setting.
+Verified with Tern 0.9.16. Text and code files use Tern's native code view, which follows the line-height setting, and local HTML files open as a page.
 
 ## Requirements
 

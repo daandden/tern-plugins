@@ -68,7 +68,7 @@ If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `
 
 Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It changes nothing. It exits 1 when a check fails. It prints:
 
-- The checkout and its commit, and the Tern version (`tern 0.9.7` at the last check, with omp 18.13.3).
+- The checkout and its commit, and the Tern version (`tern 0.9.16` at the last check, with omp 18.18.8).
 - The window pid and the owner of `RUN/data/ctl.sock`. Both must be the same pid.
 - The daemon pid, as the owner of `RUN/data/daemon.sock`. `daemon: NOT RUNNING` fails the check: the daemon of the run ended, so panes and `tern` CLI commands do not work, and the window shows a pane named `data` with no shell. Stop the run and start a new one.
 - The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here. `daemon sessions: NONE` fails Doctor even when the window's local state lists a session: the window did not attach to the daemon.

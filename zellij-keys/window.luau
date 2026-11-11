@@ -83,7 +83,8 @@ local function tab_floats(cx, tab)
 	return floats
 end
 
--- Zellij floating panes: whether a floating pane of `tab` shows. Tern gives a stashed float no view.
+-- Zellij floating panes: whether a floating pane of `tab` shows. Tern gives a stashed float no view,
+-- except on 0.9.16 a stashed float of a tab visited before, which can keep one.
 local function floats_shown(cx, tab)
 	for _, float in tab_floats(cx, tab) do
 		if cx.session:view(float.pane, { depth = 0, nodes = 1 }) ~= nil then
@@ -92,51 +93,6 @@ local function floats_shown(cx, tab)
 	end
 	return false
 end
-
--- Zellij ToggleFloatingPanes on Tern's pip_stash_all, which stashes every float of the active tab or
--- brings them all back. Tern picks the way from its own last pip_stash_all, also one in another tab,
--- and not from the floats of the tab (stencil-hq/tern-sdk#255). So when the floats of `tab` do not
--- end shown as `shown` says, the first run went the other way, and a second run goes the right way.
-local function stash_all(cx, tab, shown)
-	cx:command("pip_stash_all")
-	if floats_shown(cx, tab) ~= shown then
-		cx:command("pip_stash_all")
-	end
-end
-
--- Zellij ToggleFloatingPanes, the hide half: hides every floating pane of `tab`, the active tab.
-local function hide_floats(cx, tab)
-	cancel_pending_focus()
-	stash_all(cx, tab, false)
-end
-
--- Zellij ToggleFloatingPanes, the show half: unstashes every floating pane of the active tab,
--- without a change of focus. Does nothing when every float is already unstashed.
-local function show_floats(cx, tab)
-	for _, float in tab_floats(cx, tab) do
-		if cx.session:view(float.pane, { depth = 0, nodes = 1 }) == nil then
-			stash_all(cx, tab, true)
-			return
-		end
-	end
-end
-
--- Zellij ToggleFloatingPanes through Tern's own key or palette entry for pip_stash_all: hides the
--- floats of the active tab when one of them shows, else shows them all. In a tab with no floating
--- pane, Tern's own command runs. A call from cx:command does not come here.
-tern.override("pip_stash_all", function(cx)
-	local focused = cx.session:focused()
-	local tab = if focused then cx.session:tab_of(focused) else nil
-	if tab == nil or #tab_floats(cx, tab) == 0 then
-		return false
-	end
-	if floats_shown(cx, tab) then
-		hide_floats(cx, tab)
-	else
-		show_floats(cx, tab)
-	end
-	return true
-end)
 
 -- The tiled pane a floating pane belongs to, or the pane itself when it is tiled.
 local function tiled_owner(cx, pane)
@@ -245,15 +201,13 @@ tern.timer(0, function(cx)
 end)
 
 -- Zellij floating pane: a new floating pane over the focused tiled pane (or over the pane the focused
--- floating pane belongs to), running `command` at glance size `size`. The hidden floats of the tab
--- show first, so the new float opens on top of them with focus.
+-- floating pane belongs to), running `command` at glance size `size`, with focus.
 local function open_float(cx, command, size)
 	local focused = cx.session:focused()
 	if focused == nil then
 		return
 	end
 	local owner = tiled_owner(cx, focused)
-	show_floats(cx, cx.session:tab_of(focused))
 	local pane = cx.layout:split(owner, "right", { command = command })
 	if pane == nil then
 		return
