@@ -1,0 +1,6 @@
+schema = 1
+id = "no-pane-dim"
+name = "No pane dim"
+version = "0.1.0"
+description = "Unfocused panes keep their full colours: Tern's veil over them and their heads is transparent."
+window = "window.luau"
