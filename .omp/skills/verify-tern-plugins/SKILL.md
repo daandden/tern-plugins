@@ -23,7 +23,7 @@ These stay shared with your own Tern:
 
 - The omp configuration in your home directory.
 - The Stencil account of this Mac. There is no separate sign-in.
-- The login shell, fish. `start` sets `shell` to `/opt/homebrew/bin/fish` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. So the recipes use fish syntax (`$status`, `function`). In fish, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
+- The login shell, zsh. `start` sets `shell` to `/bin/zsh` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. zsh reads `~/.zprofile`, which puts `~/.local/bin` and Homebrew before `/usr/bin`. zsh's `$status` is `$?`, so typed lines can use either. A pane's label is the name of its folder, plus `: <command>` while a command runs, so the recipes name a pane by `cd` into a folder of that name. In zsh, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
 
 Tern reloads linked plugins when a file of the loaded checkout changes, also under `.omp/`, but a run can keep the old code of an edited `window.luau`. After an edit, run `"$V" tern "$RUN" plugin reload <id>` before you drive the change. A full reload resets their Lua state and closes the Go to picker. `tern plugin reload <id>` reloads only that plugin; reloading another plugin leaves goto's picker open. Save no file in the loaded checkout while a drive step runs. For concurrent work, use a private runtime copy and set `TERN_PLUGINS_REPO` to it.
 
@@ -37,7 +37,7 @@ V=<directory of this SKILL.md>/scripts/tern-verify
 
 Every command takes the run dir first:
 
-- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` with fish as the shell, clears inherited pane variables, marks the omp offer answered, wakes the display, opens the window and waits for a shell prompt. It keeps the display awake until the window closes. With the display off, a new window can stop before it attaches to its daemon. Without the seeded omp state, Tern can show "Tern is better with omp. Install it?" or "Let Tern keep omp up to date?".
+- `"$V" start "$RUN"` links the plugins, copies `~/.config/tern/settings.json` with zsh as the shell, clears inherited pane variables, marks the omp offer answered, wakes the display, opens the window and waits for a shell prompt. It keeps the display awake until the window closes. With the display off, a new window can stop before it attaches to its daemon. Without the seeded omp state, Tern can show "Tern is better with omp. Install it?" or "Let Tern keep omp up to date?".
 - `"$V" doctor "$RUN"` is the read-only instance check.
 - `"$V" ctl "$RUN" ARGS...` runs `tern ctl ARGS...` on the instance's control socket.
 - `"$V" tern "$RUN" ARGS...` runs a `tern` CLI command against the instance, for example `"$V" tern "$RUN" ls`.

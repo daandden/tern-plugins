@@ -70,7 +70,8 @@ start)
 	else
 		echo '{}' >"$cfg/settings.json"
 	fi
-	jq '.shell = "/opt/homebrew/bin/fish"' "$cfg/settings.json" >"$cfg/settings.json.new"
+	# The user's login shell. Without it, Tern starts the $SHELL of the process that ran start.
+	jq '.shell = "/bin/zsh"' "$cfg/settings.json" >"$cfg/settings.json.new"
 	mv "$cfg/settings.json.new" "$cfg/settings.json"
 	# A config dir with no omp state makes Tern show its native "Tern is better with omp. Install it?"
 	# alert on top of the screen. This is the state that Tern writes when you answer Not Now.

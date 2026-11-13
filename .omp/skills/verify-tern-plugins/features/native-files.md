@@ -13,7 +13,7 @@ Text and code files open in Tern's native code view, Markdown keeps Tern's rende
 ## How to get to it (user POV)
 
 - Run `tern open notes.txt` or `tern open notes.txt:3:5` in a Tern pane.
-- Run `open notes.txt` in a fish pane, where `open` is this repo's `bin/open`.
+- Run `open notes.txt` in a zsh pane, where `open` is this repo's `bin/open`.
 - Open a text or HTML file from the Files pane or the file-open palette.
 - Cmd+click a `file://` link in a terminal pane.
 - Change the line-height setting.

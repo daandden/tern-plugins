@@ -6,7 +6,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 
 - `RUN` is a new dir `<Scratch dir>/verify/tern-plugins-<run-id>`. Proof and `notes.md` go at its top level, app data in `RUN/data`.
 - `"$V" start "$RUN"` printed `ready`, and `"$V" doctor "$RUN"` exits 0.
-- The instance has one session, `Default`, with one tab and one fish pane in `RUN/data`. Its `settings.json` is a copy of `~/.config/tern/settings.json` with `shell` set to fish, so the keys of `keybinds.html` work, `$status` works in typed lines, and `reduce_motion` starts as `off`. If `"$V" ctl "$RUN" state | jq .focused.label` does not end in `- fish`, the run is not at the baseline: stop it and report the shell.
+- The instance has one session, `Default`, with one tab and one zsh pane in `RUN/data`. Its `settings.json` is a copy of `~/.config/tern/settings.json` with `shell` set to `/bin/zsh`, so the keys of `keybinds.html` work, `$status` works in typed lines, and `reduce_motion` starts as `off`. If `"$V" type "$RUN" 'echo SHELL=$0'` does not show `SHELL=/bin/zsh` in `"$V" tern "$RUN" capture <id>`, the run is not at the baseline: stop it and report the shell.
 - Test files go in `RUN/data`. Make them before the step that opens them, and always write them by absolute path, for example `printf '<!doctype html><title>Verify page</title><h1>First</h1>\n' >"$RUN/data/page.html"`. Do not `cd` there first: when the `cd` fails, the files go into the checkout and can overwrite a tracked file (on macOS, `readme.md` is `README.md`).
 - Drive only the instance of this run.
 

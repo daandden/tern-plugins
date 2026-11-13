@@ -46,7 +46,7 @@ Preconditions:
 ## Gotchas
 
 - The prompt step sends a real request to the model that your omp configuration names, and it costs tokens. Ask the user before you run it. The composer steps send nothing.
-- `omp` in the fish pane is `/opt/homebrew/bin/omp`, not the omp that Tern manages under `~/.config/tern/omp/bin`. Name the path in `notes.md`.
+- `omp` in the zsh pane is the first one on its `PATH` (`whence omp`), `~/.bun/bin/omp` at the last check, not the omp that Tern manages under `~/.config/tern/omp/bin`. Name the path in `notes.md`.
 - Dropping a sheet with `ctl css NAME` changes this window only, until the next plugin reload. It does not prove that a rule matches when the file changes. To test an edit to `window.luau`, run `"$V" tern "$RUN" plugin reload` and dump again.
 - The rules match Tern's class names and omp's `data-role` values (`.sf-chat-reader`, `omp.editor`, `omp.assistant`, `omp.user`, `omp.advisor.*`, `omp.notice.*`, and the tool and chrome selectors above). A missing node is not proof that its rule works. Report renamed selectors or unavailable fixture states separately.
 - `stop` removes the omp session dir of `RUN/data`. omp in another dir leaves a session dir that `stop` does not know.

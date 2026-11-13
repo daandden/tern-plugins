@@ -73,7 +73,7 @@ Preconditions:
 - The find bar keeps its last query. Clear it before typing a new one.
 - The agent-tab check runs omp in `agent-sub`, not directly in `RUN/data`. After `stop`, remove only its session directory for this run.
 - F2, F3, and F4 can refocus their new float after the key returns. Poll `.focused.id` before continuing with a mixed-state fixture.
-- The plugin process inherits Tern's launcher PATH, not the fish pane's PATH. Keep the absolute Homebrew paths.
+- The plugin process inherits Tern's launcher PATH, not the zsh pane's PATH. Keep the absolute Homebrew paths.
 - `stop` deletes worktrees under `RUN/data`, but nested agent session directories remain under `~/.omp/agent/sessions/`. Remove only directories whose encoded path starts with this run's `RUN/data` path.
 - Focus the shell pane (`"$V" tern "$RUN" focus <id>`) before typing `cd` for the next worktree press. A press focuses its new omp tab, and a line typed there goes to omp as a prompt. Close each new omp tab after its check.
 - `.tabs[].panes` in `ctl state` counts tiled panes only. Count floats from `L`.
