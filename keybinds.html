@@ -140,7 +140,7 @@ footer { color: var(--muted); font-size: 0.85rem; }
 <main>
 <header>
 <h1>Tern keys migrated from zellij</h1>
-<p class="lead">This guide lists 99 key sequences: 98 bindings in <code>~/.config/tern/settings.json</code>, plus Tern&#x27;s own <kbd>⌘</kbd><kbd>R</kbd>. Keys marked Plugin run commands from <code>zellij-keys</code> or <code>goto</code>. The settings file also clears Tern&#x27;s own <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd>, <kbd>⌘</kbd><kbd>K</kbd>, <kbd>⌘</kbd><kbd>N</kbd> and <kbd>⌘</kbd><kbd>T</kbd>, so Tern passes those keys to the pane. Use <kbd title="Control">⌃</kbd><kbd>G</kbd> <kbd>T</kbd> <kbd>1</kbd>–<kbd>9</kbd>, Shift twice and <kbd title="Alt">⌥</kbd><kbd>T</kbd> instead.</p>
+<p class="lead">This guide lists 99 key sequences, all bound in <code>~/.config/tern/settings.json</code>. Keys marked Plugin run commands from <code>zellij-keys</code> or <code>goto</code>. The settings file also clears Tern&#x27;s own <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd>, <kbd>⌘</kbd><kbd>K</kbd>, <kbd>⌘</kbd><kbd>N</kbd> and <kbd>⌘</kbd><kbd>T</kbd>, so Tern passes those keys to the pane. Use <kbd title="Control">⌃</kbd><kbd>G</kbd> <kbd>T</kbd> <kbd>1</kbd>–<kbd>9</kbd>, Shift twice and <kbd title="Alt">⌥</kbd><kbd>T</kbd> instead.</p>
 </header>
 <div class="legend">
 <div class="card"><h3>Read a key</h3><p><kbd>⌃</kbd><kbd>G</kbd> <span class="then" aria-hidden="true"></span> <kbd>P</kbd> <span class="then" aria-hidden="true"></span> <kbd>R</kbd> means: press Ctrl+G, let go, press P, then press R. Tern has no sticky modes. Press the whole sequence for each action.</p></div>
@@ -280,7 +280,7 @@ footer { color: var(--muted); font-size: 0.85rem; }
 <tbody>
 <tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd>G</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd>?</kbd></span></span></td><td class="what" data-label="What it does">Show all commands and their keys.</td><td class="zj" data-label="Zellij action">zj-forgot</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
 <tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Shift">⇧</kbd></span><span class="then" aria-hidden="true">then</span><span class="chord"><kbd title="Shift">⇧</kbd></span></span></td><td class="what" data-label="What it does">Tap Shift twice to open the command palette.</td><td class="zj" data-label="Zellij action">room plugin</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
-<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Command">⌘</kbd><kbd>R</kbd></span></span></td><td class="what" data-label="What it does">Run Tern&#x27;s own Cmd+R action. No plugin binding.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
+<tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Command">⌘</kbd><kbd>R</kbd></span></span></td><td class="what" data-label="What it does">In SQLite, refresh or run SQL as Tern&#x27;s own ⌘R does. In a browser block, reload the page: Tern 0.9.18 gives this key no page action.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-plugin">Plugin</span></td></tr>
 <tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Control">⌃</kbd><kbd title="Shift">⇧</kbd><kbd>N</kbd></span></span></td><td class="what" data-label="What it does">Search for a file by name and open it, as ⌘P does.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
 <tr><td class="keys" data-label="Keys"><span class="seq"><span class="chord"><kbd title="Command">⌘</kbd><kbd>=</kbd></span></span></td><td class="what" data-label="What it does">Run Tern&#x27;s Desktop pet (Clawdi) command.</td><td class="zj" data-label="Zellij action">None</td><td class="from" data-label="From"><span class="src src-tern">Tern</span></td></tr>
 </tbody></table></div>
@@ -310,9 +310,10 @@ footer { color: var(--muted); font-size: 0.85rem; }
 <li>Tap Shift twice to open the command palette, and run Reload settings. Tern reads <code>settings.json</code> only at start and on reload.</li>
 <li>Close Tern Settings before you edit <code>settings.json</code> by hand. An open Settings page keeps the keys it had when it opened. When you change anything there, even its width, it writes those old keys back to the file. If keys go back to old values, close Settings, fix the file, and run Reload settings.</li>
 <li>If F1 to F4 or other Plugin keys do nothing, run Reload plugins from the palette.</li>
+<li>While the page of a browser block has the keyboard, only <kbd>⌘</kbd> keys reach Tern (Tern 0.9.18). <kbd>⌥</kbd> keys, <kbd>⌃</kbd><kbd>G</kbd> sequences and F keys go to the page, so <kbd>⌥</kbd><kbd>X</kbd> does not close it. Press <kbd>⌘</kbd><kbd>W</kbd> to close the block.</li>
 </ul>
 </section>
-<footer>Made for Tern 0.9.5 on 2026-10-21, updated for Tern 0.9.16 on 2026-11-11.</footer>
+<footer>Made for Tern 0.9.5 on 2026-10-21, updated for Tern 0.9.18 on 2026-11-12.</footer>
 </main>
 </body>
 </html>

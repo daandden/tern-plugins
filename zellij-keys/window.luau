@@ -1,4 +1,5 @@
--- Zellij actions with no Tern built-in. settings.json binds them as plugin.zellij-keys.<id>.
+-- Zellij actions with no Tern built-in, and the browser reload that Tern 0.9.18 binds to no key.
+-- settings.json binds them as plugin.zellij-keys.<id>.
 
 -- The tab of `pane`, with its session and position.
 local function current_tab(cx, pane)
@@ -648,3 +649,34 @@ end
 
 resize_all("resize_increase", "Grow the floating pane", true)
 resize_all("resize_decrease", "Shrink the floating pane", false)
+
+-- The focused pane when it is a browser block, else nil.
+local function focused_browser(cx)
+	local pane = cx.session:focused()
+	local info = if pane then cx.session:pane(pane) else nil
+	return if info and info.kind == "browser" then pane else nil
+end
+
+-- No Zellij action: reloads the focused browser block. Tern 0.9.18 has no reload action for a page,
+-- and its preset gives Cmd+R to four SQLite actions, so settings.json binds Cmd+R to those first and
+-- this command last. With this command first, Cmd+R in SQLite did nothing. The browser op `nav`
+-- leaves the page undriven, unlike `eval`.
+tern.command({
+	id = "reload_page",
+	title = "Reload page",
+	available = function(cx)
+		return focused_browser(cx) ~= nil
+	end,
+	run = function(cx)
+		local pane = focused_browser(cx)
+		if pane == nil then
+			return
+		end
+		cx.browser:call({ op = "nav", block = pane, go = "reload" }):next(function(result, err, later)
+			local why = err or (result and result.error and result.error.message)
+			if why and later then
+				later:toast("error", "Could not reload the page", tostring(why))
+			end
+		end)
+	end,
+})
