@@ -425,7 +425,28 @@ local function worktree_open(cx, main, base)
 	end)
 end
 
--- Refuses an ahead or diverged default branch, then opens at origin/<branch> or the local fallback.
+-- Moves the local default branch forward to origin/<branch>. On the main checkout's own branch a
+-- --ff-only merge also moves its files, which worktree_check found clean. Any other branch moves by
+-- a fetch from the repo itself, which only fast-forwards and refuses a branch another worktree has
+-- checked out. A failure leaves the branch as it was and ends the press with an error toast.
+local function worktree_fast_forward(cx, main, branch, cb)
+	git(main, { "symbolic-ref", "--quiet", "--short", "HEAD" }, {}, function(head, cx)
+		local args = if first_line(head.stdout) == branch
+			then { "merge", "--ff-only", "--quiet", `origin/{branch}` }
+			else { "fetch", "--quiet", ".", `refs/remotes/origin/{branch}:refs/heads/{branch}` }
+		git(main, args, {}, function(moved, cx)
+			if moved.status ~= 0 then
+				local why = if moved.stderr ~= "" then moved.stderr else moved.stdout
+				worktree_stop(cx, "error", `Could not update local {branch}`, first_message(why))
+				return
+			end
+			cb(cx)
+		end)
+	end)
+end
+
+-- Refuses an ahead or diverged default branch, fast-forwards one that is behind, then opens at
+-- origin/<branch> or the local fallback.
 local function worktree_compare(cx, main, branch)
 	local range = `{branch}...origin/{branch}`
 	git(main, { "rev-list", "--left-right", "--count", range }, {}, function(counts, cx)
@@ -439,6 +460,10 @@ local function worktree_compare(cx, main, branch)
 		elseif ahead ~= "0" then
 			local commits = if ahead == "1" then "commit" else "commits"
 			worktree_stop(cx, "error", `{branch} has {ahead} unpushed {commits}`, "Push or reset first.")
+		elseif behind ~= "0" then
+			worktree_fast_forward(cx, main, branch, function(cx)
+				worktree_open(cx, main, `origin/{branch}`)
+			end)
 		else
 			worktree_open(cx, main, `origin/{branch}`)
 		end
