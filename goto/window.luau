@@ -289,9 +289,13 @@ local function tiled_panes(node, out)
 	end
 end
 
--- The roles that omp puts in its dock or layer region while it waits for you: a question of the
--- ask tool, or the plan approval list. Tern reports such an agent as working.
-local WAIT_ROLES = { ["omp.ask.question"] = true, ["omp.plan.options"] = true }
+-- omp's questions, Picker review, and plan approval list wait for input even while a timed dialog
+-- keeps the agent working.
+local WAIT_ROLES = {
+	["omp.ask.question"] = true,
+	["omp-tools.ask-answers"] = true,
+	["omp.plan.options"] = true,
+}
 
 -- Reads omp's dock and layer surface roles for pane status.
 local function omp_signals(cx, pane)

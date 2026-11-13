@@ -15,6 +15,8 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 
 The Go to picker marks omp's `/pause` with a still, muted pause glyph. Paused panes join Waiting on you after done and before idle, even when idle rows are hidden. They show no time. Resume in omp to restore the pane's other status; working time still counts from the turn's start, pause included. Paused goal, loop and plan modes and Ctrl+Z do not count as `/pause`.
 
+The Go to picker keeps the waiting-for-input question mark while omp-tools shows the Picker's Submit review or its Submit note editor, including with `ask.timeout` set.
+
 `bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as a rendered page. Every other call goes to `/usr/bin/open`. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R reloads a browser block through zellij-keys.
 
 Verified with Tern 0.9.16. Text and code files use Tern's native code view, which follows the line-height setting, and local HTML files open as a page.
