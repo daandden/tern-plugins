@@ -1,0 +1,6 @@
+schema = 1
+id = "toast-above-browser"
+name = "Toast above browser"
+version = "0.1.0"
+description = "While a browser block is shown, toasts sit in the title bar, where its page cannot cover them."
+window = "window.luau"
