@@ -18,8 +18,13 @@ tern.css("palette", [[
 	max-height: calc(88vh - 20px);
 	border: none;
 	border-radius: calc(16px * var(--tn-zoom, 1));
-	background: transparent;
-	box-shadow: 0 0 0 4000px var(--modal-dim);
+	background: var(--modal-bg);
+	-webkit-backdrop-filter: var(--modal-filter);
+	backdrop-filter: var(--modal-filter);
+	box-shadow: var(--modal-shadow, 0 0 0 1px var(--l2)), 0 0 0 4000px var(--modal-dim);
+}
+[data-surface="plugin.goto.picker"] .sf-picker[data-role='goto.picker'] .pk-sticky {
+	display: none;
 }
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] > .tn-head,
 :root:root:root .tn-stage > .tn-pane.pip[aria-label^="Go to,"] > .tn-pip-grip,
