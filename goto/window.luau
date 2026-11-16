@@ -208,15 +208,18 @@ tern.css("palette", [[
 -- closes it. Nil when no picker is open in this window.
 local picker = nil
 
-local VEIL = [[
-:root:root body {
+-- Keeps the veil sheet fixed; the visible picker pane controls the dimming. Every selector after a
+-- `:has()` uses child combinators only: a descendant combinator there makes Tern restyle every
+-- node under `body` at each pane switch, which took 270 to 390 ms in a window of 400,000 nodes.
+tern.css("veil", [[
+:root:root body:has(> main > .tn-stage > .tn-pane[aria-label^="Go to,"]:not(.off)) {
 	box-shadow: inset 0 0 0 4000px var(--modal-dim);
 }
-:root:root #tabbar > .tb-in {
+:root:root body:has(> main > .tn-stage > .tn-pane[aria-label^="Go to,"]:not(.off)) > #tabbar > .tb-in {
 	position: relative;
 }
-:root:root #tabbar > .tb-in::after,
-:root:root .tn-stage > nav.ft::after {
+:root:root body:has(> main > .tn-stage > .tn-pane[aria-label^="Go to,"]:not(.off)) > #tabbar > .tb-in::after,
+:root:root .tn-stage:has(> .tn-pane[aria-label^="Go to,"]:not(.off)) > nav.ft::after {
 	content: '';
 	position: absolute;
 	inset: 0;
@@ -224,13 +227,7 @@ local VEIL = [[
 	pointer-events: none;
 	z-index: 1;
 }
-]]
-
--- Turns the veil over the file tree and tab bar on or off.
-local function set_veil(on)
-	tern.css("veil", if on then VEIL else "")
-end
-set_veil(false)
+]])
 
 -- Tern animates the picker's floating pane as it grows into view, and CSS cannot stop it: only the
 -- global reduce_motion setting does. So open_picker sets reduce_motion "on" for 400 ms, then back
@@ -641,7 +638,6 @@ end
 local function close_picker(cx)
 	local open = picker
 	picker = nil
-	set_veil(false)
 	if open and cx.session:pane(open.pane) then
 		cx.layout:close(open.pane)
 	end
@@ -696,7 +692,6 @@ local function open_picker(cx)
 		return
 	end
 	picker = { pane = pane, settled = false }
-	set_veil(true)
 	cx.layout:focus(pane)
 	tern.process.run({ "/bin/sleep", "0.06" }, function(_result, later)
 		if later == nil or picker == nil or picker.pane ~= pane then
@@ -768,7 +763,6 @@ end)
 tern.on("pane_closed", function(ev, _cx)
 	if picker and ev.pane == picker.pane then
 		picker = nil
-		set_veil(false)
 	end
 	forget_seen("panes", ev.pane)
 	set_finished(ev.pane, nil)
