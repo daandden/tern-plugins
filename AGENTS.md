@@ -64,7 +64,7 @@ Run reload and list after each change. They act on the user's running Tern, whic
 
 ## Runtime/Tooling Preferences
 
-- Tern 0.9.16 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
+- Tern 0.9.26 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
 - The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`. Commits use imperative sentence-case titles, with the PR number on merge (`Claim the worktree branch atomically before a press adds it (#20)`).
 
