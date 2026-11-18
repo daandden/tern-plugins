@@ -12,48 +12,7 @@ local function current_tab(cx, pane)
 	return nil
 end
 
--- The refocus timer of the last focus_pane call, while it waits.
-local pending_focus = nil
-
-local function cancel_pending_focus()
-	if pending_focus then
-		pending_focus:cancel()
-		pending_focus = nil
-	end
-end
-
--- Focuses a pane now and again after the key press: a real key press hands focus back to the pane
--- that had it once the keymap action returns. Focusing a hidden floating pane shows it, so the retry
--- runs only while focus is still in the same tab, and a newer focus_pane or a hide cancels it.
-local function focus_pane(cx, pane)
-	cancel_pending_focus()
-	local tab = cx.session:tab_of(pane)
-	cx.layout:focus(pane)
-	local handle
-	handle = tern.timer(50, function(later)
-		if pending_focus ~= handle then
-			return
-		end
-		pending_focus = nil
-		if later == nil then
-			return
-		end
-		local now = later.session:focused()
-		if now == nil or now == pane or later.session:tab_of(now) ~= tab then
-			return
-		end
-		later.layout:focus(pane)
-	end)
-	pending_focus = handle
-end
-
 local LAST_KEY = "last_float"
-
--- Zellij floating panes: the value of one tab in the tern.kv map under `key`.
-local function tab_value(key, tab)
-	local map = tern.kv.get(key)
-	return if map then map[tostring(tab)] else nil
-end
 
 -- Zellij floating panes: sets the value of one tab in the tern.kv map under `key`. nil removes it.
 local function set_tab_value(key, tab, value)
@@ -84,10 +43,10 @@ local function tab_floats(cx, tab)
 	return floats
 end
 
--- Zellij floating panes: whether a floating pane of `tab` shows. Tern gives a stashed float no view,
--- except on 0.9.16 a stashed float of a tab visited before, which can keep one.
-local function floats_shown(cx, tab)
-	for _, float in tab_floats(cx, tab) do
+-- Zellij floating panes: Tern gives a stashed float no view, except on 0.9.16 a stashed float of
+-- a tab visited before, which can keep one.
+local function floats_shown(cx, floats)
+	for _, float in floats do
 		if cx.session:view(float.pane, { depth = 0, nodes = 1 }) ~= nil then
 			return true
 		end
@@ -126,6 +85,32 @@ local function note_float_focus(cx, info, tab)
 	end
 end
 
+-- Resizes the focused float away from or toward its corner without changing its glance size.
+local function resize_float(cx, pane, grow, width_steps, height_steps)
+	local tab = cx.session:tab_of(pane)
+	local layout = if tab then cx.session:layout(tab) else nil
+	if not layout then
+		return
+	end
+	for _, float in layout.floats do
+		if float.pane == pane then
+			local left = string.sub(float.corner, 2, 2) == "l"
+			local top = string.sub(float.corner, 1, 1) == "t"
+			local horizontal = if left == grow then "resize_split:right" else "resize_split:left"
+			local vertical = if top == grow then "resize_split:down" else "resize_split:up"
+			for _ = 1, width_steps do
+				cx:action(horizontal)
+			end
+			for _ = 1, height_steps do
+				cx:action(vertical)
+			end
+			return
+		end
+	end
+end
+
+local pending_tool_size = {}
+
 -- Zellij floating panes: notes each focus of a floating pane for pane_closed. The event comes after
 -- the move, and a later move can follow before it, so only the focused pane counts.
 tern.on("focus", function(ev, cx)
@@ -134,56 +119,81 @@ tern.on("focus", function(ev, cx)
 	end
 	local info = cx.session:pane(ev.pane)
 	if info and info.floating and ev.tab then
+		if pending_tool_size[ev.pane] then
+			pending_tool_size[ev.pane] = nil
+			-- Reach the old 892 by 511 cap in a 1280 by 800 window.
+			resize_float(cx, ev.pane, true, 6, 3)
+		end
 		note_float_focus(cx, info, ev.tab)
 	else
 		focused_float = nil
 	end
 end)
 
--- Zellij CloseFocus on a floating pane: Tern moves focus to the tiled pane under the closed float.
--- While other floats of the tab are shown, focus goes to the last used one instead, else to the one
--- before the closed pane in open order, else the one after it. The Go to picker counts as a float
--- here, so Esc in a picker opened from a float goes back to that float. A jump from the picker that
--- moved focus to another pane keeps it there. Tern gives no event that tells Esc from a jump to the
--- tiled pane under the picker, so that jump also goes back to the float.
-tern.on("pane_closed", function(ev, cx)
-	local last = tern.kv.get(LAST_KEY)
-	if last then
-		for tab, pane in last do
-			if pane == ev.pane then
-				set_tab_value(LAST_KEY, tab, nil)
-			end
-		end
-	end
-	local closed = focused_float
-	if closed == nil or closed.pane ~= ev.pane then
+-- Zellij CloseFocus: after Tern returns focus to the tiled pane under a closed float, restore
+-- focus to another shown float. Leave it alone if a Go to jump already focused a different pane.
+local function restore_float_focus(cx, closed, target)
+	if cx.session:focused() ~= closed.over then
 		return
 	end
-	focused_float = nil
 	local floats = tab_floats(cx, closed.tab)
-	if #floats == 0 or not floats_shown(cx, closed.tab) or cx.session:focused() ~= closed.over then
+	if not floats_shown(cx, floats) then
 		return
 	end
 	local open = {}
 	for _, float in floats do
 		open[float.pane] = true
 	end
-	local target = tab_value(LAST_KEY, closed.tab)
 	if not open[target] then
 		target = nil
 		local at = table.find(closed.order, closed.pane) or (#closed.order + 1)
 		for i = at - 1, 1, -1 do
-			if target == nil and open[closed.order[i]] then
+			if open[closed.order[i]] then
 				target = closed.order[i]
+				break
 			end
 		end
-		for i = at + 1, #closed.order do
-			if target == nil and open[closed.order[i]] then
-				target = closed.order[i]
+		if target == nil then
+			for i = at + 1, #closed.order do
+				if open[closed.order[i]] then
+					target = closed.order[i]
+					break
+				end
 			end
 		end
 	end
 	cx.layout:focus(target or floats[#floats].pane)
+end
+
+-- Zellij CloseFocus: keep the KV and layout calls out of the pane_closed hook's wall-time budget.
+-- Take the focus snapshot before Tern delivers the next focus event.
+tern.on("pane_closed", function(ev, _cx)
+	local pane = ev.pane
+	pending_tool_size[pane] = nil
+	local closed = focused_float
+	if closed and closed.pane == pane then
+		focused_float = nil
+	else
+		closed = nil
+	end
+	tern.timer(0, function(cx)
+		local last = tern.kv.get(LAST_KEY)
+		if last then
+			local changed = false
+			for tab, id in last do
+				if id == pane then
+					last[tab] = nil
+					changed = true
+				end
+			end
+			if changed then
+				tern.kv.set(LAST_KEY, last)
+			end
+		end
+		if cx and closed then
+			restore_float_focus(cx, closed, last and last[tostring(closed.tab)])
+		end
+	end)
 end)
 
 -- Zellij CloseTab: forgets the last used float of the closed tab.
@@ -202,23 +212,20 @@ tern.timer(0, function(cx)
 end)
 
 -- Zellij floating pane: a new floating pane over the focused tiled pane (or over the pane the focused
--- floating pane belongs to), running `command` at glance size `size`, with focus.
-local function open_float(cx, command, size)
-	local focused = cx.session:focused()
-	if focused == nil then
-		return
-	end
+-- floating pane belongs to), running `command` with a large focused size and default glance size.
+local function open_float(cx, focused, command)
 	local owner = tiled_owner(cx, focused)
-	local pane = cx.layout:split(owner, "right", { command = command })
+	local pane = cx.layout:split(owner, "right", { command = command }, { focus = false })
 	if pane == nil then
 		return
 	end
-	local ok, why = cx.layout:float(pane, owner, nil, { focus = true, size = size })
+	local ok, why = cx.layout:float(pane, owner, nil, { focus = false })
 	if not ok then
 		cx:toast("error", "Could not open a floating pane", why)
-		return
+	else
+		pending_tool_size[pane] = true
+		cx.layout:focus(pane)
 	end
-	focus_pane(cx, pane)
 end
 
 -- Plugin processes inherit the launcher's PATH, which may lack Homebrew. Git hooks and filters,
@@ -616,7 +623,6 @@ local function focus_or_tab(id, title, dir, tab_action)
 		title = title,
 		run = function(cx)
 			local before = cx.session:focused()
-			cancel_pending_focus()
 			cx:action("focus_pane:" .. dir)
 			if cx.session:focused() == before then
 				cx:action(tab_action)
@@ -628,15 +634,32 @@ end
 focus_or_tab("focus_or_tab_left", "Focus the pane or tab on the left", "left", "previous_tab")
 focus_or_tab("focus_or_tab_right", "Focus the pane or tab on the right", "right", "next_tab")
 
--- Zellij `Run ... { floating true; close_on_exit true }`: the program in a floating pane that asks
--- Tern for 80% of the tab in width and in height. Tern caps the focused float smaller.
+-- Zellij `Run ... { floating true; close_on_exit true }`: the program in a native floating pane.
 local function float_command(id, title, command)
 	tern.command({
 		id = id,
 		title = title,
 		icon = "terminal",
 		run = function(cx)
-			open_float(cx, command, { 0.8, 0.8 })
+			local focused = cx.session:focused()
+			if focused == nil then
+				return
+			end
+			-- Open after Tern finishes the key action so the float takes focus once.
+			-- A process completion wakes the window even when reduced motion stops timers.
+			tern.process.run({ "/usr/bin/true" }, function(_result, later)
+				if later == nil then
+					return
+				end
+				local ok, err = pcall(function()
+					if later.session:focused() == focused then
+						open_float(later, focused, command)
+					end
+				end)
+				if not ok then
+					later:toast("error", "Could not open a floating pane", tostring(err))
+				end
+			end)
 		end,
 	})
 end
@@ -660,14 +683,7 @@ local function resize_all(id, title, grow)
 			if not (info and info.floating) or is_picker(info) then
 				return
 			end
-			for _, float in tab_floats(cx, cx.session:tab_of(pane)) do
-				if float.pane == pane then
-					local left = string.sub(float.corner, 2, 2) == "l"
-					local top = string.sub(float.corner, 1, 1) == "t"
-					cx:action("resize_split:" .. if left == grow then "right" else "left")
-					cx:action("resize_split:" .. if top == grow then "down" else "up")
-				end
-			end
+			resize_float(cx, pane, grow, 1, 1)
 		end,
 	})
 end
