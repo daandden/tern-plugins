@@ -126,6 +126,8 @@ A Side question is a full agent run in a mirror session built the way OMP's
   the tool calls as a collapsible `section`. It sends its own stylesheet
   (`omp-tools-btw`, `SCROLL_BOX_CSS` from `ask-editor.ts`) so list numbers are
   not clipped.
+- Match the main chat's user messages: a user bubble in Tern and a Markdown
+  block on the user message background in the classic terminal.
 
 ## Picker btw
 

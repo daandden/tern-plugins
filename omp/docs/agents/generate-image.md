@@ -57,6 +57,11 @@ rendered with the Default image generation mode.
   JSON. OMP 18.22.0 keeps the JSON key order and truncates the formatted
   arguments at 2,000 characters. The tool description and prompting skill
   tell the agent to put `mode` first so a long `prompt` cannot hide it.
+  In Tern, the header follows the mode with the prompt's first line, the
+  reference count, mode settings, size, and quality. Below it are the saved
+  path links, any Codex near-limit warning, the folded long prompt, and the
+  images. A stream shows the latest preview as in progress. An error shows
+  its message in the error color.
 - **Results.** Raster images go in `content` only, never `details.images`
   (the TUI would show them twice). SVG returns a saved path and an instruction
   to read it, without image content. `details.outputs` lists each path, MIME
@@ -73,6 +78,7 @@ rendered with the Default image generation mode.
   JPEG and WebP and sends the rest as lossless WebP. OpenAI mode keeps PNG,
   JPEG, and WebP and sends the rest as PNG. `image-codecs.ts` sniffs formats
   and encodes WebP.
+  Lossless WebP was about 25% smaller than PNG at the same image-token cost.
 
 ## Codex mode
 
@@ -111,10 +117,11 @@ token's JWT claims.
 - Registration reads `svgAuthorModel` at session start and on session switch;
   absent or empty means `gpt-6.1-sol`. SVG requests always send
   `svg: { model }`, and a call's `svg` settings override it.
-- `sunburst-images.ts` sends one JSON request (no retries), decodes JSON or
-  SSE (`*.partial_image`, `*.completed`, `error`; a stream needs `n`
-  completions), and keeps `x-request-id`. The 5-minute timeout covers the
-  stream.
+- `sunburst-images.ts` sends one JSON request to `/v1/images/generations` or
+  `/v1/images/edits` without retries. It decodes JSON or SSE
+  (`*.partial_image`, `*.completed`, `error`). A stream needs `n`
+  completions. The client keeps `x-request-id`, and the five-minute
+  timeout covers the stream.
 - Mask and markup bytes go out unchanged. Local files and data URLs are
   checked first (`image-checks.ts`: alpha from the file header, transparency
   from decoded pixels, sizes from `Bun.Image` metadata with EXIF
@@ -125,9 +132,10 @@ token's JWT claims.
 
 ## Prompting skill
 
-`skills/generate-image/SKILL.md` is the pre-call checklist for prompts and
-edits, with the reference, mask, markup, transparency, and retry rules for
-each mode. It stays generic, with no examples. Its cited research is in
-`docs/research/`; `gpt-image-2.6.md` is the current model reference
-(controls, pricing, documentation conflicts, GIF, SVG-author, and Codex
-probes), and the `gpt-image-2.5-*.md` files are earlier checks.
+Use the [generate-image skill](../../skills/generate-image/SKILL.md) for the
+pre-call checklist. It covers both modes: purpose and concrete subjects,
+counts and placement, exact final strings, data and logos, reference roles,
+scoped edits and what to keep, transparency, and output review. Keep the
+checklist generic, with no examples. Its sources are in
+[image research](../research/), including the prompting criteria and format,
+the current GPT Image 2.6 reference, and the earlier GPT Image 2.5 checks.

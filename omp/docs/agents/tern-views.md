@@ -23,6 +23,9 @@ Protocol, OMP calls `describe(cx)` instead of `render()`.
   `--t1`. The rules are rebuilt when the theme instance changes. A doubled
   `.sf-col` outranks Tern 0.9.26's chat-reader rule that washes overlays with
   white. A view's root therefore needs an `omp-tools.*` role in every state.
+  Use the active omp theme's light or dark palette in all three views. The
+  Picker uses Tern's UI font, but its highlight and hover use a tint of the
+  omp text color.
 - Tern scopes a program sheet to strict descendants of its region, so a rule
   on `.sf-region` never applies (Tern 0.9.5).
 - Tern's Markdown hangs list numbers 2 cells left of the text, where a scroll

@@ -1,6 +1,6 @@
 # `ask` and the Picker
 
-Notes for changing `ask`, the Picker, its editors, Picker drafts, or host `askDialog` routing. Tern view rules shared with the panels are in `tern-views.md`.
+Notes for changing `ask`, the Picker, its editors, Picker drafts, or host `askDialog` routing. Read [Tern views](tern-views.md) before changing the styles the Picker shares with the panels.
 
 - `flexible-ask.ts` takes native's one argument, `html`, and refuses any other
   key (`"+": "reject"`) in its schema. Like native since OMP 19.0.0, it sets
@@ -62,11 +62,10 @@ Notes for changing `ask`, the Picker, its editors, Picker drafts, or host `askDi
   in `ExtensionCustomOptions`). Since OMP 18.12 the host treats an extension
   dialog without a positive `timeout` as a wait for the user, which ends the
   computer turn so the display can sleep.
-- `ask-dialog.ts` keeps pi-tui `AskDialogComponent`'s structure (tabs, Submit
-  review, multi-select, Other, timeout) with its own key flow, one meaning
-  per key in every Picker (README keys table). Diff the structure against
-  upstream when OMP changes the native dialog. `ask-pictures.ts` draws form
-  pictures as native's form dialog does (`loadMedia`, `Image`,
+- Keep pi-tui `AskDialogComponent`'s structure in `ask-dialog.ts`: tabs,
+  Submit review, multi-select, Other, and timeout. Preserve the
+  [Picker keys](../../../README.md#picker-keys) when the host changes its
+  dialog. `ask-pictures.ts` draws pictures as the native form dialog does (`loadMedia`, `Image`,
   `SvgFigure`, `nativeImageNode`); a classic picture the scroll window cuts
   shows as one placeholder line.
 - `ask-result.ts` writes the result: native's form data JSON, then labeled
@@ -121,6 +120,11 @@ Notes for changing `ask`, the Picker, its editors, Picker drafts, or host `askDi
   `--l2`), and row text reads `--sf-fs` and `--sf-lh` so each line is one
   terminal row. `NATIVE_STYLED_ROW_LINES`, the height estimate, includes the
   sheet's row padding and gap.
+- An option row starts with its marker, then the label, Markdown description,
+  preview, and Note or Other answer. Keep the filled marker on picked options
+  and the Recommended badge on options with a form default. Review labels
+  wrap inside their column so long Notes cannot push the answers outside the
+  Picker.
 - Tern never reports what is on screen. After PgUp/PgDn (`#nativePagedAway`)
   the next j/k, action key, or button only reveals the highlighted row
   (`#revealCursor` bumps its `reveal` token). A question's first showing keeps

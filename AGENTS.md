@@ -224,7 +224,7 @@ Run `bun run check` and `bun test` from `omp/` after code changes. The suite use
 - Before building fake TUI contexts, call `Settings.init({ inMemory: true })` and `initTheme()` in `beforeAll`.
 - Use `omp/test/helpers/side-question-session.ts` for a real SDK mirror session against local SSE. It records requests, warnings, and recovery events for retries, fallbacks, and `/btw` follow-ups. The `toolCalls` and `tools` options run a real main turn whose tools return text or wait for `release()`.
 - Use `omp/test/helpers/english-coach-session.ts` for the `input` handlers with a fake TUI context, local SSE, and the real model registry. Assert widget lines, provider requests, and ledger entries. Tests cover both `/btw` entry-point orders, but not terminal layout, deferred startup ordering, or correction quality with a real `@tiny` model.
-- The OpenAI live test sends three paid requests: a still image with complexity, an SVG, and a GIF. It requires approval for paid requests and `OPENAI_API_KEY`. To opt in, run `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
+- The [OpenAI live test](omp/test/generate-image-openai.live.test.ts) sends three paid requests: a still image with complexity, an SVG, and a GIF. It checks API results, not tool cards. With approval for paid requests and `OPENAI_API_KEY`, opt in with `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
 
 For changes to registration, `ask`, the Picker, Side questions, the English coach, tool cards, or event handling, run a fresh-session smoke through [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). Use `PI_TUI_NATIVE=0` for the classic text renderer or RPC for checks without a screen. The five-tool limit, real panel and keys, and a kept Picker btw thread require live proof. Record each smoke in [the live proof log](omp/docs/agents/live-proof.md).
 
@@ -232,7 +232,7 @@ For changes to registration, `ask`, the Picker, Side questions, the English coac
 
 Both Verify skills live in `.omp/skills/` and start isolated Tern instances through [tern-verify](.omp/skills/verify-tern-plugins/scripts/tern-verify). When a Tern update changes omp state, startup alerts, or isolation, update that launcher once for both profiles.
 
-For user-visible changes to either host, update [README.md](README.md) and add an entry to the root `CHANGELOG.md` under `[Unreleased]` with `Added`, `Changed`, `Fixed`, or `Removed` as appropriate. Update `omp/docs/agents/` when an omp-tools subsystem's design or host workaround changes.
+For user-visible changes to either host, update [README.md](README.md) and add an entry to [CHANGELOG.md](CHANGELOG.md#unreleased) under `[Unreleased]` with `Added`, `Changed`, `Fixed`, or `Removed` as appropriate. Update `omp/docs/agents/` when an omp-tools subsystem's design or host workaround changes.
 
 For either host, use imperative sentence-case commit titles. Include the PR number on merge: `Claim the worktree branch atomically before a press adds it (#20)`.
 
