@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), Flow links that open in Tern (`vstack-flow`), unfocused panes without Tern's dimming (`no-pane-dim`), and toasts that a browser page does not cover (`toast-above-browser`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
+Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), Flow links that open in Tern (`vstack-flow`), and toasts that a browser page does not cover (`toast-above-browser`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
 
 ## Architecture & Data Flow
 
@@ -25,7 +25,7 @@ State lives in two places:
 
 ## Key Directories
 
-- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`, `no-pane-dim/`, `toast-above-browser/`: the plugins. Only goto has a `host.luau`; reader-terminal-text, no-pane-dim and toast-above-browser are CSS only.
+- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`, `toast-above-browser/`: the plugins. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
 - `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
 - `.omp/skills/verify-tern-plugins/`: the Verify skill, its `scripts/tern-verify` helper and per-feature recipes in `features/`.
@@ -64,7 +64,7 @@ Run reload and list after each change. They act on the user's running Tern, whic
 
 ## Runtime/Tooling Preferences
 
-- Tern 0.9.26 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
+- Tern 0.9.28 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
 - The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`. Commits use imperative sentence-case titles, with the PR number on merge (`Claim the worktree branch atomically before a press adds it (#20)`).
 
@@ -114,7 +114,7 @@ reader-terminal-text on Tern 0.9.7: Reader supplies the composer UI font, so no 
 
 reader-terminal-text dock gap: Reader gives every dock region (`.sf-region.sf-dock.sf-chat-reader`) a 24px top padding. An omp pane can hold several Reader dock regions whose children are all `.sf-void` (one pane on Tern 0.9.16 held 10), and each one adds a blank 24px row between the transcript and the composer. The `dock-gap` sheet hides a region that has no child other than `.sf-void` or `.sf-hidden` nodes, so only regions with content keep their padding. Tern 0.9.16 supports `:has()`.
 
-no-pane-dim: Tern dims each unfocused pane (class `.tn-pane.dim`) with a veil over its body (`.tn-veil`) and its head (`.tn-head::after`). Both paint `--tn-veil`, which `.tn-stage` defines, so the plugin's one rule `:root .tn-stage { --tn-veil: transparent; }` turns off both. Tern 0.9.12 has no setting for this. The classes and the variable are Tern internals, so an update can bring the dimming back.
+Pane dimming: set Tern's **Dim unfocused panes** to Off (`unfocused_dim: 0`) to keep panes at full contrast. Tern then omits `.dim` on unfocused panes. Select verification targets without relying on `.dim`.
 
 toast-above-browser: Tern 0.9.18 draws a browser block's page in a native view above its own UI, so it covers the part of a toast (`body > .toast`, centred at `bottom: var(--toast-bottom, 28px)`) that overlaps the page. For the palette and other modals Tern swaps the page for a snapshot (`.kit-web.veiled`), but not for a toast, and no plugin API can veil a page. While the visible tab shows a browser pane (`.tn-pane.web` without `.off`; a pane of another tab and a hidden float have `.off`), the sheet moves the toast to `top: 0`, over the 40 px title bar, which no page covers, and slides it in from above. A toast that wraps to more lines grows down over the pane heads, which are Tern's own UI. With no browser shown, the toast stays at the bottom. The classes are Tern internals, so an update can put the toast back under the page.
 

@@ -1,6 +1,6 @@
 # Tern plugins
 
-Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-level folder other than `bin/` and `docs/` is one plugin. A plugin folder has a `plugin.toml` manifest and a `window.luau` script, and the folder name is the plugin `id`.
+Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each plugin lives in a top-level folder with a `plugin.toml` manifest and a `window.luau` script. The folder name is the plugin `id`.
 
 ## Plugins
 
@@ -10,7 +10,6 @@ Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each top-leve
 | `goto` | Opens a picker of sessions, tabs and agent panes, drawn by Tern's own picker node. Type to search, or type a jump number to go to a row. The panes that wait for you show at the top, and agent rows show how long they have been working or waiting. The picker follows Tern's glass palette dimming. |
 | `reader-terminal-text` | In the Reader chat style, gives omp's prose, composer, advisor notes, notices, and tool-result prose the terminal's font size, row height, and weight. Single-line chrome uses the terminal size and row height with Reader's own weights. Preserves the UI font and Markdown theme colours, hides the empty composer's placeholder, and hides empty dock regions, which would leave blank rows above the composer. The plugin is CSS only. |
 | `vstack-flow` | A Cmd-click on a vstack Flow link opens the Flow page in Tern beside the pane that holds the link, or goes to the clicked question in the tab's open page of that Flow. Every other web link, and Cmd+⌥-click, follows Tern's link setting. |
-| `no-pane-dim` | Turns off Tern's dimming of unfocused panes, so every pane keeps its full colours, as in Zellij. The plugin is CSS only. |
 | `toast-above-browser` | While the tab you see shows a browser block, tiled or floating, moves Tern's toasts from the bottom of the window to the title bar, because a browser page covers any part of a toast over it. The plugin is CSS only. |
 
 The Go to picker marks omp's `/pause` with a still, muted pause glyph. Paused panes join Waiting on you after done and before idle, even when idle rows are hidden. They show no time. Resume in omp to restore the pane's other status; working time still counts from the turn's start, pause included. Paused goal, loop and plan modes and Ctrl+Z do not count as `/pause`.
@@ -19,11 +18,11 @@ The Go to picker keeps the waiting-for-input question mark while omp-tools shows
 
 `bin/open` replaces the macOS `open` command in a Tern pane. For `open FILE...` with only local files, it runs `tern open` for each file beside the pane that ran the command. HTML opens as a rendered page. Every other call goes to `/usr/bin/open`. Web links other than Flow links follow Tern's `link_target` setting, and Cmd+R reloads a browser block through zellij-keys.
 
-Verified with Tern 0.9.16. Text and code files use Tern's native code view, which follows the line-height setting, and local HTML files open as a page.
+Text and code files use Tern's native code view, which follows the line-height setting.
 
 ## Requirements
 
-- Tern and its `tern` command.
+- Tern and its `tern` command. The plugins were smoke-tested on Tern 0.9.28.
 - Yazi, lazygit and btop in `/opt/homebrew/bin`, for the float commands of `zellij-keys`.
 - Git and GNU coreutils' `gtimeout` in `/opt/homebrew/bin`, for the worktree-agent shortcut's fetch deadline.
 
@@ -34,7 +33,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 1. Link each plugin folder into the plugins directory of Tern (`~/.config/tern/plugins`):
 
    ```sh
-   	for d in goto reader-terminal-text zellij-keys vstack-flow no-pane-dim toast-above-browser; do
+   	for d in goto reader-terminal-text zellij-keys vstack-flow toast-above-browser; do
    		tern plugin link "$PWD/$d"
    	done
    ```
@@ -50,6 +49,8 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 Tern reloads linked plugins when a file in their checkout changes. Use `tern plugin reload` and `tern plugin list` to check that every plugin loaded.
 
 When upgrading from a version with `nvim-files` linked, run `tern plugin unlink nvim-files` before reloading. Tern 0.9.8 fixes the native code-view line-height limitation, so the Neovim routing plugin has been removed.
+
+Tern 0.9.28 has a native setting for pane dimming. To keep unfocused panes at full contrast, search Settings for **Dim unfocused panes** and set it to **Off**. If you previously linked `no-pane-dim`, run `tern plugin unlink no-pane-dim` after changing the setting.
 
 ## Keybinds
 
