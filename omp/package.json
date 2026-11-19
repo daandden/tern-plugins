@@ -1,0 +1,60 @@
+{
+	"name": "omp-tools",
+	"version": "0.2.0",
+	"private": true,
+	"description": "OMP flexible ask adapter, generate_image with OpenAI (GPT Image 2.6 Sunburst) and Codex modes, and read-only /btw side questions",
+	"license": "MIT",
+	"type": "module",
+	"scripts": {
+		"check": "bun scripts/check-sdk-version.ts && tsgo --noEmit",
+		"test": "bun test",
+		"update": "bun scripts/update-sdk.ts"
+	},
+	"devDependencies": {
+		"@oh-my-pi/pi-coding-agent": "latest",
+		"@oh-my-pi/pi-tui": "latest",
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"bun-types": "latest"
+	},
+	"omp": {
+		"extensions": [
+			"./extensions/flexible-ask.ts",
+			"./extensions/generate-image.ts",
+			"./extensions/english-coach.ts",
+			"./extensions/btw.ts"
+		],
+		"settings": {
+			"englishCoach": {
+				"type": "boolean",
+				"default": true,
+				"description": "Check English in interactive prompts with @tiny and show private corrections above the editor. Applies at session start and on session switch."
+			},
+			"englishCoachMaxTokens": {
+				"type": "number",
+				"default": 300,
+				"description": "Maximum prompt tokens checked by the English coach. Must be positive. Replies are capped at twice this limit plus 200 tokens. Applies at session start and on session switch."
+			},
+			"englishCoachLanguage": {
+				"type": "string",
+				"default": "Vietnamese",
+				"description": "Your native language, such as Vietnamese or Japanese. The English coach names each mistake's pattern in it; corrections stay in English. Empty turns coaching off with a warning. Applies at session start and on session switch."
+			},
+			"defaultImageGenerationMode": {
+				"type": "enum",
+				"values": ["openai", "codex"],
+				"default": "openai",
+				"description": "Image generation mode for calls to generate_image that do not name a mode. openai uses GPT Image 2.6 Sunburst with the openai API key and the API organization's billing; codex uses the ChatGPT/Codex login's image allowance. Applies to new sessions."
+			},
+			"svgAuthorModel": {
+				"type": "string",
+				"default": "gpt-6.1-sol",
+				"description": "SVG author for generate_image's OpenAI mode: the OpenAI text model that writes an SVG from the drawn image, billed at that model's token rates. A call's svg.model overrides it. Empty uses gpt-6.1-sol. Applies to new sessions."
+			},
+			"sideQuestionModel": {
+				"type": "string",
+				"default": "@smol",
+				"description": "Model for /btw and Picker btw. Use a role such as @smol or provider/model:level. Empty uses the main model."
+			}
+		}
+	}
+}

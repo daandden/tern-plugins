@@ -1,0 +1,105 @@
+# omp-tools
+
+Local OMP plugin that replaces selected native OMP tools with adapted versions.
+
+## Language
+
+**Native tool**:
+A tool built into the running OMP host, such as native `ask` or native `generate_image`.
+_Avoid_: stock tool, built-in tool, origin tool
+
+**Picker**:
+This plugin's interactive question UI for `ask` in the terminal, shown instead of native `ask`'s dialog.
+_Avoid_: custom ask, Markdown dialog, ask dialog
+
+**Note**:
+Free text the user attaches to one option of a question in the **Picker**. Each option keeps its own note whether or not it is picked, and every note is sent with the answer.
+_Avoid_: comment, annotation
+
+**Other answer**:
+The user's own typed answer to a question, instead of a listed option or, in multi-select, alongside them. Un-picking it keeps the text.
+_Avoid_: custom input, custom answer
+
+**Submit note**:
+Free text for the whole `ask`, written on the Submit tab and not tied to any question.
+_Avoid_: general note, global note
+
+**Picker draft**:
+The picks, **Notes**, **Other answers**, **Submit note**, and **Picker btw** thread of a **Picker** that Esc closed without submitting, kept until a **Picker** with the same form opens again.
+_Avoid_: saved state, saved answers, cancelled answers
+
+**Side question**:
+A question about the session that is answered aside from the main conversation, with read-only tools, and that the main agent never sees. The user asks one through **/btw** or **Picker btw**.
+_Avoid_: btw (unqualified), side turn, btw agent
+
+**Side question thread**:
+One **Side question** and the follow-ups asked after it, each answered with the earlier questions and answers of the thread in view. A new thread starts with none of them.
+_Avoid_: btw session, new session (for one follow-up)
+
+**Side question model**:
+The model chosen to answer every **Side question**, independently of the main conversation's model.
+_Avoid_: btw model, side model
+
+**/btw**:
+The editor command that asks a **Side question**. Typing it runs this plugin's version, not **Native /btw**. Later `/btw` questions follow up in the same **Side question thread** until the user's next main prompt ends it.
+_Avoid_: btw (unqualified)
+
+**Native /btw**:
+OMP's own side-question command, which answers without tools. It still answers where this plugin cannot take over `/btw`.
+_Avoid_: stock /btw, OMP btw
+
+**Picker btw**:
+A **Side question** asked from inside the **Picker** while an `ask` waits; shown and kept only in the **Picker**.
+_Avoid_: btw (unqualified), our /btw, custom /btw
+
+**English coach**:
+The background check of English in prompts submitted to the main agent in the interactive terminal. It uses OMP's `@tiny` model role and shows private corrections above the editor without changing the prompt or adding corrections to the main conversation.
+_Avoid_: grammar checker, English tutor, coach agent
+
+**generate_image**:
+This plugin's image tool. It replaces native `generate_image`, which the user disables.
+_Avoid_: custom image tool, image wrapper
+
+**Image generation mode**:
+The choice of image service and billing source for **generate_image**. The two modes are **Codex mode** and **OpenAI mode**.
+_Avoid_: image provider (unqualified), image backend (for the mode)
+
+**Default image generation mode**:
+The **Image generation mode** that **generate_image** uses when a call does not name one, chosen by the user in the plugin's settings.
+_Avoid_: default provider, image provider
+
+**Codex mode**:
+The **Image generation mode** that uses a signed-in ChatGPT account's Codex image allowance through **Codex OAuth**.
+_Avoid_: free mode, API-credit mode
+
+**OpenAI mode**:
+The **Image generation mode** that uses GPT Image Sunburst through the public OpenAI Images API, billed to an API organization.
+_Avoid_: Codex API mode, free mode
+
+**SVG author**:
+The text model that writes an **OpenAI mode** SVG result from the raster image the image model drew first. It is chosen separately from the image model.
+_Avoid_: SVG model, vectorizer
+
+**OpenAI API credits**:
+The value in an API organization used to pay for API requests, including promotional grants and purchased credits. This balance is separate from signed-in Codex usage allowances.
+_Avoid_: Codex credits, ChatGPT usage credits
+
+**Promotional API credits**:
+The free subscription-linked grant within **OpenAI API credits**, which expires at the end of its subscription billing cycle.
+_Avoid_: free Codex credits, purchased API credits
+
+**Codex Images endpoint**:
+The ChatGPT-login image backend the official Codex CLI calls: `/backend-api/codex/images/generations` and `/backend-api/codex/images/edits`.
+_Avoid_: codex-us image generation, Codex image API
+
+**Responses image tool**:
+The hosted `image_generation` tool reached through `/backend-api/codex/responses`, used by native `generate_image`.
+_Avoid_: hosted image path
+
+**Codex OAuth**:
+Authentication with a ChatGPT account through OMP's `openai-codex` login, as opposed to an OpenAI API key.
+_Avoid_: subscription auth, ChatGPT key
+
+**Reference image**:
+An existing image sent with an edit request for the backend to modify or draw from.
+_Avoid_: input image, attachment, source image

@@ -1,0 +1,59 @@
+# Side question with /btw
+
+`/btw <question>` in the main editor asks a Side question that is offered only read, grep, glob, find, and web_search. The answer shows in a panel above the editor, and the editor keeps focus. The answer's text and its tool calls show in the order they happened; each group of calls folds into one "N tool calls" line. A later `/btw` follows up in the same thread; the next main prompt ends the thread and clears the panel. The main agent never sees a Side question. A thread starts from the main session's saved transcript on the branch selected in `/tree`, with the eval state OMP saved there; a call the main agent still waits on stays open to it. Bare `/btw` still opens OMP's own BTW history.
+
+## Sub-features
+
+- `btw-answer` answers using a read-only tool and shows the panel.
+- `btw-fold` folds each group of tool calls; `t` (or a click on a line in Tern) opens and folds them.
+- `btw-order` shows text written before a tool call above its "N tool calls" line, and the answer after it.
+- `btw-follow` keeps a later `/btw` in the same thread, also after Esc closed the panel.
+- `btw-cancel` cancels a running answer with Esc; the next Esc closes the panel.
+- `btw-tools` offers only the five read-only tools: bash, write, and others cannot be called.
+- `btw-usage` records each Side question request in the main session's usage ledger, and a later thread's first request reads the earlier thread's cached prefix.
+- `btw-agent` reads `agent://<id>` of a main-session agent that is still running and has no output yet.
+- `btw-main-ends` ends the thread at the next main prompt; an answer still running finishes and shows first.
+- `btw-private` keeps Side questions out of the main transcript.
+- `btw-seed` starts a thread from the saved transcript: after compaction, after a `/tree` jump with or without a new prompt, and with a call still pending.
+
+## How to get to it (user POV)
+
+- Type `/btw <question>` in the main editor and press Enter (Tern view or classic TUI).
+- Press `t` or Esc with an empty editor while the panel shows.
+- Click the "N tool calls" line (Tern view only).
+
+## Driving it with tern ctl
+
+Preconditions:
+
+- Baseline from `README.md`, including one answered main prompt.
+- `/tmp/btw-probe.txt` does not exist.
+
+- Answer. Run `$C type '"/btw which extensions does package.json register? read it"'` and `$C key Enter`. While it runs, `$C tree` contains `Answering…` and `to cancel`. When `$C tree` contains `to close`, run `$C shot btw-answer`. In the Tern view the heading reads `/btw` and `side question · only you see the answers` (two text nodes in `$C tree`), the question shows as a user bubble like the main chat's (a `sf-card` with an `sf-card-body` in `$C tree`), a `1 tool call` line shows, and the answer lists the extension files. In the classic TUI the question is a padded block on the user message background. The count is the number of calls the model made, so it can differ from 1.
+- Fold. Run `$C key t`, `$C shot btw-fold-open`. The fold shows `read <path>` under it, and the hint reads `to fold tool calls`. In Tern, `$C click '.sf-section-head'` toggles the same line.
+- Order. Run `$C type '"/btw First write one short line saying you will check package.json. Then read package.json. Then say which test runner it uses."'` and `$C key Enter`. When the answer is done, run `$C shot btw-order`. The panel shows the short line, then the `1 tool call` line, then the answer naming `bun test`.
+- Follow-up. Run `$C key Escape` (the panel closes), then `$C type '"/btw what file did you read for my first side question? one line, no tools"'`, `$C key Enter`, `sleep 20`, `$C shot btw-follow`. The answer names `package.json`, the earlier turns show in the panel, and the Side question listing in `../SKILL.md` still shows the same single new `SideQuestion-*.jsonl` with every `<btw>` prompt.
+- Cancel. Run `$C type '"/btw read README.md and summarize every section in detail"'` and `$C key Enter`. As soon as `$C tree` contains `to cancel`, run `$C key Escape` and `$C shot btw-cancel`. The turn ends with `Cancelled`. `$C key Escape` again closes the panel (`$C tree` no longer contains `only you see`).
+- Tools. Set `find.enabled: on` in the owned smoke config so OMP's automatic tool selection does not omit `find`. Run `../helpers/side-question-probe.ts` as `../SKILL.md` (Helpers) describes, with `VERIFY_PROBE=tools`, and send one prompt (`Reply with only: ok`). In `tools.json`, `threads[0].tools` is exactly `read`, `grep`, `glob`, `find`, `web_search`, `calls` lists only `read` calls (`done`), and neither `/tmp/btw-probe.txt` nor `/tmp/btw-probe2.txt` exists. Check the offered list, not the answer's account of it.
+- Usage. Run the same helper with `VERIFY_PROBE=usage` on an available Codex model. Set `modelRoles.smol` to that exact model in the owned smoke config; the Side question otherwise defaults to a different model. Send one main prompt of about 20k tokens (`Reply with only: ok.` followed by the text of `README.md`, `AGENTS.md`, and the files in `docs/agents/`). The helper asks two threads different questions. `usage.json` holds one entry with purpose `side-question` per Side request (two here); entries with purpose `side-question:<purpose>` are the mirror's own off-transcript calls (cache warms, the `unexpected-stop` judge). The first `side-question` entry's `cacheRead` is near 0, since a thread's first request cannot reuse the main prompt cache. The second one's `cacheRead` is at least the first one's prompt (`input + cacheRead + cacheWrite`) less the first question's length (a few hundred tokens): the second thread reuses the shared conversation, not just an identical prompt. Assert on these numbers, not on the cache-miss marker, which never shows on Codex.
+- Agent. Run the same helper with `VERIFY_PROBE=agent` and send `Use the task tool to spawn exactly one subagent named Sleeper (agent: task). Its task: run bash \`sleep 120\`, then yield the word done. Do not wait for it: right after spawning, end your turn with one short line.` `agent.json` shows `read agent://Sleeper` as `done`, and the answer quotes `# Sleeper (running)`.
+- Main prompt ends it. With a thread open, run `$C type '"Reply with only: done"'`, `$C key Enter`, `sleep 15`. The Side question listing shows no new `SideQuestion-*.jsonl` and the panel is gone. A new `/btw` answers as a first question: the panel shows only the new turn.
+- Running answer at a main prompt. Run `$C type '"/btw how many lines does AGENTS.md have? read it"'` and `$C key Enter`. While `$C tree` contains `to cancel`, send a main prompt, then `sleep 25`. The main reply and the Side answer both show, and the `SideQuestion-*.jsonl` is gone. The next main prompt clears the panel.
+- Private. `jq -c 'select(.type=="message") | .message.role' <main session>.jsonl` and a read of the main transcript show no Side question text.
+- Seed (`btw-seed`). Use the local provider from `ask-picker.md` (How to get to it), with replies for an `eval` call (`Run the eval please` → `language: "js"`, `globalThis.counter = 41; "counter is " + (counter + 1)`) and plain replies for `Say alpha` and `Say beta`. Its JSONL is the second view: compare each Side request's messages with the main request that holds the same history. Start each case in a new session.
+  - Compaction. Start with a `--config` that adds `compaction:` and `  keepRecentTokens: 1`. Send `Run the eval please`, `Say alpha`, `Say beta`, compact the session (`/compact`), then send `/btw what do you see?`. The Side request starts with the summary, holds the kept turn and the `Eval runtime state is host-retained` reminder the next main request also holds, and nothing from before the summary.
+  - Tree, then a prompt. Send `Run the eval please`, then a turn on another subject (`Call the small ask please` and answer it). `/tree` back to the eval answer, send `Say alpha again`, then `/btw what do you see?`. After its system prompt, the Side request holds the same messages as the main request for `Say alpha again`, then that turn's reply and the `<btw>` prompt; nothing from the abandoned turn.
+  - Tree, no prompt. Do the same `/tree` jump and ask `/btw` at once. The Side request ends at the selected eval answer and its saved eval state, then the `<btw>` prompt; nothing from the abandoned turn.
+  - Pending call. `pbtw-pending` in `picker-btw.md` covers a waiting `ask`. For another tool, make the provider answer with `bash` `sleep 60` and ask `/btw` while it runs: the Side request's tool result for that call reads `This call is still running in the main conversation. Its result is not known here. Do not call it again.`, and no later Side request calls `bash`.
+
+## Gotchas
+
+- `/btw` sent before the main prompt's reply lands is answered from the transcript as it was then; the Side question does not see the reply still streaming.
+- The Side question's thread file (`SideQuestion-<uuid>.jsonl` under `$TMPDIR/omp-side-question-*/`, never in the sessions dir) exists only while the thread lives. Read usage from the main session's `model_usage` entries with `purpose: "side-question"` instead (`jq -c 'select(.type=="model_usage" and .purpose=="side-question") | .usage' <main session>.jsonl`).
+- `t` and Esc are ignored while the editor has text. Esc is the default `app.interrupt` key. If the user's keybindings change it, use that key.
+- Bare `/btw`, a focused subagent view, and RPC go to OMP's own `/btw`; they are not this feature.
+- Classic TUI (`PI_TUI_NATIVE=0`) and the Tern view are separate entry points.
+- Both callers use `sideQuestionModel`, default `@smol`, with the selected role's thinking and fallback chain. Model-setting changes apply to the next thread.
+- For retry and terminal-error proof, use an owned finite chain. Inherited default chains can revisit earlier failed models and keep switching until Esc; Side questions deliberately preserve OMP's policy. Model-specific empty terminal chains prevent that inheritance.
+- Provider transport retries precede the session-level recovery events. A panel showing `Answering…` before the first retry event does not establish a missing fallback.
+- The Side request carries notices from the mirror's own session after the copied history and before the `<btw>` prompt: `No retained eval runtime is registered in this process` and, after a ratchet run, `` `eval` prelude globals changed `` naming `ratchet` as no longer available. They are an accepted transformation (`docs/agents/side-questions.md`, Seed) and are not in the main transcript; leave them out when comparing with the main request.
