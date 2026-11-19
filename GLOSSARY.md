@@ -25,19 +25,15 @@ A git checkout of one branch in its own folder, beside the repo's main checkout.
 _Avoid_: Session (Tern's group of tabs), workspace, clone
 
 **Go to picker**:
-The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. Sessions keep Tern's order. The tabs of a session come by their tab status, then last seen first; the panes of a tab come last seen first. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
+The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. Sessions keep Tern's order. The tabs of a session come by their tab status, then by working time or waiting time, longest first; the panes of a tab come by that time, longest first. Rows with no time keep Tern's order. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
 _Avoid_: Navigator, jump palette, switcher
 
 **Tab status**:
 The status that a tab sorts by in the Go to picker: the status of its pane, or for a split tab the most urgent status among its panes that the picker's view shows. Floating panes have no part in it.
 _Avoid_: Focused pane status
 
-**Last seen**:
-When a pane last had focus, however briefly. A tab was last seen when one of its panes was, and focus on a floating pane counts for its tab only. The Go to picker's own focus does not count. Panes and tabs not seen yet follow the seen ones, in Tern's order.
-_Avoid_: Recent, last used, MRU, last active
-
 **Waiting on you**:
-The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or failed its last turn, or is done (it finished a turn while you were not looking at its pane), or is paused, or its terminal rang an alert. An agent whose program exited stays out of the group. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, paused, idle), and inside each, last seen first by the pane's own last seen, also for a tab with one pane. The panes also stay in their place in the tree below.
+The group at the top of the Go to picker: each pane, other than the one you are in, that waits for you: its agent needs your input, shows an error or failed its last turn, or is done (it finished a turn while you were not looking at its pane), or is paused, or its terminal rang an alert. An agent whose program exited stays out of the group. Idle agents join the group only when you ask for them, and the picker keeps that choice. The panes come by what they wait for (input, error, alert, done, paused, idle), and inside each by waiting time, longest first; panes with no waiting time follow in tree order. The panes also stay in their place in the tree below.
 _Avoid_: Needs attention (its old name), needs you (Orca), inbox (Tern's own F6 list)
 
 **Paused**:

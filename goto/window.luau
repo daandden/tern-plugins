@@ -291,21 +291,28 @@ local function tiled_panes(node, out)
 	end
 end
 
--- omp's questions, Picker review, and plan approval list wait for input even while a timed dialog
--- keeps the agent working.
+-- omp's questions and plan approval list wait for input even while a timed dialog keeps the agent
+-- working.
 local WAIT_ROLES = {
 	["omp.ask.question"] = true,
-	["omp-tools.ask-answers"] = true,
 	["omp.plan.options"] = true,
 }
+
+-- omp-tools' Picker draws its body, in every view (a question, Picker review, an answer editor's
+-- context, the Picker btw thread), as a list with this role. omp reports the Picker as working,
+-- because an extension's custom view opens no dialog. omp-tools' /btw panel and English coach
+-- draw the same list inside omp.overlay.btw while the agent works, so that list waits for nothing.
+local PICKER_BODY = "omp-tools.ask-body"
+local BTW_PANEL = "omp.overlay.btw"
 
 -- Reads omp's dock and layer surface roles for pane status.
 local function omp_signals(cx, pane)
 	local sig = { paused = false, waiting = false, working = nil, error = false, jobs = false }
-	local function walk(node, root)
+	local function walk(node, root, in_panel)
 		local p = node.p or {}
 		local role = p.role
-		if WAIT_ROLES[role] then
+		in_panel = in_panel or role == BTW_PANEL
+		if WAIT_ROLES[role] or (role == PICKER_BODY and not in_panel) then
 			sig.waiting = true
 		elseif role == "omp.overlay.pause" and root == "layer" then
 			sig.paused = true
@@ -328,7 +335,7 @@ local function omp_signals(cx, pane)
 			end
 		end
 		for _, child in node.c or {} do
-			walk(child, root)
+			walk(child, root, in_panel)
 		end
 	end
 	for _, root in { "dock", "layer" } do
@@ -336,7 +343,7 @@ local function omp_signals(cx, pane)
 			return cx.session:surface(pane, { as = "table", root = root, depth = 24, nodes = 2000, max_chars = 80 })
 		end)
 		if ok and type(tree) == "table" and type(tree.main) == "table" then
-			walk(tree.main, root)
+			walk(tree.main, root, false)
 		end
 	end
 	return sig
@@ -374,51 +381,9 @@ end
 
 local ATTENTION = { input = 1, error = 2, alert = 3, done = 4, paused = 5, idle = 6 }
 
--- The key of a pane or tab id in the `seen` and `finished` maps; JSON object keys are strings.
-local function seen_key(id)
+-- The key of a pane id in the `finished` and `since` maps; JSON object keys are strings.
+local function id_key(id)
 	return string.format("%d", id)
-end
-
--- The last seen order (GLOSSARY.md). tern.kv keeps under `seen` a counter `n` and, by id, the
--- count at the last focus of each pane (`panes`) and tab (`tabs`). A count, not a time, so two
--- focuses within one second keep their order. A reload resets the Lua state, and every window
--- shares the store, so the maps live there.
-local function load_seen()
-	local seen = tern.kv.get("seen")
-	if type(seen) ~= "table" then
-		seen = {}
-	end
-	seen.n = if type(seen.n) == "number" then seen.n else 0
-	seen.panes = if type(seen.panes) == "table" then seen.panes else {}
-	seen.tabs = if type(seen.tabs) == "table" then seen.tabs else {}
-	return seen
-end
-
--- Notes a focus of `pane` in `tab`: every focus counts at once. A floating pane's focus counts for
--- its tab only, and the picker's own focus does not count. A parked pane has no tab.
-local function note_seen(cx, pane, tab)
-	local info = cx.session:pane(pane)
-	if info == nil or info.block == KIND then
-		return
-	end
-	local seen = load_seen()
-	seen.n += 1
-	if tab then
-		seen.tabs[seen_key(tab)] = seen.n
-	end
-	if not info.floating then
-		seen.panes[seen_key(pane)] = seen.n
-	end
-	tern.kv.set("seen", seen)
-end
-
--- Drops a closed pane or tab from the `seen` map `field`.
-local function forget_seen(field, id)
-	local seen = load_seen()
-	if seen[field][seen_key(id)] ~= nil then
-		seen[field][seen_key(id)] = nil
-		tern.kv.set("seen", seen)
-	end
 end
 
 -- The last turn result that you have not seen of each agent pane: tern.kv keeps under `finished`,
@@ -432,8 +397,8 @@ end
 -- Stores `status` ("done", "error", or nil to drop it) as the unseen turn result of `pane`.
 local function set_finished(pane, status)
 	local finished = load_finished()
-	if finished[seen_key(pane)] ~= status then
-		finished[seen_key(pane)] = status
+	if finished[id_key(pane)] ~= status then
+		finished[id_key(pane)] = status
 		tern.kv.set("finished", finished)
 	end
 end
@@ -451,8 +416,8 @@ end
 -- Stores `entry` (or nil to drop it) as the start of the time of `pane`.
 local function set_since(pane, entry)
 	local since = load_since()
-	if since[seen_key(pane)] ~= nil or entry ~= nil then
-		since[seen_key(pane)] = entry
+	if since[id_key(pane)] ~= nil or entry ~= nil then
+		since[id_key(pane)] = entry
 		tern.kv.set("since", since)
 	end
 end
@@ -465,36 +430,25 @@ WAITING.paused = nil
 -- The time that the rows of `pane` show for `status`: `kind` and `at` from `since` when the stored
 -- start matches the status, else nil.
 local function row_time(since, pane, status)
-	local entry = since[seen_key(pane)]
+	local entry = since[id_key(pane)]
 	if entry and ((entry.kind == "working" and WORKING[status]) or (entry.kind == "waiting" and WAITING[status])) then
 		return { kind = entry.kind, at = entry.at }
 	end
 	return nil
 end
 
--- Whether the item with last focus count `count_a` and place `place_a` comes before the other one
--- in last seen order: counted items newest first, then the others by place.
-local function seen_before(count_a, count_b, place_a, place_b)
-	if count_a and count_b then
-		return count_a > count_b
-	elseif count_a or count_b then
-		return count_a ~= nil
+-- Whether the row with time `time_a` (from row_time) and place `place_a` comes before the other
+-- one: the longer time, which started earlier, first, then the rows with no time, each in place
+-- order.
+local function longer_first(time_a, time_b, place_a, place_b)
+	local at_a = if time_a then time_a.at else nil
+	local at_b = if time_b then time_b.at else nil
+	if at_a and at_b and at_a ~= at_b then
+		return at_a < at_b
+	elseif (at_a == nil) ~= (at_b == nil) then
+		return at_a ~= nil
 	end
 	return place_a < place_b
-end
-
--- `ids` last seen first: the ones in `counts` by their last focus, newest first, then the others
--- in their given order.
-local function last_seen_first(ids, counts)
-	local place = {}
-	for i, id in ids do
-		place[id] = i
-	end
-	local sorted = table.clone(ids)
-	table.sort(sorted, function(a, b)
-		return seen_before(counts[seen_key(a)], counts[seen_key(b)], place[a], place[b])
-	end)
-	return sorted
 end
 
 -- The name of the remote host of each session; local sessions have none.
@@ -512,15 +466,15 @@ local function remote_hosts(cx)
 	return by_session
 end
 
--- The picker's rows: each session in Tern's order, its tabs and each split tab's tiled panes last
--- seen first (host.luau then sorts the tabs by tab status). Each row keeps the index of its
+-- The picker's rows: each session in Tern's order, its tabs and each split tab's tiled panes
+-- (host.luau then sorts the tabs by tab status and time). Each row keeps the index of its
 -- session and tab rows, for search and for the place of a Waiting on you row. A pane row, and
 -- the row of a tab with one pane, is marked
 -- `agent` when Tern lists its pane as an agent; a split tab row is marked `agent` when one of its
 -- panes is, and names in `solo` the row of its only agent pane, so that host.luau shows such a tab
 -- as one row with agents only. After the tree rows come the Waiting on you rows (marked `group`),
 -- which host.luau shows first: a copy of each tree row whose status is in ATTENTION, except the row
--- you are in, by status and then by the last seen of its pane, also for a tab with one pane.
+-- you are in, by status and then by time, longest first.
 -- Returns the rows and the index of the row of `focused`, or of the current session when no pane
 -- has focus (a session with no tabs).
 local function collect(cx, focused)
@@ -533,13 +487,10 @@ local function collect(cx, focused)
 		tabs[tab.id] = tab
 	end
 	local hosts = remote_hosts(cx)
-	local seen = load_seen()
 	local finished = load_finished()
 	local since = load_since()
 	local focused_tab = if focused then cx.session:tab_of(focused) else nil
 	local rows = {}
-	-- The pane of each pane row and each row of a tab with one pane, for the order of the group.
-	local pane_of = {}
 	local current = 1
 	for _, session in cx.session:sessions() do
 		table.insert(rows, {
@@ -552,7 +503,7 @@ local function collect(cx, focused)
 		if focused == nil and session.current then
 			current = session_row
 		end
-		for _, tab_id in last_seen_first(session.tabs, seen.tabs) do
+		for _, tab_id in session.tabs do
 			local tab = tabs[tab_id]
 			local layout = cx.session:layout(tab_id)
 			if tab and layout then
@@ -563,7 +514,7 @@ local function collect(cx, focused)
 				local single = if #panes == 1 then cx.session:pane(panes[1]) else nil
 				local status, time = nil, nil
 				if single then
-					status = pane_status(cx, single, agents[panes[1]], finished[seen_key(panes[1])])
+					status = pane_status(cx, single, agents[panes[1]], finished[id_key(panes[1])])
 					time = row_time(since, panes[1], status)
 				end
 				table.insert(rows, {
@@ -576,18 +527,15 @@ local function collect(cx, focused)
 					session = session_row,
 				})
 				local tab_row = #rows
-				if single then
-					pane_of[tab_row] = panes[1]
-				end
 				if tab_id == focused_tab then
 					current = tab_row
 				end
 				if single == nil then
 					local agent_rows = {}
-					for _, pane_id in last_seen_first(panes, seen.panes) do
+					for _, pane_id in panes do
 						local info = cx.session:pane(pane_id)
 						if info then
-							local pane_state = pane_status(cx, info, agents[pane_id], finished[seen_key(pane_id)])
+							local pane_state = pane_status(cx, info, agents[pane_id], finished[id_key(pane_id)])
 							table.insert(rows, {
 								kind = "pane",
 								id = pane_id,
@@ -598,7 +546,6 @@ local function collect(cx, focused)
 								session = session_row,
 								tab = tab_row,
 							})
-							pane_of[#rows] = pane_id
 							if agents[pane_id] then
 								table.insert(agent_rows, #rows)
 							end
@@ -624,7 +571,7 @@ local function collect(cx, focused)
 		if rank_a ~= rank_b then
 			return rank_a < rank_b
 		end
-		return seen_before(seen.panes[seen_key(pane_of[a])], seen.panes[seen_key(pane_of[b])], a, b)
+		return longer_first(rows[a].time, rows[b].time, a, b)
 	end)
 	for _, i in group do
 		local copy = table.clone(rows[i])
@@ -664,9 +611,6 @@ end
 -- so there the picker opens as the only pane of a new tab, and that tab closes with the picker.
 local function open_picker(cx)
 	local focused = cx.session:focused()
-	if focused then
-		note_seen(cx, focused, cx.session:tab_of(focused))
-	end
 	local rows, current = collect(cx, focused)
 	quiet_motion(cx)
 	local launch = { block = KIND, args = { tern.json.encode({ rows = rows, current = current }) } }
@@ -743,35 +687,27 @@ tern.route.link(function(link, cx)
 	return { handled = true }
 end)
 
--- Closes the open picker when focus leaves it. Then notes the focus for the last seen order, and
--- drops the unseen turn result of the focused pane with its waiting time. A wait for your input
--- goes on until the agent's state changes.
+-- Closes the open picker when focus leaves it. Then drops the unseen turn result of the focused
+-- pane with its waiting time. A wait for your input goes on until the agent's state changes.
 tern.on("focus", function(ev, cx)
 	if picker and picker.settled and ev.pane ~= picker.pane then
 		close_picker(cx)
 	end
-	note_seen(cx, ev.pane, ev.tab)
 	set_finished(ev.pane, nil)
-	local entry = load_since()[seen_key(ev.pane)]
+	local entry = load_since()[id_key(ev.pane)]
 	if entry and entry.kind == "waiting" and not entry.input then
 		set_since(ev.pane, nil)
 	end
 end)
 
--- Forgets a picker that closed some other way. Then forgets the last focus, unseen turn result and
--- time start of the closed pane.
+-- Forgets a picker that closed some other way. Then forgets the unseen turn result and time start
+-- of the closed pane.
 tern.on("pane_closed", function(ev, _cx)
 	if picker and ev.pane == picker.pane then
 		picker = nil
 	end
-	forget_seen("panes", ev.pane)
 	set_finished(ev.pane, nil)
 	set_since(ev.pane, nil)
-end)
-
--- Forgets the last focus of a closed tab.
-tern.on("tab_closed", function(ev, _cx)
-	forget_seen("tabs", ev.tab)
 end)
 
 -- Keeps the result of an agent's turn until you focus its pane: done marks the pane done, failed
@@ -801,7 +737,7 @@ tern.on("agent_state", function(ev, _cx)
 	elseif ev.old == ev.new then
 		return
 	end
-	local entry = load_since()[seen_key(ev.pane)]
+	local entry = load_since()[id_key(ev.pane)]
 	if ev.new == "working" then
 		if entry and entry.input then
 			set_since(ev.pane, if entry.turn then { kind = "working", at = entry.turn } else nil)

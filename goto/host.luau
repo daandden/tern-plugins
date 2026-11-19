@@ -101,43 +101,69 @@ local function tree_links(rows)
 	return sessions, tabs_of, panes_of
 end
 
--- Returns the tab's status rank, using only agent panes unless all panes are shown.
+-- The start of a row's working or waiting time, or nil when it shows none.
+local function time_at(row)
+	return if row.time then row.time.at else nil
+end
+
+-- Whether the row with time start `at_a` and index `a` comes before the other one: the longer
+-- time, which started earlier, first, then the rows with no time, each in Tern's order.
+local function longer_first(at_a, at_b, a, b)
+	if at_a and at_b and at_a ~= at_b then
+		return at_a < at_b
+	elseif (at_a == nil) ~= (at_b == nil) then
+		return at_a ~= nil
+	end
+	return a < b
+end
+
+-- Returns the tab's status rank, using only agent panes unless all panes are shown, and the start
+-- of the longest time among the panes that give that rank.
 local function tab_rank(state, i)
 	local panes = state.panes_of[i]
 	if panes == nil then
-		return TAB_ORDER[state.rows[i].status or ""] or QUIET
+		local row = state.rows[i]
+		return TAB_ORDER[row.status or ""] or QUIET, time_at(row)
 	end
-	local rank = QUIET
+	local rank, at = QUIET, nil
 	for _, p in panes do
 		local pane = state.rows[p]
 		if state.all or pane.agent then
-			rank = math.min(rank, TAB_ORDER[pane.status or ""] or QUIET)
+			local pane_rank, pane_at = TAB_ORDER[pane.status or ""] or QUIET, time_at(pane)
+			if pane_rank < rank then
+				rank, at = pane_rank, pane_at
+			elseif pane_rank == rank and pane_at and (at == nil or pane_at < at) then
+				at = pane_at
+			end
 		end
 	end
-	return rank
+	return rank, at
 end
 
--- Orders each session's tabs by status, preserving last-seen order for ties and for split panes.
+-- Orders each session's tabs by status, then by time, longest first, and the panes of a split tab
+-- by time, longest first. Rows with no time keep Tern's order.
 local function tree_order(state)
 	local order = {}
 	for _, session in state.sessions do
 		table.insert(order, session)
 		local tabs = table.clone(state.tabs_of[session])
-		local rank = {}
+		local rank, at = {}, {}
 		for _, tab in tabs do
-			rank[tab] = tab_rank(state, tab)
+			rank[tab], at[tab] = tab_rank(state, tab)
 		end
 		table.sort(tabs, function(a, b)
 			if rank[a] ~= rank[b] then
 				return rank[a] < rank[b]
 			end
-			return a < b
+			return longer_first(at[a], at[b], a, b)
 		end)
 		for _, tab in tabs do
 			table.insert(order, tab)
-			for _, pane in state.panes_of[tab] or {} do
-				table.insert(order, pane)
-			end
+			local panes = table.clone(state.panes_of[tab] or {})
+			table.sort(panes, function(a, b)
+				return longer_first(time_at(state.rows[a]), time_at(state.rows[b]), a, b)
+			end)
+			table.move(panes, 1, #panes, #order + 1, order)
 		end
 	end
 	return order
