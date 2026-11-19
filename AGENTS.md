@@ -6,7 +6,7 @@ Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one us
 
 ## Architecture & Data Flow
 
-A plugin is a top-level folder with a `plugin.toml`, and the folder name is its `id`. `html-links/` is left over from a plugin removed in #16 and holds only an ignored `tern.d.luau`. Tern loads each plugin from its folder here through `<id>.path` links that `tern plugin link` wrote into `~/.config/tern/plugins` (`tern plugin dir`), so an edit is the live plugin after a reload.
+Each Tern plugin lives in `tern/<id>/` with a `plugin.toml`. The folder name is the plugin `id`. `tern plugin link` writes an `<id>.path` file to `~/.config/tern/plugins` (`tern plugin dir`). After reload, Tern runs the code from the linked folder.
 
 Tern runs `window.luau` once per window. The script registers handlers at load time, and Tern calls them with `cx`, the window context:
 
@@ -16,7 +16,7 @@ Tern runs `window.luau` once per window. The script registers handlers at load t
 - `tern.css(name, sheet)` adds a sheet. The sheets select Tern's internal classes (`.sf-*`, `.tn-*`, `.pk-*`) and omp TSP roles. These are not an API, so a Tern or omp update can break them silently.
 - `cx.session`, `cx.layout`, `cx.agents`, `cx.browser` and `cx.settings` read and change Tern state. `cx:command`, `cx:action("focus_pane:left")`, `cx:toast(level, title, detail)` and `cx:open(url)` act on the window.
 
-goto has two halves. `goto/window.luau` collects sessions, tabs, panes and their statuses, encodes them as JSON launch arguments, and opens the `picker` block as a floating pane. `goto/plugin.toml` declares the block (`host = "host.luau"`, `[[blocks]]`). `goto/host.luau` defines it with `tern.block.define("picker", { init, title, view, key, event })`, draws Tern's `picker` node, takes the keys, and answers with `cx:open("goto:pane/<id>")` (or `goto:tab/`, `goto:session/`, `goto:close`). The window's link route accepts only links from its current picker and focuses the target. `docs/adr/0001-goto-picker-as-floating-block.md` records why the picker is a floating block.
+goto has two halves. `tern/goto/window.luau` collects sessions, tabs, panes and their statuses, encodes them as JSON launch arguments, and opens the `picker` block as a floating pane. `tern/goto/plugin.toml` declares the block (`host = "host.luau"`, `[[blocks]]`). `tern/goto/host.luau` defines it with `tern.block.define("picker", { init, title, view, key, event })`, draws Tern's `picker` node, takes the keys, and answers with `cx:open("goto:pane/<id>")` (or `goto:tab/`, `goto:session/`, `goto:close`). The window's link route accepts only links from its current picker and focuses the target. `docs/adr/0001-goto-picker-as-floating-block.md` records why the picker is a floating block.
 
 State lives in two places:
 
@@ -25,30 +25,30 @@ State lives in two places:
 
 ## Key Directories
 
-- `goto/`, `zellij-keys/`, `reader-terminal-text/`, `vstack-flow/`, `toast-above-browser/`: the plugins. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
+- `tern/`: `goto`, `zellij-keys`, `reader-terminal-text`, `vstack-flow`, and `toast-above-browser`. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
 - `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
 - `.omp/skills/verify-tern-plugins/`: the Verify skill, its `scripts/tern-verify` helper and per-feature recipes in `features/`.
 
 ## Development Commands
 
-There is no build step. Tern reads the Luau sources directly.
+Tern reads the Luau sources directly. The Tern plugins have no build step.
 
 ```sh
 tern plugin reload            # all plugins; exits 1 when one fails to load
 tern plugin reload zellij-keys  # one plugin; reloading any plugin but goto leaves its picker open
 tern plugin list              # every plugin must show `ready`
-tern plugin types goto        # writes goto/tern.d.luau for luau-lsp (gitignored)
-tern plugin link "$PWD/<id>"  # once, for a new plugin folder
+tern plugin types tern/goto    # writes tern/goto/tern.d.luau for luau-lsp (gitignored)
+tern plugin link "$PWD/tern/<id>"  # once, for a new plugin folder
 ```
 
-Run reload and list after each change. They act on the user's running Tern, which loads this checkout. To add a plugin, create `<id>/plugin.toml` (`schema = 1`, `id`, `name`, `version`, `description`, `window = "window.luau"`) and `<id>/window.luau`, then link it.
+Reload and list plugins after each change. Use the isolated Verify run below to check a branch without touching the live Tern instance. To add a Tern plugin, create `tern/<id>/plugin.toml` (`schema = 1`, `id`, `name`, `version`, `description`, `window = "window.luau"`) and `tern/<id>/window.luau`, then link the folder.
 
 ## Code Conventions & Common Patterns
 
 - Indent Luau with tabs. Each `window.luau` starts with a comment that says what the plugin does, and each function or command has a comment above it that says what it does. In zellij-keys, that comment names the Zellij action that the command copies.
 - Names: snake_case for locals, functions and command ids (`float_yazi`, `worktree_agent_tab`), UPPER_CASE for constants (`GIT_ENV`, `TAB_ORDER`, `ATTENTION`).
-- Async work uses callbacks: `tern.process.run(argv, { env, cwd }, function(result, later) ... end)`, `tern.timer(ms, fn)`, `cx.browser:call(...):next(fn)`. The callback gets a fresh context, `later`, which is nil when the window is gone. Run the callback body under `pcall`, toast a failure on `later`, and reset busy flags on every exit path; `worktree_step` in `zellij-keys/window.luau` is the model. Chain steps by nesting callbacks.
+- Async work uses callbacks: `tern.process.run(argv, { env, cwd }, function(result, later) ... end)`, `tern.timer(ms, fn)`, `cx.browser:call(...):next(fn)`. The callback gets a fresh context, `later`, which is nil when the window is gone. Run the callback body under `pcall`, toast a failure on `later`, and reset busy flags on every exit path; `worktree_step` in `tern/zellij-keys/window.luau` is the model. Chain steps by nesting callbacks.
 - User-visible failures are `cx:toast("error", title, detail)`, with the first non-blank line of a command's stderr as the detail.
 - Run external programs by absolute path (`/opt/homebrew/bin/git`, `omp`, `gtimeout`, `yazi`, `lazygit`, `btop`). Plugin processes get Tern's launcher `PATH`, which lacks Homebrew.
 - The Lua time of each hook has a budget. Keep handlers short and let native calls (`tern.kv`, `cx.session`) do the work.
@@ -56,21 +56,21 @@ Run reload and list after each change. They act on the user's running Tern, whic
 
 ## Important Files
 
-- `goto/window.luau`: row collection, status and time tracking, the `goto:` route. `goto/host.luau`: picker rendering, search, jump numbers, tab order.
-- `zellij-keys/window.luau`: commands, float focus on close, the worktree agent tab.
-- `vstack-flow/window.luau`: the Flow link route. `reader-terminal-text/window.luau`: Reader CSS.
+- `tern/goto/window.luau`: row collection, status and time tracking, the `goto:` route. `tern/goto/host.luau`: picker rendering, search, jump numbers, tab order.
+- `tern/zellij-keys/window.luau`: commands, float focus on close, the worktree agent tab.
+- `tern/vstack-flow/window.luau`: the Flow link route. `tern/reader-terminal-text/window.luau`: Reader CSS.
 - `~/.config/tern/settings.json` (outside the repo): keybinds `plugin.<id>.<command id>`, `link_target`, `agent_placement`.
-- `<folder>/tern.d.luau`: generated API types from the installed Tern version. Read it for signatures; regenerate it after a Tern update. SDK and example plugins: https://github.com/stencil-hq/tern-sdk.
+- `tern/<id>/tern.d.luau`: generated API types from the installed Tern version. Read it for signatures; regenerate it after a Tern update. SDK and example plugins: https://github.com/stencil-hq/tern-sdk.
 
 ## Runtime/Tooling Preferences
 
-- Tern 0.9.28 (`tern --version`) runs the plugins. Luau is the only language; the repo has no package manager, formatter or linter config.
+- Tern 0.9.28 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
 - The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`. Commits use imperative sentence-case titles, with the PR number on merge (`Claim the worktree branch atomically before a press adds it (#20)`).
 
 ## Testing & QA
 
-The repo has no automated tests and no `.github/workflows`. `tern plugin list` proves only that a plugin loaded. Prove behavior with the `verify-tern-plugins` skill (`.omp/skills/verify-tern-plugins/SKILL.md`): its `scripts/tern-verify` starts an isolated Tern instance on the checkout (`start`, `doctor`, `ctl`, `tern`, `shot`, `stop`), and `features/<plugin>.md` holds the recipe for each feature.
+The Tern plugins have no automated tests. `tern plugin list` proves only that a plugin loaded. Prove behavior with the `verify-tern-plugins` skill (`.omp/skills/verify-tern-plugins/SKILL.md`): its `scripts/tern-verify` starts an isolated Tern instance on the checkout (`start`, `doctor`, `ctl`, `tern`, `shot`, `stop`), and `features/<plugin>.md` holds the recipe for each feature.
 
 - In a verify run, send every `tern` command through the helper. A bare `tern` command in an agent pane acts on the user's own window.
 - `ctl plugins run plugin.<id>.<command>` prints `{"ok":true}` even for a missing id and skips the keybind. Prove each step by a change of state, and press the real key to prove a binding.

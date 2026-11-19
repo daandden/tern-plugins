@@ -24,7 +24,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 - For a typed command, keep the command, its output and its exit code from `capture`.
 - In `RUN/notes.md`, write the commit under test, then for each check the feature ID, the entry point, the evidence files and the result.
 - If an entry point cannot run, write the command you tried and the precondition that failed. Do not report it as verified through another entry point.
-- If a step fails, run `"$V" doctor "$RUN"` and read the header comment of the plugin's `window.luau` (and `goto/host.luau`) before you report a bug. The plugins change often, and the comment states the intended behavior.
+- If a step fails, run `"$V" doctor "$RUN"`. Before reporting a bug, read the header comment in `tern/<id>/window.luau` and, for the Go to picker, `tern/goto/host.luau`.
 
 ## Feature entry contract
 

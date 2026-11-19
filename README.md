@@ -1,6 +1,6 @@
 # Tern plugins
 
-Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each plugin lives in a top-level folder with a `plugin.toml` manifest and a `window.luau` script. The folder name is the plugin `id`.
+Custom plugins for [Tern](https://github.com/stencil-hq/tern-sdk). Each `tern/<id>/` folder holds a `plugin.toml` manifest and a `window.luau` script. The folder name is the plugin `id`.
 
 ## Plugins
 
@@ -34,7 +34,7 @@ Tern loads each plugin from its folder in this repo. Run these commands from the
 
    ```sh
    	for d in goto reader-terminal-text zellij-keys vstack-flow toast-above-browser; do
-   		tern plugin link "$PWD/$d"
+   		tern plugin link "$PWD/tern/$d"
    	done
    ```
 
@@ -62,6 +62,6 @@ These worktrees remain after you close the agent. They are created before omp st
 
 ## Development
 
-Run `tern plugin types <folder>` to write `<folder>/tern.d.luau`, the type definitions of the Tern Luau API for luau-lsp. The file comes from the installed Tern version, so git ignores it.
+Run `tern plugin types tern/<id>` to write `tern/<id>/tern.d.luau`, the type definitions of the Tern Luau API for luau-lsp. The file comes from the installed Tern version, so git ignores it.
 
 `AGENTS.md` gives the conventions and the details of each plugin. `GLOSSARY.md` defines the terms, and `docs/adr/` holds the architecture decisions.

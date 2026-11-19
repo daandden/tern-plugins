@@ -80,7 +80,7 @@ start)
 	# Tern 0.9.26 opens its "macOS permissions" dialog in a config dir without this marker, and the
 	# dialog takes the keys that a run sends. Tern writes the empty file once it showed the dialog.
 	: >"$cfg/permissions-offered"
-	for manifest in "$repo"/*/plugin.toml; do
+	for manifest in "$repo"/tern/*/plugin.toml; do
 		iso tern plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
 			die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
 	done

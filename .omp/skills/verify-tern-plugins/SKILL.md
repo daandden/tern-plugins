@@ -5,7 +5,7 @@ description: Drives goto, reader-terminal-text, zellij-keys, vstack-flow, native
 
 # Verify tern-plugins
 
-The app is a set of Tern plugins. Tern loads each plugin folder of a checkout and runs it in its desktop window. The surfaces are:
+Tern loads plugins from `tern/<id>/` in the checkout under test. Verify them through:
 
 - The Tern desktop window (primary): plugin commands on keys and in the palette, native floats and file opens, clicked links, the goto picker block, and CSS sheets.
 - The `bin/open` command, run in a Tern pane.
