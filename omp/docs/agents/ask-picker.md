@@ -22,7 +22,7 @@ Notes for changing `ask`, the Picker, its editors, Picker drafts, or host `askDi
   native's HTML form dialog, not the Picker. The new answer keeps native's
   form data and Notes on picked options, but not Notes on unpicked options,
   images, the Submit note, a Picker draft, or the Picker btw. Changing that
-  needs an OMP source change, which ADR 0003 declines.
+  needs an OMP source change, which ADR 0004 declines.
 - Outside the TUI (RPC, ACP, print, subagents), for arguments with no form,
   and for a form with no named control, it calls
   `ctx.invokeTool(params, { signal, onUpdate })` so native prompting, errors,

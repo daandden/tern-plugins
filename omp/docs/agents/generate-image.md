@@ -8,7 +8,7 @@ rendered with the Default image generation mode.
 
 - **Per-call mode.** One `generate_image` carries both entries' arguments plus
   `mode` (`openai` or `codex`). A call without `mode` uses the Default image
-  generation mode (`docs/adr/20261117-agent-chosen-image-generation-mode.md`).
+  generation mode (`../../../docs/adr/20261117-agent-chosen-image-generation-mode.md`).
   OMP 18.22 strips the placeholder values `null`, `""`, and `"null"` from
   `mode` before the plugin sees them, so those calls also use the default.
   OMP 18.22.0 validates the `mode` enum before `execute`. If a call supplies
@@ -19,7 +19,7 @@ rendered with the Default image generation mode.
   schema. Reference image limits are 5 in Codex mode and 16 in OpenAI mode.
   The mode gets the arguments without `mode`. No call falls back to the
   other mode or retries a request
-  (`docs/adr/0002-explicit-image-generation-modes.md`).
+  (`../../../docs/adr/0003-explicit-image-generation-modes.md`).
 - **Mode setting.** The async initializer reads `defaultImageGenerationMode`
   with `getPluginSettings("omp-tools", process.cwd())`. Project overrides
   beat global values. The old `imageGenerationMode` key blocks every call

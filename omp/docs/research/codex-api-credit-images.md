@@ -106,7 +106,7 @@ The grilling session resolved the target design:
 - If `output_format` is omitted, request PNG and locally convert it to lossless WebP for saving and display. If it is explicit, save and return the API's requested format and compression without converting it.
 - Preserve direct prompts, cancellation, and the five-minute timeout. Return every final output requested by `n`, and implement actual streamed previews rather than merely forwarding streaming fields.
 
-The OpenAI SDK is permitted if it makes the complete API implementation simpler. No SDK was installed or selected during research. The product implementation has not changed; the full contract and verification work continue through `/skill:to-spec`. The mode and billing decision is recorded in [ADR 0002](../adr/0002-explicit-image-generation-modes.md).
+The OpenAI SDK is permitted if it makes the complete API implementation simpler. No SDK was installed or selected during research. The product implementation has not changed; the full contract and verification work continue through `/skill:to-spec`. The mode and billing decision is recorded in [ADR 0003](../../../docs/adr/0003-explicit-image-generation-modes.md).
 
 ## Sources
 

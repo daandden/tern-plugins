@@ -104,7 +104,7 @@ A Side question is a full agent run in a mirror session built the way OMP's
 
 - OMP skips extension commands named like built-ins, so `btw.ts` catches the
   text in the `input` event, which runs before built-in dispatch
-  (`docs/adr/0001-take-over-btw-through-input-event.md`). It returns
+  (`../../../docs/adr/0002-take-over-btw-through-input-event.md`). It returns
   `{ handled: true }` only for `source: "interactive"` in the TUI. Bare `/btw`,
   autocomplete, `side: true` file commands, the focused-subagent path (it
   skips `input` handlers), and RPC `btw` stay native.

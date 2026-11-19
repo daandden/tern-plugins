@@ -1,10 +1,17 @@
-# Repository Guidelines
+# Repository guidelines
 
-## Project Overview
+## Project overview
 
-Custom [Tern](https://github.com/stencil-hq/tern-sdk) plugins in Luau for one user's macOS setup: Zellij keys and native floats (`zellij-keys`), the Go to picker (`goto`), terminal-sized Reader chat text (`reader-terminal-text`), Flow links that open in Tern (`vstack-flow`), and toasts that a browser page does not cover (`toast-above-browser`). `bin/open` sends `open FILE` into Tern. `README.md` is the user-facing summary and install guide. `GLOSSARY.md` defines the domain terms and the synonyms to avoid; use its words (opener pane, Waiting on you, jump number, working time).
+This repo holds plugins for two hosts:
 
-## Architecture & Data Flow
+- `tern/<id>/` holds Luau plugins for [Tern](https://github.com/stencil-hq/tern-sdk). `bin/open` sends `open FILE` into Tern.
+- `omp/` is the plugin root for `omp-tools`, a TypeScript plugin for Oh My Pi (omp). Its four parts are the `ask` Picker, `generate_image`, Side questions through `/btw` and Picker btw, and the English coach.
+
+Use the terms and Avoid lists in [GLOSSARY.md](GLOSSARY.md) in code, tests, and issues. The Picker answers `ask`; the Go to picker jumps between Tern destinations. Read the relevant [ADRs](docs/adr/) before changing either host's behavior.
+
+## Tern
+
+### Architecture and state
 
 Each Tern plugin lives in `tern/<id>/` with a `plugin.toml`. The folder name is the plugin `id`. `tern plugin link` writes an `<id>.path` file to `~/.config/tern/plugins` (`tern plugin dir`). After reload, Tern runs the code from the linked folder.
 
@@ -23,14 +30,12 @@ State lives in two places:
 - Module-level locals (`picker`, `worktree_busy`, `pending_focus`) last until the plugin reloads. `window_start` does not run after a reload, so cleanup that must survive one runs from a load-time `tern.timer(0, fn)`, such as goto closing orphaned pickers.
 - `tern.kv.get`/`tern.kv.set` persist per plugin in `~/.config/tern/plugin-data/<id>/kv.json`. goto keeps `finished`, `since`, `waiting_idle` and `reduce_motion_before_open`; zellij-keys keeps `last_float`. Plugin settings have no API, so preferences live here too.
 
-## Key Directories
+### Key directories
 
 - `tern/`: `goto`, `zellij-keys`, `reader-terminal-text`, `vstack-flow`, and `toast-above-browser`. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
-- `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
-- `.omp/skills/verify-tern-plugins/` and `.omp/skills/verify-omp-tools/`: Verify skills and per-feature recipes. Both use `verify-tern-plugins/scripts/tern-verify`.
 
-## Development Commands
+### Development commands
 
 Tern reads the Luau sources directly. The Tern plugins have no build step.
 
@@ -44,7 +49,7 @@ tern plugin link "$PWD/tern/<id>"  # once, for a new plugin folder
 
 Reload and list plugins after each change. Use the isolated Verify run below to check a branch without touching the live Tern instance. To add a Tern plugin, create `tern/<id>/plugin.toml` (`schema = 1`, `id`, `name`, `version`, `description`, `window = "window.luau"`) and `tern/<id>/window.luau`, then link the folder.
 
-## Code Conventions & Common Patterns
+### Code conventions
 
 - Indent Luau with tabs. Each `window.luau` starts with a comment that says what the plugin does, and each function or command has a comment above it that says what it does. In zellij-keys, that comment names the Zellij action that the command copies.
 - Names: snake_case for locals, functions and command ids (`float_yazi`, `worktree_agent_tab`), UPPER_CASE for constants (`GIT_ENV`, `TAB_ORDER`, `ATTENTION`).
@@ -54,7 +59,7 @@ Reload and list plugins after each change. Use the isolated Verify run below to 
 - The Lua time of each hook has a budget. Keep handlers short and let native calls (`tern.kv`, `cx.session`) do the work.
 - `keybinds.html` is the guide to every bound key, grouped by Zellij mode. When you add, remove or change a keybind or a zellij-keys command, change its row (columns Keys, What it does, Zellij action, From, with `data-label` attributes) and the sequence count at the top. Several sequences can share a row, so count sequences, not rows.
 
-## Important Files
+### Important files
 
 - `tern/goto/window.luau`: row collection, status and time tracking, the `goto:` route. `tern/goto/host.luau`: picker rendering, search, jump numbers, tab order.
 - `tern/zellij-keys/window.luau`: commands, float focus on close, the worktree agent tab.
@@ -62,23 +67,21 @@ Reload and list plugins after each change. Use the isolated Verify run below to 
 - `~/.config/tern/settings.json` (outside the repo): keybinds `plugin.<id>.<command id>`, `link_target`, `agent_placement`.
 - `tern/<id>/tern.d.luau`: generated API types from the installed Tern version. Read it for signatures; regenerate it after a Tern update. SDK and example plugins: https://github.com/stencil-hq/tern-sdk.
 
-## Runtime/Tooling Preferences
+### Runtime and tooling
 
 - Tern 0.9.28 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
-- The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`. Commits use imperative sentence-case titles, with the PR number on merge (`Claim the worktree branch atomically before a press adds it (#20)`).
+- The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`.
 
-## Testing & QA
+### Testing
 
-The Tern plugins have no automated tests. `tern plugin list` proves only that a plugin loaded. Prove behavior with the `verify-tern-plugins` skill (`.omp/skills/verify-tern-plugins/SKILL.md`): its `scripts/tern-verify` starts an isolated Tern instance on the checkout (`start`, `doctor`, `ctl`, `tern`, `shot`, `stop`), and `features/<plugin>.md` holds the recipe for each feature.
+`tern plugin list` proves only that a plugin loaded. To prove behavior, use the per-feature recipes in [verify-tern-plugins](.omp/skills/verify-tern-plugins/SKILL.md) on an isolated Tern instance.
 
 - In a verify run, send every `tern` command through the helper. A bare `tern` command in an agent pane acts on the user's own window.
 - `ctl plugins run plugin.<id>.<command>` prints `{"ok":true}` even for a missing id and skips the keybind. Prove each step by a change of state, and press the real key to prove a binding.
 - After an edit, reload the changed plugin in the run (`"$V" tern "$RUN" plugin reload <id>`) before you drive it.
 
-Both Verify skills start Tern through `tern-verify`. When a Tern update changes the omp state, startup alerts, or isolation, update that launcher once for both profiles.
-
-## Plugin Notes
+### Plugin notes
 
 zellij-keys: `~/.config/tern/settings.json` binds its commands as `plugin.zellij-keys.<command id>`. If you rename a command id, change its keybind in `settings.json` too. Tern reads the file only at start and on Reload settings, and writes the whole file again at each change of a preference, so a hand edit of the file while Tern runs can be lost. Bind keys with Tern's Keyboard settings, or with `cx.settings:bind` from a plugin, which applies the key at once and saves it. Keep the absolute `/opt/homebrew/bin` tool paths: plugin processes inherit Tern's launcher PATH, which may lack Homebrew, even when the interactive zsh pane finds those programs.
 
@@ -163,6 +166,75 @@ goto motion: Tern animates the picker's float as it grows into view, outside CSS
 goto finished: Tern sends `agent_finished` when an agent's turn ends, for every agent kind. `tern.kv` keeps under `finished` the result of each agent pane's last turn that you have not seen: `done`, or `error` for a `failed` turn. A turn that ends while its pane has focus stores nothing, because you saw it. `exited` and `closed` clear the entry, and so do a focus of the pane and its close. `pane_status` shows a stored `error` as `error` and a stored `done` as `done`, after the live states (paused, input, retrying, compacting, working). An exited agent keeps its `exited` mark and stays out of Waiting on you. Tern also raises its own finished or failed inbox alert after each turn, which shows as `done` through `info.alert`. An Esc cancel in omp sends no event and leaves Tern's state `working`.
 
 goto times: rows show working time and waiting time (GLOSSARY.md) in the picker's `elapsed` column. Tern gives no start time, so the window half keeps under `since` in `tern.kv`, by pane id, `kind` (`working` or `waiting`), `input`, `turn` and `at` (`os.time()` seconds). `agent_state` starts working time on a change to `working` and a wait on a change to `waiting_input`. A wait for input keeps the start of the turn it interrupts in `turn`, and the change back to `working` restores it, so answering a question does not restart working time. An event with `old` nil (an agent new to goto, which may have started long before) starts nothing and drops any entry under its pane id, and so does `pane_created`, so an id that a later pane reuses shows no stale time. Any other change ends working time and a wait for input. `agent_finished` in an unfocused pane starts waiting time for its done or error result; a focus of the pane ends that wait, and an exit or close ends any. If the next turn is already working when Tern looks again, that finish replaces the working entry and the row shows no time. `row_time` gives a row the stored start only when it matches the row's status (working, retrying, compacting for working time; the Waiting on you statuses except idle and paused for waiting time), so a status whose start goto did not see, such as an omp ask that Tern still reports as working or a terminal alert, shows no time. Idle and paused agents show none. The host half sends the time so far at each render, and the row's tone (`accent` for working, `warning` for waiting) colors it through the `palette` sheet. Every row of the pane shows it: its Waiting on you row, its tree row, and the row of a tab with one pane.
+
+## omp-tools
+
+### Architecture and subsystem notes
+
+`omp/package.json` registers four default-exported initializers through `omp.extensions`. Each registers tools and event handlers on `ExtensionAPI` and keeps its registration state local. Before changing a part, read its notes:
+
+- [`ask` and the Picker](omp/docs/agents/ask-picker.md). `flexible-ask.ts` reads the native HTML form and opens the Picker in the TUI. Other callers reach native `ask` through `ctx.invokeTool`. Read the notes for editors, paste, drafts, host `askDialog` routing, and the tool card.
+- [Side questions](omp/docs/agents/side-questions.md). `/btw` and Picker btw each own a `LazySideQuestionThread` backed by a read-only mirror session. Read the notes before changing dispatch, streaming, or thread ownership.
+- [`generate_image`](omp/docs/agents/generate-image.md). One tool dispatches to OpenAI mode or Codex mode per call, using `defaultImageGenerationMode` when the call omits `mode`. Read the notes before changing mode selection, results, clients, or the prompting skill.
+- [English coach](omp/docs/agents/english-coach.md). The coach checks interactive prompts with `@tiny` and shows private corrections above the editor without changing the prompt. Read the notes for settings, protected text, the diff, or the widget.
+- [Tern views](omp/docs/agents/tern-views.md). Read before changing an omp-tools view in Tern. Covers scroll boxes, stylesheets, and theme colors.
+
+Source and model-facing prompts live in `omp/extensions/`. `omp/package.json` declares `omp.settings`; read those values with `getPluginSettings("omp-tools", cwd)`. A project's `.omp/plugin-overrides.json` overrides the global value. Keep the shipped [generate-image skill](omp/skills/generate-image/) under the plugin root. omp discovers `skills/*/SKILL.md` there through `omp-plugins` at priority 90.
+
+### SDK imports
+
+Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.0.0 registry serves:
+
+- `@oh-my-pi/pi-tui` and its subpaths, including `/chrome`, `/render`, `/theme`, `/thinking`, `/media`, `/html-form/*`, `/chat/svg-figure`, `/native/blobs`, `/native/overlay`, `/chrome/form-theme`, `/keybinding-matchers`, `/overlays/*`, and `/tools/*`. In omp 18.22.0, `/html-form/media` moved to `/media`, and `loadFormImage` became `loadMedia`.
+- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
+- `@oh-my-pi/pi-utils` and flat subpaths such as `/dom`.
+- `@oh-my-pi/pi-ai` for `completeSimple` and `@oh-my-pi/pi-agent-core` for `Tokenizer`.
+
+Import describe builders (`node`, `col`, `md`, `span`, `text`, `kbd`) from `@oh-my-pi/pi-tui`. Reuse native helpers such as `actionButton`, `hintsRow`, `formTheme`, and the keybinding matchers. Type-only imports such as `@oh-my-pi/pi-tui/tools/renderer` do not need a registry entry. The registry does not serve `@oh-my-pi/pi-catalog`; `omp/extensions/codex-images.ts` implements the pieces it needs.
+
+### Development commands
+
+Run these commands from `omp/`:
+
+```sh
+bun install --frozen-lockfile --ignore-scripts
+bun run check   # SDK version check, then tsgo --noEmit
+bun test
+```
+
+Use Bun for dependencies, scripts, tests, and the image codec (`Bun.Image`). There is no build, lint, or formatter. omp loads source directly. Start a fresh session after an edit because running sessions keep the definitions they loaded. To link the plugin from the intended live checkout, run `omp plugin link "$PWD"` from its `omp/` directory. For branch checks, use the isolated Verify skill instead.
+
+From `omp/`, run `bun run update` when you intend to update both the installed omp and the SDK types. It requires an installed omp and restores the two `"latest"` specifiers after `bun update` rewrites them. `bun run check` warns and still typechecks if the installed version differs from `omp/bun.lock` or omp is missing. Both scripts use `omp/scripts/host-env.ts` to find the installed binary. A bare `omp` inside `bun run` can instead run the SDK's `node_modules/.bin/omp`, and Bun Shell ignores `.env()` PATH when resolving commands.
+
+For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching `omp --version`. Its upstream is `can1357/oh-my-pi`. If code relies on undocumented host behavior, name the version on which you verified it.
+
+### Code conventions
+
+- Indent TypeScript with tabs. Use double quotes, semicolons, and trailing commas. Use camelCase for functions and locals and PascalCase for types. Use `import type` for SDK types and `with { type: "text" }` for prompts, as declared in `omp/extensions/assets.d.ts`.
+- Keep state local to the initializer. Tool `execute` keeps `(toolCallId, params, signal, onUpdate, ctx)` and returns results shaped like native results. Pass `approval`, `concurrency`, and `mergeCallAndResult` on the tool definition.
+- Propagate errors with an actionable message. An invalid image mode registers a tool whose calls fail; missing native delegation throws. Side question views turn failures into turn state for display.
+- Pass the abort signal through the UI, mirror session, and HTTP. Clients combine it with a five-minute timeout. Throw `ToolAbortError` for a user abort and a plain `Error` for a timeout. Only a user's cancel in the Picker also calls `ctx.abort()` to end the main turn.
+- Dispose per-load owners such as `PickerDraftSlot`, `BtwCycle`, and `LazySideQuestionThread` on session switch, branch, tree, and shutdown. Use `Symbol.for("omp-tools.*")` keys for state shared across module loads. Use types for wiring rules, as in `SideQuestionCacheKey` and `createMirrorSession`'s input.
+
+### Testing
+
+Run `bun run check` and `bun test` from `omp/` after code changes. The suite uses `bun:test` and `*.test.ts` files.
+
+- `omp/test/support.ts` captures `registerTool` and `on` through `loadSession`, `loadTool`, and `fakeContext`. For `generate_image`, call `execute` with `spyOn(globalThis, "fetch")` and project settings in `.omp/plugin-overrides.json`. The Bun preload isolates the global omp home. Write global settings with `writeGlobalPluginSettings`. `loadTool` defaults to Codex mode, unlike the plugin. Avoid `mock.module` because it leaks into other test files.
+- Before building fake TUI contexts, call `Settings.init({ inMemory: true })` and `initTheme()` in `beforeAll`.
+- Use `omp/test/helpers/side-question-session.ts` for a real SDK mirror session against local SSE. It records requests, warnings, and recovery events for retries, fallbacks, and `/btw` follow-ups. The `toolCalls` and `tools` options run a real main turn whose tools return text or wait for `release()`.
+- Use `omp/test/helpers/english-coach-session.ts` for the `input` handlers with a fake TUI context, local SSE, and the real model registry. Assert widget lines, provider requests, and ledger entries. Tests cover both `/btw` entry-point orders, but not terminal layout, deferred startup ordering, or correction quality with a real `@tiny` model.
+- The OpenAI live test sends three paid requests: a still image with complexity, an SVG, and a GIF. It requires approval for paid requests and `OPENAI_API_KEY`. To opt in, run `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
+
+For changes to registration, `ask`, the Picker, Side questions, the English coach, tool cards, or event handling, run a fresh-session smoke through [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). Use `PI_TUI_NATIVE=0` for the classic text renderer or RPC for checks without a screen. The five-tool limit, real panel and keys, and a kept Picker btw thread require live proof. Record each smoke in [the live proof log](omp/docs/agents/live-proof.md).
+
+## Shared verification and change notes
+
+Both Verify skills live in `.omp/skills/` and start isolated Tern instances through [tern-verify](.omp/skills/verify-tern-plugins/scripts/tern-verify). When a Tern update changes omp state, startup alerts, or isolation, update that launcher once for both profiles.
+
+For user-visible changes to either host, update [README.md](README.md) and add an entry to the root `CHANGELOG.md` under `[Unreleased]` with `Added`, `Changed`, `Fixed`, or `Removed` as appropriate. Update `omp/docs/agents/` when an omp-tools subsystem's design or host workaround changes.
+
+For either host, use imperative sentence-case commit titles. Include the PR number on merge: `Claim the worktree branch atomically before a press adds it (#20)`.
 
 ## vstack
 

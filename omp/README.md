@@ -343,7 +343,7 @@ the fix.
 
 No call falls back to the other mode, to native `generate_image`, or to
 another provider when it fails, because a fallback would change the credential
-and the balance charged (`docs/adr/0002-explicit-image-generation-modes.md`).
+and the balance charged (`../docs/adr/0003-explicit-image-generation-modes.md`).
 An error that the other mode avoids, such as a missing OpenAI key or Codex
 login, says you can ask for the other mode or change
 `defaultImageGenerationMode`, and tells the agent not to switch unless you
