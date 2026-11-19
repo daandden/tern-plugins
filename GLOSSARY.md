@@ -26,7 +26,7 @@ _Avoid_: Session (Tern's group of tabs), workspace, clone
 
 **Go to picker**:
 The list of sessions, tabs and panes, with tabs under their session and the panes of a split tab under that tab. Sessions keep Tern's order. The tabs of a session come by their tab status, then by working time or waiting time, longest first; the panes of a tab come by that time, longest first. Rows with no time keep Tern's order. A tab with one pane is one row. It shows agent panes only, until you ask for all panes. The panes that are waiting on you come first, above the tree. Picking a row moves focus to that session, tab or pane.
-_Avoid_: Navigator, jump palette, switcher
+_Avoid_: Navigator, jump palette, switcher, a bare "Picker" (omp-tools' Picker answers `ask`)
 
 **Tab status**:
 The status that a tab sorts by in the Go to picker: the status of its pane, or for a split tab the most urgent status among its panes that the picker's view shows. Floating panes have no part in it.
