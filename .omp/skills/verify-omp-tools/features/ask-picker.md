@@ -24,7 +24,7 @@ When the agent calls `ask` with an HTML `<form>`, the plugin shows its own picke
 ## How to get to it (user POV)
 
 - Ask the agent for something that makes it call `ask`, or tell it to call `ask` with a given form.
-- For exact forms with no model, run a local provider: a `Bun.serve` on `127.0.0.1` that answers OpenAI `chat/completions` with SSE, replies to a fixed prompt (for example `Call the ask tool please`) with an `ask` tool call carrying a fixed `html`, replies to a tool result with text that quotes it, and appends every request body to a JSONL file. Register it from a file loaded with `-e` (`pi.registerProvider("vfix", { baseUrl, apiKey: "fixture-key", api: "openai-completions", models })`) and launch with `--model vfix/main`. The JSONL is the request count and the second view of what each request held.
+- Use the local Picker session below for a fixed form without a paid model. For other exact forms, adapt the local provider's `ask` payload.
 - Keys in the picker; clicks on rows, tabs, and buttons in the Tern view (a click on an option is Space, a double-click is Enter).
 
 ## Driving it with tern ctl
@@ -33,9 +33,13 @@ Preconditions:
 
 - Baseline from `README.md`.
 
-- Single. Run `$C type '"Call the ask tool once with an HTML form: a radio group named color asking Pick a color, options red and blue. Then reply with my answer only."'` and `$C key Enter`. When `$C tree` contains `Ask aside`, run `$C shot ask-open`. Then `$C key j`, `$C key Enter`, `sleep 12`, `$C shot ask-single`. The card shows `blue` checked and the agent replies `blue`.
+- Single. Send `Call the ask tool please` and press Enter. Wait until `$C tree` contains `Ask aside`, then take `ask-open`. Press `j`, then Enter. Wait for the reply `blue`, then take `ask-single`. The card shows Blue checked, and the tool result has one answer with `"color": "blue"`.
 - Note on an unpicked option. Run Single again, but before `$C key j` run `$C key n`, `$C type '"why not"'`, and `$C key Enter` on the `red` row. The note shows under `red` and stays after `$C key j`, and `$C key Enter` sends `blue`. The answer text holds `Option notes:` with `red` and `(not picked)` and `why not`, and the card shows `red (not picked): why not`.
-- Image in a note. In a note editor, paste an image with the image-paste key or Cmd+V (Tern native window, see `../SKILL.md`). A chip shows. Save and submit. The session JSONL's `toolResult` content holds a text block `[Image #1]` followed by an image block, and `details` holds no image data.
+- Image in a note. Start a native window with `--dir "$VERIFY_RUN_DIR/data/project"` and confirm `.focused.cwd` in `$C state`. Open the radio Picker as in Single. Press `n` on Red and confirm `Note for Red` in `$C tree`. Run the command below with the note editor focused. It generates a raster PNG, puts only image data on the general pasteboard, and sends Cmd+V to the owned window. It restores the clipboard as soon as the image chip appears. It keeps clipboard bytes in memory only and skips restoration if a later write changed the pasteboard. Require matching item counts, type lists, and item hashes before proceeding. Press Enter twice to save the note and submit. In the session's `ask` tool result, require `[Image #1]` followed by an image block with data. Require no image data in `details`.
+
+  ```sh
+  swift "$H/paste-picker-image.swift" "$V" "$VERIFY_RUN_DIR" >"$VERIFY_RUN_DIR/clipboard-proof.txt" 2>&1
+  ```
 - Several with multi-select, Other, and Submit note. Ask for a form with a radio group `color` (red, blue) and a checkbox group `extras` (tea, coffee). On the first tab, `$C key Enter` picks `red` and moves on. On the second, run `$C key Space`, `$C key j`, `$C key Space`, then `$C key j` to `Other (type your own)`, `$C key n`, `$C type '"water"'`, `$C key Enter`. Then `$C key Enter` opens the Submit tab, which shows `Submit note`. Run `$C key n`, `$C type '"all done"'`, `$C key Enter`, `$C shot ask-submit`, then `$C key Enter` to send. `$C key ctrl+o` shows the card: `red`, `tea, coffee, Other: water`, and `Note on all answers` with `all done`. The data is `{"color":"red","extras":["tea","coffee","water"]}`.
 - Submit review with a long option Note. Use two radio groups with checked defaults. Give the first option a label longer than 200 characters, add a Note to it with `n`, save, and press Enter through both questions to Submit. Both answers, the Note, and the Submit note must be visible inside the Picker. Inspect `$C dump '.sf-kv-v'`: each value must have positive width and stay within the Picker's horizontal bounds. Repeat in a narrow pane. A long Note label must wrap instead of forcing the answer column offscreen.
 - Required. Ask for a form with a `required` radio group and a second question. Press `h` to the Submit tab and Enter: the picker stays, opens the required question, and shows `Required`.
@@ -49,9 +53,29 @@ Preconditions:
 - Host dialog (`ask-hostdialog`). Make the provider answer `Call the ratchet approval please` with an `eval` call (`language: "js"`) running `await ratchet("demo").init({ cases: "cases", harness: "harness", change: "change" }); JSON.stringify(await ratchet("demo").approve("inputs", { question: "Approve the demo inputs?", preview: "cases/a.json holds one case" }))`, in a project that holds `cases/a.json`, an executable `harness/run.sh`, and `change/prompt.md`. The Picker opens with `Approve the demo inputs?`, the preview, and `Approve`, `Revise`, `Abort`, and `Other (type your own)`. Picking `Approve` makes the eval print `{"approved":true}`. A Note `not yet` on `Approve` while `Revise` is picked prints `{"approved":false,"aborted":false,"feedback":"Approve (not picked): not yet"}`.
 - Transport (`ask-transport`, no screen). Start OMP with `--mode rpc-ui` and the provider: the `ask` call sends one `extension_ui_request` per field (`select` for a radio group, `input` for a text field), and the answers come back as the native form data (`User answers:` and the JSON). A cancelled `select` ends the call with `Ask tool was cancelled by the user`. With `--mode rpc` or `-p`, the same call returns `Native ask tool unavailable for delegation`, and no `select` or `input` request reaches the client.
 
+### Local Picker session
+
+Use this fixture for Single, Image in a note, and the Go to picker status drive. For the Tern plugin profile, start Tern before this setup. For the omp-tools profile, run the setup before starting Tern so that `data/sessions/` already exists.
+
+```sh
+CHECKOUT=$(git rev-parse --show-toplevel)
+H="$CHECKOUT/.omp/skills/verify-omp-tools/helpers"
+OMP_BIN=${OMP_BIN:-$(command -v omp)}
+OMP_BIN="$OMP_BIN" "$H/picker-omp" "$VERIFY_RUN_DIR" setup | tee "$VERIFY_RUN_DIR/candidate.txt"
+```
+
+Check the resolved `omp/` link and the four manifest entries. Start `bun "$H/picker-provider.ts" "$VERIFY_RUN_DIR"` as an owned process and wait for `ready:`. In the test pane, start:
+
+```sh
+"$V" type "$VERIFY_RUN_DIR" "OMP_BIN='$OMP_BIN' '$H/picker-omp' '$VERIFY_RUN_DIR' session"
+```
+
+Type `/skill:generate-image` without submitting. Capture the completion entry and clear the composer. `requests.jsonl` records the local requests. `vfix/main` opens the radio Picker and answers its tool result. `smol` and `tiny` resolve to `vfix/side`, which streams an answer for about 20 seconds.
+
 ## Gotchas
 
 - With `ask.timeout` set, an idle picker submits; take shots before the countdown ends or press a key to restart it.
 - In RPC-UI and ACP, `ask` goes to OMP's native tool, which asks one field at a time. Plain RPC and print have no native `ask` to hand it to. This picker is TUI only.
-- A fresh `PI_CODING_AGENT_DIR` opens OMP's Setup over the session. Ctrl+C leaves it, or seed `config.yml` there with `setupVersion: 3` and `modelRoles` that name the fixture models.
+- Seed the disposable agent directory before launch. A Setup screen means the seed did not load.
 - A long question first shows from its top; after PgUp/PgDn the first move only reveals the highlighted row.
+

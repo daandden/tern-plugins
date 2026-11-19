@@ -41,4 +41,5 @@ await Bun.write(
 	`${dir}/smoke-config.yml`,
 	`tools:\n  xdev: ${mounted}\nadvisor:\n  enabled: false\nmarketplace:\n  autoUpdate: off\ncompaction:\n  enabled: false\nretry:\n  enabled: false\n  modelFallback: false\nmodelRoles:\n  default: image-smoke/main\n  smol: image-smoke/main\n  tiny: image-smoke/main\n  slow: image-smoke/main\n  plan: image-smoke/main\n`,
 );
+await Bun.write(`${dir}/data/agent/config.yml`, `setupVersion: 3\n${await Bun.file(`${dir}/smoke-config.yml`).text()}`);
 console.log(`ready: http://127.0.0.1:${server.port}`);

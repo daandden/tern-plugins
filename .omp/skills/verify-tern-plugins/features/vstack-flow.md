@@ -21,7 +21,7 @@ A Cmd-click on a Flow link, a link to a vstack Flow page on this machine, opens 
 
 Preconditions:
 
-- The baseline from `README.md`, with focus on the shell pane. The copied `settings.json` keeps `link_click: Command` and `link_target: Browser`; check both in `RUN/data/config/settings.json` before driving, because `flow-alt` and `flow-not-claimed` depend on them.
+- The baseline from `README.md`, with focus on the shell pane. The copied `settings.json` keeps `link_click: Command` and `link_target: Browser`; check both in `RUN/instance/config/settings.json` before driving, because `flow-alt` and `flow-not-claimed` depend on them.
 - `FLOW` is the live URL of a Flow on the Local Flow host, ending in `/`, from any flow-page receipt (`live.url`) or `bun "$(realpath skill://flow-page/scripts/flow-page.ts)" show --flow <id>`. `OTHER` is the same URL with the last character of its 64-hex segment changed, which counts as another Flow.
 - Run `"$V" lens "$RUN"`. Every link below is printed with `"$V" type "$RUN" 'echo PROBE_LINK <url>'` and Cmd-clicked by selector, as `../SKILL.md` shows: `"$V" ctl "$RUN" click "\".tn-pane.on .sf-link[title^='<url>']\"" cmd`, with separate trailing `cmd` and `alt` tokens for Cmd+⌥. "Focus the shell" means `"$V" tern "$RUN" focus <its id>`, then waiting until `ctl state | jq .focused.id` reports that id: CLI-created tabs and splits do not take focus, and `type` into a browser pane fails with `no running shell has focus`.
 - When the shell shares its tab with another tiled pane, or sits in a float, zoom or expand it first with `"$V" ctl "$RUN" click '".tn-pane.on .tn-zoomb"'` so the printed Flow URL fits on one line. Clicking the Flow link brings the tiled layout back.

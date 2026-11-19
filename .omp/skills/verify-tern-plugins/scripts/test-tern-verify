@@ -1,0 +1,18 @@
+#!/bin/sh
+# Exercise the real headless launcher without loading a plugin or starting omp.
+set -eu
+V=$(cd "$(dirname "$0")" && pwd -P)/tern-verify
+run=$(mktemp -d)
+trap 'if [ -d "$run/instance" ]; then "$V" stop "$run"; fi; rm -rf "$run"' EXIT
+mkdir -p "$run/data/sessions"
+transcript=$run/data/sessions/probe.jsonl
+printf '%s\n' '{"type":"session"}' >"$transcript"
+before=$(shasum -a 256 "$transcript")
+"$V" start "$run" --profile omp-tools --headless
+"$V" ctl "$run" state | jq -e '.ok' >/dev/null
+jq -e '. == {shell:"/bin/zsh"}' "$run/instance/config/settings.json" >/dev/null
+"$V" ctl "$run" css | jq -e '[.sheets[].name | select(startswith("plugin:"))] == []' >/dev/null
+"$V" stop "$run"
+[ "$before" = "$(shasum -a 256 "$transcript")" ]
+[ ! -e "$run/instance" ]
+printf '%s\n' 'Clean headless start keeps the pre-existing transcript after stop.'

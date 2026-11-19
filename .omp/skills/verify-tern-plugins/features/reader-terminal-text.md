@@ -23,7 +23,7 @@ When omp runs in a Tern pane, Tern shows its chat in the Reader style. This plug
 
 Preconditions:
 
-- The baseline from `README.md`. Read `ui_font`, `font_size`, `adjust_cell_height`, and `font_weight` from `RUN/data/config/settings.json`; do not assume their values.
+- The baseline from `README.md`. Read `ui_font`, `font_size`, `adjust_cell_height`, and `font_weight` from `RUN/instance/config/settings.json`; do not assume their values.
 - The terminal row: before omp starts, run `"$V" ctl "$RUN" dump '.tn-pane.on .tv-grid' | jq -c '.elements[0] | {fontSize, lineHeight}'` in the shell pane. Its `lineHeight` is the row height `R` (also the grid's `--tv-lh`) and its `fontSize` the terminal size `S` (13px when `font_size` is null). Tern 0.9.16 has no `.tv-probe`.
 - A helper for the composer: `ED=".sf-chat-reader .sf-col[data-role^='omp.editor']"`.
 

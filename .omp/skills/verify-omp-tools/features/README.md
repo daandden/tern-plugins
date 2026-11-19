@@ -1,11 +1,11 @@
 # omp-tools verification map
 
-This directory is the maintained source for verifying what users see from the omp-tools plugin. Read this index, then use the feature file for the surface you changed. Commands assume the run entry, `$SOCK`, and `C="tern ctl --control $SOCK"` from `../SKILL.md`.
+Read the feature file for the surface you changed. Commands use the run dir and `$C` control wrapper from [the parent skill](../SKILL.md).
 
 ## Baseline preconditions
 
-- Doctor in `../SKILL.md` passed: the plugin link points at this checkout, `bun run check` passes, and the socket check for the current phase passes.
-- A headless Tern window started by this run is serving on `$SOCK`, and a fresh OMP session runs in it with `--config $VERIFY_RUN_DIR/smoke-config.yml --session-dir $VERIFY_RUN_DIR/data/sessions`.
+- Run Doctor in [the parent skill](../SKILL.md). Record the branch SHA and the linked `omp/` directory or explicit entry paths.
+- Start the headless instance through `tern-verify`. Start a fresh OMP session with `--session-dir "$VERIFY_RUN_DIR/data/sessions"`. Use the native instance for clipboard recipes.
 - The session has a saved transcript: send one main prompt (`Reply with only: ok`) and wait for the reply before anything that needs a session file (Side questions, Picker btw).
 - Never drive a Tern window or OMP session this run did not start.
 
@@ -20,7 +20,7 @@ This directory is the maintained source for verifying what users see from the om
 ## Proof and skip reporting
 
 - Capture the action and the resulting state: a shot before and after, plus a second view (session JSONL, files on disk, or `$C tree`).
-- Shots are converted to lossless WebP as `../SKILL.md` describes, and read from the WebP path.
+- Read the lossless WebP that `"$V" shot "$VERIFY_RUN_DIR" NAME` writes.
 - Record the feature ID, entry point (Tern view, classic TUI, or RPC), and evidence path in `notes.md`.
 - A check that could not run is reported with the command and the unmet precondition. A check proven through one entry point does not prove another (Tern view and classic TUI are separate entry points).
 

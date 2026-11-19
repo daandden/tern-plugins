@@ -66,13 +66,15 @@ OpenAI mode (each step is one small paid request; use `quality: "low"` and `size
 
 Per-call mode, default switch, and approval (`img-mode-call`, `img-mode-switch`, `img-approval`, no image request). Use a local provider to issue each call with exact arguments:
 
-1. Set `CHECKOUT`, `OMP_BIN` (the absolute omp binary Doctor checked), and `H="$CHECKOUT/.omp/skills/verify-omp-tools/helpers/image-mode-provider.ts"`. Start `bun "$H" "$VERIFY_RUN_DIR"` as an owned service and wait for `ready:`. It writes `provider.ts` and `smoke-config.yml` and records every chat request in `requests.jsonl`. Before each probe, write its arguments to `$VERIFY_RUN_DIR/tool-args.json`.
-2. Make a project dir under `$VERIFY_RUN_DIR/data/` whose `.omp/plugin-overrides.json` sets `defaultImageGenerationMode` to `codex`. Start OMP in an isolated Tern instance (`helpers/tern-isolated`). Run this command from the scratch project after appending the probe's `--approval-mode` flag:
+1. Run `bun "$H/image-mode-provider.ts" "$VERIFY_RUN_DIR"` as an owned process and wait for `ready:`. It writes `provider.ts`, `smoke-config.yml`, and the setup seed. It logs requests in `requests.jsonl`. Before each probe, write its arguments to `$VERIFY_RUN_DIR/tool-args.json`.
+2. Make a project dir under `$VERIFY_RUN_DIR/data/` whose `.omp/plugin-overrides.json` sets `defaultImageGenerationMode` to `codex`. Start `"$V" start "$VERIFY_RUN_DIR" --profile omp-tools --headless`. Run this command from the scratch project after appending the probe's `--approval-mode` flag:
 
    ```sh
    env -u OPENAI_API_KEY -u OPENAI_BASE_URL -u PI_CONFIG_DIR -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
      HOME="$VERIFY_RUN_DIR/data/home" PI_CODING_AGENT_DIR="$VERIFY_RUN_DIR/data/agent" PI_PROFILE= OMP_PROFILE= \
-     "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" -e "$CHECKOUT/extensions/generate-image.ts" \
+     "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" -e "$CHECKOUT/omp/extensions/flexible-ask.ts" \
+     -e "$CHECKOUT/omp/extensions/generate-image.ts" -e "$CHECKOUT/omp/extensions/english-coach.ts" \
+     -e "$CHECKOUT/omp/extensions/btw.ts" \
      --no-skills --no-rules --no-context-files --no-lsp --offline --no-tools --tools generate_image \
      --model image-smoke/main --config "$VERIFY_RUN_DIR/smoke-config.yml" --session-dir "$VERIFY_RUN_DIR/data/sessions"
    ```
@@ -81,7 +83,7 @@ Per-call mode, default switch, and approval (`img-mode-call`, `img-mode-switch`,
 3. Mode card (`img-mode-call`): with `tool-args.json` `{"prompt":"mode smoke logo","mode":"openai","output_format":"svg"}` and `--approval-mode yolo`, type any prompt and press Enter. The card head shows `Generate image`, `OpenAI mode`, and `svg`, and the error says OpenAI mode needs an OpenAI API key, that the user can ask for Codex mode or change `defaultImageGenerationMode`, and not to switch unless the user asks. The first request in `requests.jsonl` lists `mode` in the `generate_image` tool parameters, and its description names `codex` as the default.
 4. Approval (`img-approval`): with `tool-args.json` `{"prompt":"approval smoke"}` and `--approval-mode always-ask`, submit a prompt. Require `Allow tool: generate_image` and `Mode: Codex mode, the Default image generation mode`. Open the details to see the arguments. Capture the approval and deny the call. Check that the result reports the denial rather than a credential error. Repeat with `{"mode":"openai","prompt":"approval smoke"}`. Require `Mode: OpenAI mode`, then deny that call too.
 5. Default switch (`img-mode-switch`): in the same `always-ask` session, write `{"prompt":"default switch smoke"}` to `tool-args.json`. Change the scratch project's `defaultImageGenerationMode` to `openai`. Run `$C type /new`, `$C key Enter`, then submit a prompt. Require `Mode: OpenAI mode, the Default image generation mode` in the approval prompt. Capture it and deny the call. Check that the tool result reports the denial.
-6. Mounted approval (`img-approval`): start the provider with `bun "$H" "$VERIFY_RUN_DIR" --mounted` in a fresh run dir. The provider sets `tools.xdev` on and sends `write xd://generate_image`, using `tool-args.json` as the `write` content. Use the launch from step 2 with `--approval-mode always-ask`, but omit `--no-tools --tools generate_image` so OMP can mount the tool. Write the fixture before submitting a prompt:
+6. Mounted approval (`img-approval`): start the provider with `bun "$H/image-mode-provider.ts" "$VERIFY_RUN_DIR" --mounted` in a fresh run dir. The provider sets `tools.xdev` on and sends `write xd://generate_image`, using `tool-args.json` as the `write` content. Use the launch from step 2 with `--approval-mode always-ask`, but omit `--no-tools --tools generate_image` so OMP can mount the tool. Write the fixture before submitting a prompt:
 
    ```sh
    bun -e 'await Bun.write(process.argv[1], JSON.stringify({mode: "openai", prompt: "A small blue circle. ".repeat(120)}))' "$VERIFY_RUN_DIR/tool-args.json"

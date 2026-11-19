@@ -1,5 +1,5 @@
 // Throwaway extension for the `btw-tools`, `btw-agent`, and `btw-usage` checks.
-// Copy it into the checkout's `extensions/` (a file outside the plugin cannot
+// Copy it into the checkout's `omp/extensions/` (a file outside the plugin cannot
 // import `@oh-my-pi/*`), run it with the RPC drive, then delete the copy. On the
 // first main `agent_end` it asks a Side question with no `/btw` prompt around
 // it and writes to `VERIFY_PROBE_LOG`: every call's last status, the answer,

@@ -2,6 +2,17 @@
 
 Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-19, shared launcher (#26): Tern 0.9.28 and OMP 19.0.0,
+  `ca7deed718a7442b794504d6f95be684534aff8c` plus the uncommitted #26 patch.
+  The headless `ask-single` run returned Blue. The native launch guard
+  showed no dialogs and stopped the window and daemon. In `ask-image`,
+  Cmd+V pasted a generated PNG into the note. The tool result placed
+  `[Image #1]` before the image block. The clipboard's two items and all
+  their representations matched after restore. Both ask runs linked the
+  checkout's `omp/` in a disposable home and discovered `generate-image`.
+  Both retained the completed transcript byte for byte on stop, while
+  separate bystander instances and the owner's window stayed up. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/is24-wt-20261119/26/`.
 - 2026-11-19, OMP 19.0.0 compatibility: OMP 19.0.0 in isolated headless
   Tern 0.9.28 with `anthropic/claude-haiku-5-5`. Startup showed no
   extension load errors. In Tern, the Picker's native buttons and keys picked,

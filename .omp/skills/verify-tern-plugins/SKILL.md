@@ -15,13 +15,13 @@ The harness is Tern's own developer tooling (`tern help dev`). A window started 
 
 ## Isolation
 
-Each run gets its own Tern instance: its own configuration directory (`TERN_CONFIG_DIR`), daemon socket (`TERN_DAEMON_SOCKET`) and control socket, all under `RUN/data`. The daemon of that instance loads the plugins of the checkout under test, through `<id>.path` links in its own plugins directory. Your own Tern window, its daemon, its sessions and `~/.config/tern` stay untouched. Runs can go side by side, one run dir each. `start` opens the window with launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), the one a Tern opened from the Dock gets, so plugin processes find no Homebrew program by name, as in the user's Tern.
+Each run owns `RUN/instance/config` and two sockets in a short temporary directory. The instance loads the checkout's plugins through `config/plugins/*.path`; it does not write to the user's Tern settings. `start` uses the Dock's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), so plugins cannot find Homebrew programs by name.
 
 Drive only the instance that your run started. Every `tern` command goes through the helper, because a bare `tern ls` or `tern plugin reload` in an agent pane acts on the Tern window of that pane.
 
 These stay shared with your own Tern:
 
-- The omp configuration in your home directory.
+- The user's omp configuration, unless the recipe starts omp with a disposable home.
 - The Stencil account of this Mac. There is no separate sign-in.
 - The website data of browser blocks. Tern 0.9.20 runs web views in ABKit's `ABHost` with `--data-dir ~/Library/Application Support/so.stencil.tern/WebKitHost` (stores `default` and `agent`), and `TERN_CONFIG_DIR` does not move it. A run's pages read and write your own cookies and storage, and its `ABHost` runs beside yours on the same directory. Tern 0.9.20 has no setting or variable for this directory: `STENCIL_WEBKIT_DIR` picks the engine build, not its data. Open only local test pages in a run, and do not sign in or clear website data there.
 - The login shell, zsh. `start` sets `shell` to `/bin/zsh` in the copied `settings.json`, because Tern otherwise starts the `$SHELL` of the process that ran `start`, and an agent's bash has no Homebrew or omp in its `PATH`. zsh reads `~/.zprofile`, which puts `~/.local/bin` and Homebrew before `/usr/bin`. zsh's `$status` is `$?`, so typed lines can use either. A pane's label is the name of its folder, plus `: <command>` while a command runs, so the recipes name a pane by `cd` into a folder of that name. In zsh, `open` is `~/.local/bin/open`, a link to `bin/open` of the main checkout, not of the checkout under test.
@@ -45,9 +45,11 @@ Every command takes the run dir first:
 - `"$V" type "$RUN" 'LINE'` types LINE and Enter into the focused pane. LINE cannot hold a double quote.
 - `"$V" shot "$RUN" NAME` writes `RUN/NAME.webp` (lossless) and `RUN/NAME.layout.json`.
 - `"$V" lens "$RUN"` writes a command lens to `RUN/link-lens` and links it into this instance only. The output block of `echo PROBE_LINK URL` then shows URL as a Tern link that a Cmd-click opens (see Drive). Doctor lists it as `run lens:`.
-- `"$V" stop "$RUN"` is the cleanup.
+- `"$V" stop "$RUN"` closes the instance and cleans up its state.
 
 `TERN_PLUGINS_REPO=<checkout>` makes `start` load the plugins of another checkout. By default it loads the checkout that holds the helper.
+
+The [omp-tools Verify skill](../verify-omp-tools/SKILL.md) uses the same launcher with `--profile omp-tools`. That profile does not copy user settings or link plugins, and it keeps `RUN/data/` on stop. Use `--headless` for `tern serve`, or `--dir DIR` to choose the first native tab's folder.
 
 ## Launch
 
@@ -63,15 +65,15 @@ Every command takes the run dir first:
 
 If `start` stops with `no plugin sheets after 30 s`, `no shell prompt` or `no session daemon`, read `RUN/window.log`, run `"$V" stop "$RUN"`, and start a new run. Report the failure if it repeats.
 
-If `start` stops with `RUN/data exists`, another run owns that dir. Do not run `stop` or any other command on it. Make a new `RUN` with `mktemp -d` and start again.
+If `start` refuses an existing `RUN/instance` or `RUN/data`, leave that dir alone and use a fresh one.
 
 ## Doctor
 
 Run `"$V" doctor "$RUN"` first, and again whenever a result looks wrong. It changes nothing. It exits 1 when a check fails. It prints:
 
 - The checkout and its commit, and the installed Tern version.
-- The window pid and the owner of `RUN/data/ctl.sock`. Both must be the same pid.
-- The daemon pid, as the owner of `RUN/data/daemon.sock`. `daemon: NOT RUNNING` fails the check: the daemon of the run ended, so panes and `tern` CLI commands do not work, and the window shows a pane named `data` with no shell. Stop the run and start a new one.
+- The window PID and control socket owner. Both must be the same PID.
+- The owner of the daemon socket. If `daemon: NOT RUNNING` appears, stop the run and start a new one.
 - The sessions of the instance. A fresh instance has one session, `Default`, with one tab. Your own sessions must not show here. `daemon sessions: NONE` fails Doctor even when the window's local state lists a session: the window did not attach to the daemon.
 - `tern plugin list` of the instance. Every plugin must say `ready`, and every link must point into the checkout, or be the `run lens:` of this run.
 - The plugin CSS sheets that the window loaded, named `plugin:local:<id>:<sheet>`.
@@ -102,21 +104,15 @@ Do not use coordinates (`click X Y`, `pick X Y`). The window size and the user's
 
 ## Evidence
 
-Each run keeps its proof at the top level of `RUN` (`<Scratch dir>/verify/tern-plugins-<run-id>/`). Throwaway app data goes in `RUN/data`, which `stop` deletes. Never commit either.
+Save proof at the top level of `RUN` (`<Scratch dir>/verify/tern-plugins-<run-id>/`). `stop` removes launcher state in `RUN/instance/` and disposable files in `RUN/data/`. Copy any evidence out before stopping.
 
 - Capture the state before and after each action, not only the final screen. Save the command output with `| tee "$RUN/<feature>-<step>.json"` or `.txt`.
 - A shot: `"$V" shot "$RUN" <feature>-<step>`. It captures the full window at its actual display scale and converts the PNG to lossless WebP without resizing. A 1280 by 800 window is 2560 by 1600 on a 2x display, or 1280 by 800 on a 1x display. Read the `.webp` path.
-- Prove side effects as well: `RUN/data/config/settings.json`, `RUN/data/config/plugin-data/<id>/kv.json`, the panes in `"$V" tern "$RUN" ls`, and the exit code and output of a typed command (`"$V" tern "$RUN" capture ID`).
+- Prove side effects in `RUN/instance/config/settings.json`, `RUN/instance/config/plugin-data/<id>/kv.json`, the panes in `"$V" tern "$RUN" ls`, or a typed command's output and status in `"$V" tern "$RUN" capture ID`.
 - Write `RUN/notes.md`: the commit under test, each feature ID and entry point you drove, the evidence file of each, and each skipped entry point with the reason.
 
 ## Cleanup
 
-Run `"$V" stop "$RUN"` after every run, also after a failed one. The one exception is a `start` that stopped with `RUN/data exists`: that dir belongs to another run. `stop`:
+Run `"$V" stop "$RUN"` after every run, including failed starts. If `start` refused an existing instance or data dir, leave it alone.
 
-1. Closes the window with `ctl quit`, and sends SIGTERM to the window pid of this run if the window is still open after 2 s.
-2. Sends SIGTERM to the daemon pid that owns `RUN/data/daemon.sock`. Its panes (shells, Neovim, omp) end with it.
-3. Ends each process left with `RUN/data/` in its command line, such as an orphaned `nvim --embed` that ignores SIGTERM: SIGTERM, then SIGKILL after 1 s.
-4. Deletes `RUN/data` and the omp session dir of a pane that ran omp in `RUN/data` (`~/.omp/agent/sessions/-<path of RUN/data under home, with / as ->`).
-5. Lists what stays in `RUN`: the proof, `notes.md`, `start.log` and `window.log`.
-
-`stop` selects processes only by the pid files and sockets of this run and by the path of `RUN/data`, which no other run has. After `stop`, make sure that `ps -Ao pid,command | grep -F "$RUN/data"` shows only the grep itself.
+`stop` closes the window, stops the run's daemon and their processes, and checks that they exited. It removes the launcher state, sockets, and the Tern plugin profile's disposable `RUN/data/` and default-home omp session dir for that folder. It keeps notes, logs, PID records, and top-level captures.

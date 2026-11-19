@@ -21,12 +21,12 @@ For live proof, use the local provider below instead of real credentials. It sup
 
 ## Driving it with tern ctl
 
-Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read `../SKILL.md` first. This recipe replaces Doctor's plugin-link and credential checks with explicit entry paths and a local provider. Keep the version, typecheck, socket, and empty-dialog checks.
+Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKILL.md) first. This recipe uses explicit entry paths and a local provider. Keep the version, typecheck, and instance checks.
 
-1. Set `CHECKOUT` to the checkout being verified and `OMP_BIN` to the absolute installed OMP binary whose version Doctor checked. Set `H="$CHECKOUT/.omp/skills/verify-omp-tools/helpers/english-coach-provider.ts"`.
-2. Start `bun "$H" "$VERIFY_RUN_DIR"` as an owned service. Wait for `ready: http://127.0.0.1:...`. Keep its PID and output. It writes a provider extension, configuration, scenario inputs, and isolated project and agent directories. Every request goes to localhost and is recorded in `requests.jsonl`.
-3. Start headless Tern with `helpers/tern-isolated`, as in the parent skill. Require `"dialogs":[]`. Size it to 900 × 650 to exercise the height cap.
-4. Start OMP with this inner shell command. Quote the whole command as the argument of `sh -c`, then quote that whole string for `$C run` as in the parent skill. Use absolute paths without spaces, or shell-quote each path.
+1. Set `PROVIDER="$H/english-coach-provider.ts"` using `H` from the parent skill.
+2. Start `bun "$PROVIDER" "$VERIFY_RUN_DIR"` as an owned process. Wait for `ready:` and keep its PID. It seeds the agent directory and writes the provider extension and scenario inputs. Requests go to localhost and are recorded in `requests.jsonl`.
+3. Start `"$V" start "$VERIFY_RUN_DIR" --profile omp-tools --headless`. Require `dialogs: []`. Size the renderer with `$C size 900 650` to exercise the height cap.
+4. Start OMP in the focused pane with this shell command. Use absolute paths and quote any path with spaces.
 
    ```sh
    cd "$VERIFY_RUN_DIR/data/project" && exec env \
@@ -34,10 +34,10 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read `../SKILL.md` first. This 
    PI_CODING_AGENT_DIR="$VERIFY_RUN_DIR/data/agent" \
    PI_PROFILE= PI_SMOL_MODEL= PI_SLOW_MODEL= PI_PLAN_MODEL= \
    "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" \
-   -e "$CHECKOUT/extensions/flexible-ask.ts" \
-   -e "$CHECKOUT/extensions/generate-image.ts" \
-   -e "$CHECKOUT/extensions/english-coach.ts" \
-   -e "$CHECKOUT/extensions/btw.ts" \
+   -e "$CHECKOUT/omp/extensions/flexible-ask.ts" \
+   -e "$CHECKOUT/omp/extensions/generate-image.ts" \
+   -e "$CHECKOUT/omp/extensions/english-coach.ts" \
+   -e "$CHECKOUT/omp/extensions/btw.ts" \
    --no-skills --no-rules --no-context-files --no-lsp --no-title \
    --offline --no-tools --thinking off \
    --model coach-smoke/main --smol coach-smoke/side \
@@ -47,8 +47,8 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read `../SKILL.md` first. This 
 
    Create `data/home` before launch. For classic, add `PI_TUI_NATIVE=0` to `env`. For Tern, leave that variable unset. The configuration pins `default`, `tiny`, and `smol` to local models and disables retry fallback. The project, HOME, and agent directory are fresh. Do not copy user auth or plugin state.
 
-5. Wait for startup. If OMP opens setup, press Ctrl+C to leave setup. Wait one second, then click `.tv-input` to focus the terminal. The first input immediately after setup can otherwise disappear.
-6. For each scenario below, run `bun "$H" "$VERIFY_RUN_DIR" <scenario>` to paste its input, then `$C key Enter` to submit. The helper sends literal bracketed-paste delimiters, preserving multiline input. For `fence`, first choose **Paste inline** in OMP's paste dialog with Down, Down, Enter, wait half a second, then submit with Enter. Do not choose **Attach as local file**.
+5. Wait for the OMP composer. Setup must not open. Click `.tv-input` if the terminal lacks focus.
+6. For each scenario below, run `bun "$PROVIDER" "$VERIFY_RUN_DIR" <scenario>` to paste its input, then `$C key Enter` to submit. The helper sends literal bracketed-paste delimiters, preserving multiline input. For `fence`, first choose **Paste inline** in OMP's paste dialog with Down, Down, Enter, wait half a second, then submit with Enter. Do not choose **Attach as local file**.
 
    | Scenario | Expected panel and request evidence |
    |---|---|
@@ -62,7 +62,7 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read `../SKILL.md` first. This 
    Wait for each completed outcome before sending the next scenario. Capture a shot and tree for every scenario. In classic, `$C expect '"<expected text>"'` checks grid text when the tree has no terminal contents. Pair screenshots with `requests.jsonl` and the saved session JSONL. Record request indices before and after each submission, rather than counting the entire file.
 
 7. On the long correction, check that the panel stays above the composer and within the pane width. In Tern, inspect `.sf-list-scroll` geometry, hover `[data-role="omp-tools.english-coach.body"]`, and run `$C wheel 0 600`. Capture the last mistake, `I look forward to hearing`, after scrolling. The capped body must not grow. In classic, the panel must end with `… N more lines` and leave the editor visible.
-8. Convert PNGs to lossless WebP and inspect them as the parent skill requires. Record each feature ID, renderer, command, observed state, and evidence path in `notes.md`. Stop the isolated Tern instance through `tern-isolated stop` and stop only the provider PID this run started. Preserve transcripts and captures.
+8. Keep the shots, trees, requests, and session transcript. Record the feature IDs, renderer, and evidence in `notes.md`. Run `"$V" stop "$VERIFY_RUN_DIR"`, then stop the provider PID this run started.
 
 ## Gotchas
 

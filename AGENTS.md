@@ -28,7 +28,7 @@ State lives in two places:
 - `tern/`: `goto`, `zellij-keys`, `reader-terminal-text`, `vstack-flow`, and `toast-above-browser`. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
 - `docs/adr/`: architecture decisions. `docs/vstack/`: vstack config (tracker, code host, CI, labels, domain).
-- `.omp/skills/verify-tern-plugins/`: the Verify skill, its `scripts/tern-verify` helper and per-feature recipes in `features/`.
+- `.omp/skills/verify-tern-plugins/` and `.omp/skills/verify-omp-tools/`: Verify skills and per-feature recipes. Both use `verify-tern-plugins/scripts/tern-verify`.
 
 ## Development Commands
 
@@ -76,7 +76,7 @@ The Tern plugins have no automated tests. `tern plugin list` proves only that a 
 - `ctl plugins run plugin.<id>.<command>` prints `{"ok":true}` even for a missing id and skips the keybind. Prove each step by a change of state, and press the real key to prove a binding.
 - After an edit, reload the changed plugin in the run (`"$V" tern "$RUN" plugin reload <id>`) before you drive it.
 
-omp-tools (`~/work/tries/omp-tools`, https://github.com/daandden/omp-tools) also starts Tern instances for its checks. An isolated instance there needs the same omp state before it starts; its Verify skill writes it since https://github.com/daandden/omp-tools/pull/19. When a Tern update changes the omp state, the alert or the way an isolated instance starts, fix the start in both repos: `tern-verify start` here and the Verify skill of omp-tools.
+Both Verify skills start Tern through `tern-verify`. When a Tern update changes the omp state, startup alerts, or isolation, update that launcher once for both profiles.
 
 ## Plugin Notes
 
