@@ -1,9 +1,24 @@
 #!/bin/sh
-# Exercise the real headless launcher without loading a plugin or starting omp.
 set -eu
 V=$(cd "$(dirname "$0")" && pwd -P)/tern-verify
 run=$(mktemp -d)
-trap 'if [ -d "$run/instance" ]; then "$V" stop "$run"; fi; rm -rf "$run"' EXIT
+pane_pid=
+pane_start=
+bystander_pid=
+bystander_start=
+same_process() {
+	[ -n "$2" ] && [ "$(ps -o lstart= -p "$1")" = "$2" ]
+}
+cleanup() {
+	if [ -d "$run/instance" ]; then "$V" stop "$run" || true; fi
+	if same_process "$pane_pid" "$pane_start"; then kill -KILL "$pane_pid"; fi
+	if same_process "$bystander_pid" "$bystander_start"; then
+		kill "$bystander_pid"
+		wait "$bystander_pid" || true
+	fi
+	rm -rf "$run"
+}
+trap cleanup EXIT
 mkdir -p "$run/data/sessions"
 transcript=$run/data/sessions/probe.jsonl
 printf '%s\n' '{"type":"session"}' >"$transcript"
@@ -12,7 +27,37 @@ before=$(shasum -a 256 "$transcript")
 "$V" ctl "$run" state | jq -e '.ok' >/dev/null
 jq -e '. == {shell:"/bin/zsh"}' "$run/instance/config/settings.json" >/dev/null
 "$V" ctl "$run" css | jq -e '[.sheets[].name | select(startswith("plugin:"))] == []' >/dev/null
+cat >"$run/detach.sh" <<'SH'
+#!/bin/sh
+/usr/bin/nohup /usr/bin/tail -f "$1/data/sessions/probe.jsonl" </dev/null >/dev/null 2>&1 &
+printf '%s\n' "$!" >"$1/pane.pid"
+SH
+"$V" type "$run" "/bin/sh '$run/detach.sh' '$run'" >/dev/null
+for i in 1 2 3 4 5 6 7 8 9 10; do
+	if [ -s "$run/pane.pid" ]; then
+		pane_pid=$(cat "$run/pane.pid")
+		[ "$(ps -o ppid= -p "$pane_pid" | tr -d ' ')" != 1 ] || break
+	fi
+	sleep 0.2
+done
+pane_start=$(ps -o lstart= -p "$pane_pid")
+[ "$(ps -o ppid= -p "$pane_pid" | tr -d ' ')" = 1 ]
+printf 'Started detached pane process %s (%s).\n' "$pane_pid" "$pane_start"
+/usr/bin/tail -f "$transcript" </dev/null >/dev/null 2>&1 &
+bystander_pid=$!
+bystander_start=$(ps -o lstart= -p "$bystander_pid")
+[ "$(lsof -a -t -p "$bystander_pid" "$transcript")" = "$bystander_pid" ]
 "$V" stop "$run"
+if ! same_process "$bystander_pid" "$bystander_start"; then
+	printf 'stop ended bystander %s, which only opened the transcript.\n' "$bystander_pid" >&2
+	exit 1
+fi
+[ "$(lsof -a -t -p "$bystander_pid" "$transcript")" = "$bystander_pid" ]
+printf 'Bystander %s still holds the same transcript after stop.\n' "$bystander_pid"
+if same_process "$pane_pid" "$pane_start"; then
+	printf 'stop left detached pane process %s alive.\n' "$pane_pid" >&2
+	exit 1
+fi
 [ "$before" = "$(shasum -a 256 "$transcript")" ]
 [ ! -e "$run/instance" ]
-printf '%s\n' 'Clean headless start keeps the pre-existing transcript after stop.'
+printf '%s\n' 'Clean headless stop ends a detached pane process and keeps the pre-existing transcript.'

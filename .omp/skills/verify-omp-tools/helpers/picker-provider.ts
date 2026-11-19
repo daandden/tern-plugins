@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 if (!process.argv[2]) throw new Error("Usage: bun picker-provider.ts RUN");
 const run = resolve(process.argv[2]);
-const html = '<form><fieldset><legend>Pick a color</legend><label><input type="radio" name="color" value="red">Red</label><label><input type="radio" name="color" value="blue">Blue</label></fieldset></form>';
+const html = `<form><fieldset><legend>Pick a color</legend><label><input type="radio" name="color" value="red">Red</label><label><input type="radio" name="color" value="blue">Blue</label></fieldset></form>`;
 
 const server = Bun.serve({
 	hostname: "127.0.0.1",
@@ -16,8 +16,8 @@ const server = Bun.serve({
 		if (body.model !== "main" && body.model !== "side") return new Response("Unknown model", { status: 400 });
 		appendFileSync(`${run}/requests.jsonl`, `${JSON.stringify(body)}\n`);
 		const id = crypto.randomUUID();
-		const frame = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
-			`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`;
+		const frame = (delta: Record<string, unknown>, finishReason: string | null = null) =>
+			`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason: finishReason }] })}\n\n`;
 		const headers = { "content-type": "text/event-stream" };
 		if (body.model === "side") {
 			return new Response((async function* () {

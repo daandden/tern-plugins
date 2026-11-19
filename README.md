@@ -28,14 +28,20 @@ with [Relink after the move](#relink-after-the-move).
 
 ### Tern
 
-Link the five plugin folders, then reload and list the plugins:
+Link the five plugin folders. The command replaces old links for these IDs and checks each target before the final reload:
 
 ```sh
-for id in goto zellij-keys vstack-flow reader-terminal-text toast-above-browser; do
-	tern plugin link "$PWD/tern/$id" || break
-done
-tern plugin reload
-tern plugin list
+(
+	links=$(tern plugin dir) || exit
+	for id in goto zellij-keys vstack-flow reader-terminal-text toast-above-browser; do
+		link="$links/$id.path"
+		if [ -f "$link" ]; then tern plugin unlink "$id" || exit; fi
+		target=$(realpath "$PWD/tern/$id") || exit
+		tern plugin link "$target" || exit
+		test "$(realpath "$(cat "$link")")" = "$target" || exit
+	done
+	tern plugin reload && tern plugin list
+)
 ```
 
 Check that all five show `ready`. `tern plugin reload` exits with code 1 if a plugin fails to load.
@@ -46,8 +52,13 @@ Tern also reloads linked plugins when files in the checkout change.
 Install the locked dependencies and link the plugin:
 
 ```sh
-(cd omp && bun install --frozen-lockfile --ignore-scripts) &&
-	omp plugin link "$PWD/omp"
+(
+	cd omp &&
+		bun install --frozen-lockfile --ignore-scripts &&
+		target=$(pwd -P) &&
+		omp plugin link "$target" &&
+		test "$(realpath "$HOME/.omp/plugins/node_modules/omp-tools")" = "$target"
+)
 ```
 
 `omp-tools` replaces the earlier `omp-ask` plugin. Load only `omp-tools`, with no
@@ -81,22 +92,11 @@ Other calls go to `/usr/bin/open`.
 
 ### Relink after the move
 
-The Tern plugins moved to `tern/<id>/`, and `omp-tools` moved to `omp/` in this
-repo. Run these commands from the checkout you intend to use.
+From the checkout you intend to use, run the [Tern install commands](#tern) to unlink the old `.path`
+files and link the new `tern/<id>/` folders. Check that all five plugins show `ready`.
 
-For Tern, unlink the old links first. If you linked only some of the plugins,
-run `tern plugin unlink` only for those IDs.
-
-```sh
-for id in goto zellij-keys vstack-flow reader-terminal-text toast-above-browser; do
-	tern plugin unlink "$id" || break
-done
-```
-
-Then [link the Tern plugins](#tern), run `tern plugin reload`, and check `tern plugin list` for `ready`.
-
-Install the [omp dependencies](#omp), run `omp plugin link "$PWD/omp"` to replace the old link, and start a
-new omp session. The ID stays `omp-tools`, so your settings and project overrides still apply.
+Run the [omp install commands](#omp) to replace and verify the link to `omp/` before starting a new omp
+session. The ID stays `omp-tools`, so your settings and project overrides still apply.
 
 ## Keybinds
 
@@ -113,7 +113,8 @@ For omp, see the [Picker keys](#picker-keys), [answer editor keys](#edit-and-pas
 ## `goto`
 
 Press F1 to open or close the Go to picker. It lists sessions, their tabs, and the panes of split tabs.
-A one-pane tab has one row. The list shows agent panes by default. Sessions keep Tern's order.
+The Go to picker dims the window like Tern's command palette. A one-pane tab has one row.
+The list shows agent panes by default. Sessions keep Tern's order.
 Tabs sort by tab status, then by working time or waiting time, longest first. Split-tab panes sort by
 time, longest first. Floating panes do not affect tab status.
 
@@ -235,6 +236,7 @@ open editor shows plain text, and the agent receives it. One-line fields drop pa
 In Tern, click a tab to switch. Click an option for Space or double-click for Enter. Buttons run their
 displayed keys: `?`, Space, `n`, `x`, Esc, and Enter. Scroll tall content with the wheel. Each question opens
 at the top and fits its content up to 70% of the pane height, or terminal height in the classic Picker.
+The active omp theme sets the Picker's colors in Tern.
 Set `PI_TUI_NATIVE=0` for the classic text Picker.
 
 #### Review and submit
@@ -280,10 +282,10 @@ hyphenated part. A skill inserts as `/<name>`. Built-in and extension commands a
 #### Picker btw
 
 Press `?` to ask a private Side question about the ask or conversation. The options give way to a thread
-and an editor. Enter sends the question and any pasted images. The answer streams in and later questions
-follow up in the same thread. It can see picks, Other answers, and Notes so far and use the
-[read-only tools](#side-questions). Calls fold into **N tool calls** lines between answer text. In Tern,
-click a line to expand it.
+with the same editor you use for an Other answer. Enter sends the question and any pasted images.
+The answer streams in and later questions follow up in the same thread. Picker btw can see your picks,
+Other answers, and Notes and use the [read-only tools](#side-questions). Calls fold into **N tool calls**
+lines between answer text. In Tern, click a line to expand it.
 
 Esc cancels a running answer and keeps partial text. The next Esc returns to the options without changing
 answers. `?` reopens the thread. PgUp/PgDn scroll it. The thread ends with the ask unless a Picker draft

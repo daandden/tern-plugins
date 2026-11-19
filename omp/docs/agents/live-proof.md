@@ -11,8 +11,17 @@ Dated results of live OMP smokes through the `verify-omp-tools` skill, newest fi
   their representations matched after restore. Both ask runs linked the
   checkout's `omp/` in a disposable home and discovered `generate-image`.
   Both retained the completed transcript byte for byte on stop, while
-  separate bystander instances and the owner's window stayed up. Evidence:
-  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/is24-wt-20261119/26/`.
+  separate bystander instances and the owner's window stayed up.
+  The Go to picker's **Picker status** smoke showed `Waits for your input`
+  and a `Waiting on you` entry while the Picker options, the Picker btw
+  editor, and its streaming answer were open. Submitting Blue changed the
+  row to `Done`. A standalone `/btw` did not mark the pane as waiting for
+  input. The English coach contrast was not driven. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/is24-wt-20261119/26/`
+  (Go to picker in `goto/`). The development smoke repeated the Go to
+  picker result at `9e941e597dd645a2c3431d6cfa2e0852d1ae1798`, with the
+  in-flight Verify helper comment deletions. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/tern-plugins-is24-wt-20261119/`.
 - 2026-11-19, OMP 19.0.0 compatibility: OMP 19.0.0 in isolated headless
   Tern 0.9.28 with `anthropic/claude-haiku-5-5`. Startup showed no
   extension load errors. In Tern, the Picker's native buttons and keys picked,

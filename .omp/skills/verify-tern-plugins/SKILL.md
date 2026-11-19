@@ -30,6 +30,8 @@ Tern reloads linked plugins when a file of the loaded checkout changes, also und
 
 ## Helpers
 
+Install Bun before using the helper. It uses Bun to identify run-owned processes and write WebP shots.
+
 `scripts/tern-verify` sits in the directory that this SKILL.md was read from. Set `V` to its absolute path once per shell:
 
 ```sh
@@ -115,4 +117,6 @@ Save proof at the top level of `RUN` (`<Scratch dir>/verify/tern-plugins-<run-id
 
 Run `"$V" stop "$RUN"` after every run, including failed starts. If `start` refused an existing instance or data dir, leave it alone.
 
-`stop` closes the window, stops the run's daemon and their processes, and checks that they exited. It removes the launcher state, sockets, and the Tern plugin profile's disposable `RUN/data/` and default-home omp session dir for that folder. It keeps notes, logs, PID records, and top-level captures.
+`stop` closes the window, stops the run's daemon and their processes, and checks that they exited. It uses the run's daemon socket environment value, process ancestry, and the kernel sessions of its terminals to identify pane processes. It checks PID start times before sending signals and keeps instance state if it cannot confirm exit. After a successful stop, it removes the launcher state, sockets, and the Tern plugin profile's disposable `RUN/data/` and default-home omp session dir for that folder. It keeps notes, logs, PID records, and top-level captures.
+
+Run `scripts/test-tern-verify` to check that headless `stop` ends a detached pane process and keeps a pre-existing transcript.

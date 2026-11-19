@@ -1,6 +1,7 @@
 /// <reference types="bun" />
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { seedOmp } from "./seed-omp";
 
 const dir = resolve(process.argv[2] ?? (() => { throw new Error("Usage: bun english-coach-provider.ts RUN_DIR"); })());
 const scenario = process.argv[3];
@@ -64,8 +65,9 @@ const models = ["main", "tiny", "side"].map(id => ({
 await Bun.write(`${dir}/provider.ts`, `export default function(pi) {
 	pi.registerProvider("coach-smoke", { baseUrl: "http://127.0.0.1:${server.port}/v1", apiKey: "local-only", api: "openai-completions", models: ${JSON.stringify(models)} });
 }`);
-await Bun.write(`${dir}/smoke-config.yml`, `advisor:\n  enabled: false\nmarketplace:\n  autoUpdate: off\ncompaction:\n  enabled: false\nretry:\n  enabled: false\n  modelFallback: false\nmodelRoles:\n  default: coach-smoke/main\n  smol: coach-smoke/side\n  tiny: coach-smoke/tiny\n  slow: coach-smoke/main\n  plan: coach-smoke/main\n`);
-await Bun.write(`${dir}/data/agent/config.yml`, `setupVersion: 3\n${await Bun.file(`${dir}/smoke-config.yml`).text()}`);
+const config = `advisor:\n  enabled: false\nmarketplace:\n  autoUpdate: off\ncompaction:\n  enabled: false\nretry:\n  enabled: false\n  modelFallback: false\nmodelRoles:\n  default: coach-smoke/main\n  smol: coach-smoke/side\n  tiny: coach-smoke/tiny\n  slow: coach-smoke/main\n  plan: coach-smoke/main\n`;
+await Bun.write(`${dir}/smoke-config.yml`, config);
+await seedOmp(dir, config);
 await Bun.write(`${dir}/prompts.json`, JSON.stringify({
 	mistakes: mistakes.map(([original]) => original).join("; "),
 	correct: "This works correctly.",

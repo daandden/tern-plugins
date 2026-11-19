@@ -1,5 +1,4 @@
 #!/bin/sh
-# Run the local Picker fixture without inheriting credentials or the owner's plugin links.
 set -eu
 [ "$#" -eq 2 ] || { echo 'usage: picker-omp RUN setup|session' >&2; exit 2; }
 run=$(cd "$1" && pwd -P)
@@ -11,19 +10,12 @@ data=$run/data
 agent=$data/agent
 project=$data/project
 local_omp() {
-	env -i PATH="$PATH" TERM="${TERM:-xterm-256color}" SHELL=/bin/zsh \
-		HOME="$data/home" TMPDIR="$data/tmp" PI_CODING_AGENT_DIR="$agent" \
-		TERN_PANE="${TERN_PANE:-}" TERN_PANE_SOCKET="${TERN_PANE_SOCKET:-}" \
-		TERN_WINDOW_KEY="${TERN_WINDOW_KEY:-}" TERN_WINDOW_SOCKET="${TERN_WINDOW_SOCKET:-}" \
-		TERN_CONFIG_DIR="${TERN_CONFIG_DIR:-}" TERN_DAEMON_SOCKET="${TERN_DAEMON_SOCKET:-}" \
-		TERN_EXE="${TERN_EXE:-}" TERN_BLOB_DIR="${TERN_BLOB_DIR:-}" \
-		"$omp" "$@"
+	"$here/isolated-omp" "$run" "$omp" "$@"
 }
 case $mode in
 setup)
 	mkdir -p "$agent" "$project/.omp" "$data/home" "$data/tmp" "$data/sessions"
-	cat >"$agent/config.yml" <<'EOF'
-setupVersion: 3
+	bun "$here/seed-omp.ts" "$run" <<'EOF'
 advisor:
   enabled: false
 marketplace:

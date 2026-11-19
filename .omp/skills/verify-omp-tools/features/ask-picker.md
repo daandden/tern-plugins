@@ -24,7 +24,7 @@ When the agent calls `ask` with an HTML `<form>`, the plugin shows its own picke
 ## How to get to it (user POV)
 
 - Ask the agent for something that makes it call `ask`, or tell it to call `ask` with a given form.
-- Use the local Picker session below for a fixed form without a paid model. For other exact forms, adapt the local provider's `ask` payload.
+- Use the [local Picker session](#local-picker-session) for the fixed radio form. For a different form or tool call, use a local provider that sends those arguments. The fixed provider cannot generate them from a prompt.
 - Keys in the picker; clicks on rows, tabs, and buttons in the Tern view (a click on an option is Space, a double-click is Enter).
 
 ## Driving it with tern ctl
@@ -45,7 +45,7 @@ Preconditions:
 - Required. Ask for a form with a `required` radio group and a second question. Press `h` to the Submit tab and Enter: the picker stays, opens the required question, and shows `Required`.
 - Context. Ask for a form with a heading, a list, a `<pre>`, a `<table>`, and an `<img src>` of a small PNG in the repository. The picker shows them above the options; in the classic TUI a picture the scroll window cuts shows as one `▣ <alt>` line.
 - Pointer (Tern view). Prompt for a two-option `ask` as in Single. Run `$C click '.sf-list-slot .sf-act:nth-child(3)'`. The second option is picked and the picker stays open. Run `$C dblclick '.sf-list-slot .sf-act:nth-child(3)'`. The picker closes and the form data holds the second option's value.
-- Timeout. Start a session with a `--config` file that holds the `advisor:` lines from `../SKILL.md` and `ask:` with `  timeout: 30`. Prompt for a form with a radio group `size` (small, and large `checked`) and press nothing for 45 seconds. The card shows `auto-selected after timeout — not a user choice`, the data is `{"size":"large"}`, and the answer text says the values were submitted automatically. With no option checked, the data omits `size`: nothing is invented. With a `required` empty text field or `<input type="number" name="days" max="10" value="99">`, the result text is `The ask timed out before the user answered its required fields; no answer was given.` with no form data and `details.timedOut`, as native OMP 19 returns.
+- Timeout. Add `ask.timeout: 30` through the [shared setup](../SKILL.md#set-up-disposable-omp). Use a provider that calls `ask` with a radio group `size` (`small`, and `large` checked by default). Press nothing for 45 seconds. The card shows `auto-selected after timeout — not a user choice`, the data is `{"size":"large"}`, and the answer text says the values were submitted automatically. With no option checked, the data omits `size`. With a `required` empty text field or `<input type="number" name="days" max="10" value="99">`, the result text is `The ask timed out before the user answered its required fields; no answer was given.` with no form data and `details.timedOut`, as native OMP 19 returns.
 - Esc and F5. Pick an option and add a note, press Esc, then F5. The picker reopens with `Restored your answers`, the pick and the note, and sends nothing until Enter.
 - Text fields (`ask-text`). Ask for a form with a radio group, `<input name="title">`, `<input type="number" name="days" min="1" max="90">`, `<textarea name="why">`, and `<input type="password" name="token">`. On the title row `$C key Enter` opens its editor; type, paste an image chip, `$C key Enter` saves. On days type `200`, save, go to the Submit tab, and `$C key Enter`: the picker opens Days with `Must be at most 90`. Fix it and submit. The data holds `days` as a number, the textarea's lines, and the token; the token row, the Submit tab, and the card show bullets. Esc before submitting and F5 restore the typed text.
 - Second view. The main session JSONL's `toolResult` for `ask` holds the text the agent received: `User answers:` (or the timeout line) and the form data JSON, then `Option notes:`, `Other answers`, and `Note on all answers:` lines when present. `details.answers` holds one entry per question.
@@ -55,7 +55,9 @@ Preconditions:
 
 ### Local Picker session
 
-Use this fixture for Single, Image in a note, and the Go to picker status drive. For the Tern plugin profile, start Tern before this setup. For the omp-tools profile, run the setup before starting Tern so that `data/sessions/` already exists.
+The fixed provider opens `Pick a color` with Red and Blue for prompts that start with `Call the ask tool`. It echoes the submitted color. Its Side model streams fixed text for about 20 seconds without using tools or interpreting the question. Use it for Single, Image in a note, and Go to picker's Picker status, not for other forms or assertions about Side answer content.
+
+For an omp-tools instance, follow the [shared setup and launch](../SKILL.md#launch) for the fixed Picker smoke. For Go to picker's Picker status, start the Tern plugin profile first and use the setup below with `VERIFY_RUN_DIR=$RUN`.
 
 ```sh
 CHECKOUT=$(git rev-parse --show-toplevel)
@@ -70,7 +72,7 @@ Check the resolved `omp/` link and the four manifest entries. Start `bun "$H/pic
 "$V" type "$VERIFY_RUN_DIR" "OMP_BIN='$OMP_BIN' '$H/picker-omp' '$VERIFY_RUN_DIR' session"
 ```
 
-Type `/skill:generate-image` without submitting. Capture the completion entry and clear the composer. `requests.jsonl` records the local requests. `vfix/main` opens the radio Picker and answers its tool result. `smol` and `tiny` resolve to `vfix/side`, which streams an answer for about 20 seconds.
+Type `/skill:generate-image` without submitting. Capture the completion entry and clear the composer. `requests.jsonl` records the local requests.
 
 ## Gotchas
 

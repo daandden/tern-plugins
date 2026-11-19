@@ -1,14 +1,3 @@
-// Throwaway extension for the `btw-tools`, `btw-agent`, and `btw-usage` checks.
-// Copy it into the checkout's `omp/extensions/` (a file outside the plugin cannot
-// import `@oh-my-pi/*`), run it with the RPC drive, then delete the copy. On the
-// first main `agent_end` it asks a Side question with no `/btw` prompt around
-// it and writes to `VERIFY_PROBE_LOG`: every call's last status, the answer,
-// the tools the mirror offers, and the main session's Side question usage
-// entries (`side-question`, one per request, and `side-question:<purpose>` for
-// the mirror's own off-transcript calls; they outlive the deleted thread file).
-// `VERIFY_PROBE=tools` asks for bash, write, and read; `VERIFY_PROBE=agent`
-// waits 8 s, then asks to read `agent://Sleeper`; `VERIFY_PROBE=usage` asks
-// two threads different questions, one after the other.
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { SideQuestionThread, type SideQuestionToolCall } from "./side-question";

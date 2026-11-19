@@ -1,5 +1,4 @@
 #!/bin/sh
-# Starts and drives a Tern instance in a run-owned config and sockets.
 #
 #   tern-verify start  RUN [--profile tern-plugins|omp-tools] [--headless | --dir DIR]
 #   tern-verify doctor RUN            read-only check of the instance
@@ -72,20 +71,14 @@ plugin_sheets() {
 	ctl css | jq -er '[.sheets[].name | select(startswith("plugin:"))] | join(" ")'
 }
 
-descendants() (
-	for child in $(pgrep -P "$1" || true); do
-		printf '%s\n' "$child"
-		descendants "$child"
-	done
-)
-
 process_stamp() {
-	ps -o lstart= -p "$1" 2>/dev/null
+	stamp=$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null) || return 1
+	printf '%s\n' "${stamp%"${stamp##*[![:space:]]}"}"
 }
 
-snapshot_process() {
-	stamp=$(process_stamp "$1") || return 0
-	printf '%s\n' "$stamp" >"$state/processes/$1"
+find_owned() {
+	pids=$(bun "$script_dir/run-processes.ts" "$daemon_sock" "$state/processes" "$@") ||
+		die "could not identify processes for $run"
 }
 
 owned_alive() {
@@ -144,6 +137,7 @@ start)
 	[ "$mode" = window ] || { [ "$profile" = omp-tools ] && [ -z "$dir" ]; } ||
 		die "--headless requires --profile omp-tools and accepts no --dir"
 	[ -d "$run" ] || die "$run does not exist: make it with mktemp -d"
+	command -v bun >/dev/null || die "bun is required to check for run-owned processes on stop"
 	if [ "$profile" = tern-plugins ]; then
 		[ ! -e "$data" ] || die "$data exists: choose a new run; do not stop this one"
 	fi
@@ -185,7 +179,6 @@ start)
 			iso "$tern_exe" plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
 				die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
 		done
-		# Match a Tern window opened from the Dock.
 		launch_path=/usr/bin:/bin:/usr/sbin:/sbin
 		out=$data
 	fi
@@ -198,8 +191,6 @@ start)
 	fi
 	iso env PATH="$launch_path" SHELL=/bin/zsh "$tern_exe" "$@" \
 		>"$run/$mode.log" 2>&1 </dev/null &
-	launch_pid=$!
-	printf '%s\n' "$launch_pid" >"$state/launch.pid"
 	tries=0
 	until responds; do
 		tries=$((tries + 1))
@@ -375,28 +366,21 @@ stop)
 		set_sockets
 		instance_pid=$(socket_owner "$ctl_sock")
 		daemon_pid=$(socket_owner "$daemon_sock")
-		if [ -z "$instance_pid" ] && [ -s "$state/launch.pid" ]; then
-			launch_pid=$(cat "$state/launch.pid")
-			case $(ps -ww -o command= -p "$launch_pid" 2>/dev/null) in
-			*"$ctl_sock"*) instance_pid=$launch_pid ;;
-			esac
+		find_owned "$instance_pid" "$daemon_pid"
+		if [ -n "$instance_pid" ] && [ -S "$ctl_sock" ] && owned_alive "$instance_pid"; then
+			ctl quit >/dev/null 2>&1 || true
+			wait_for_exit "$instance_pid" || true
 		fi
+		find_owned
+		signal_owned TERM $pids
+		wait_for_exit $pids || true
+		find_owned
+		signal_owned KILL $pids
+		wait_for_exit $pids || die "owned processes did not exit:$left"
+		find_owned
+		[ -z "$pids" ] || die "owned processes did not exit: $pids"
+		rm -rf "$sockets"
 	fi
-	pids=
-	for root_pid in $instance_pid $daemon_pid; do
-		pids="$pids $(descendants "$root_pid") $root_pid"
-	done
-	for pid in $pids; do snapshot_process "$pid"; done
-	if [ -n "$instance_pid" ] && [ -S "$ctl_sock" ]; then
-		ctl quit >/dev/null 2>&1 || true
-		wait_for_exit "$instance_pid" || true
-	fi
-	signal_owned TERM $pids
-	if ! wait_for_exit $pids; then
-		signal_owned KILL $left
-		wait_for_exit $left || die "owned processes did not exit:$left"
-	fi
-	if [ -n "$sockets" ]; then rm -rf "$sockets"; fi
 	if [ -f "$state/disposable-data" ]; then rm -rf "$(omp_session_dir)" "$data"; fi
 	rm -rf "$state"
 	printf 'stopped instance %s and daemon %s; kept:\n' "${instance_pid:-none}" "${daemon_pid:-none}"

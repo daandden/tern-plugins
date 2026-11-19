@@ -1,6 +1,7 @@
 /// <reference types="bun" />
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { seedOmp } from "./seed-omp";
 
 const dir = resolve(process.argv[2] ?? (() => { throw new Error("Usage: bun image-mode-provider.ts RUN_DIR [--mounted]"); })());
 const mounted = process.argv[3] === "--mounted";
@@ -37,9 +38,7 @@ await Bun.write(
 	`${dir}/provider.ts`,
 	`export default function(pi) { pi.registerProvider("image-smoke", { baseUrl: "http://127.0.0.1:${server.port}/v1", apiKey: "local-only", api: "openai-completions", models: ${JSON.stringify(models)} }); }\n`,
 );
-await Bun.write(
-	`${dir}/smoke-config.yml`,
-	`tools:\n  xdev: ${mounted}\nadvisor:\n  enabled: false\nmarketplace:\n  autoUpdate: off\ncompaction:\n  enabled: false\nretry:\n  enabled: false\n  modelFallback: false\nmodelRoles:\n  default: image-smoke/main\n  smol: image-smoke/main\n  tiny: image-smoke/main\n  slow: image-smoke/main\n  plan: image-smoke/main\n`,
-);
-await Bun.write(`${dir}/data/agent/config.yml`, `setupVersion: 3\n${await Bun.file(`${dir}/smoke-config.yml`).text()}`);
+const config = `tools:\n  xdev: ${mounted}\nadvisor:\n  enabled: false\nmarketplace:\n  autoUpdate: off\ncompaction:\n  enabled: false\nretry:\n  enabled: false\n  modelFallback: false\nmodelRoles:\n  default: image-smoke/main\n  smol: image-smoke/main\n  tiny: image-smoke/main\n  slow: image-smoke/main\n  plan: image-smoke/main\n`;
+await Bun.write(`${dir}/smoke-config.yml`, config);
+await seedOmp(dir, config);
 console.log(`ready: http://127.0.0.1:${server.port}`);

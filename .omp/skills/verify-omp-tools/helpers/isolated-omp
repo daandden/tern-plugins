@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+[ "$#" -ge 2 ] || { echo 'usage: isolated-omp RUN OMP_BIN [ARGS...]' >&2; exit 2; }
+data=$1/data
+omp=$2
+shift 2
+exec env -i PATH="$PATH" TERM="${TERM:-xterm-256color}" SHELL=/bin/zsh \
+	HOME="$data/home" TMPDIR="$data/tmp" PI_CODING_AGENT_DIR="$data/agent" \
+	PI_TUI_NATIVE="${PI_TUI_NATIVE:-}" \
+	TERN_PANE="${TERN_PANE:-}" TERN_PANE_SOCKET="${TERN_PANE_SOCKET:-}" \
+	TERN_WINDOW_KEY="${TERN_WINDOW_KEY:-}" TERN_WINDOW_SOCKET="${TERN_WINDOW_SOCKET:-}" \
+	TERN_CONFIG_DIR="${TERN_CONFIG_DIR:-}" TERN_DAEMON_SOCKET="${TERN_DAEMON_SOCKET:-}" \
+	TERN_EXE="${TERN_EXE:-}" TERN_BLOB_DIR="${TERN_BLOB_DIR:-}" \
+	"$omp" "$@"

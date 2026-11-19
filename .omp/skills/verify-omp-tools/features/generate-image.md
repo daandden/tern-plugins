@@ -29,12 +29,17 @@ Results are saved to `$TMPDIR/omp-image-<id>.<webp|png|jpg|gif|svg>`. Raster res
 
 ## Opt-in live API tests
 
-With `OPENAI_API_KEY` set, run `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
-`test/generate-image-openai.live.test.ts` runs three paid checks: a still
-image with complexity, an SVG, and a GIF. Without both environment variables,
-the file skips. Requests are billed to the key's API organization. These
-tests passed on 2026-11-05 in 45 seconds; they do not verify OMP registration
-or tool cards.
+Get the owner's approval before sending any paid request. With approval and
+`OPENAI_API_KEY` set, run this command:
+
+```sh
+(cd "$CHECKOUT/omp" && OMP_TOOLS_LIVE_IMAGES=1 bun test test/generate-image-openai.live.test.ts)
+```
+
+The file skips without both environment variables. It sends three paid
+requests to the key's API organization: a still image with complexity, an
+SVG, and a GIF. These tests passed on 2026-11-05 in 45 seconds. They do not
+verify OMP registration or tool cards.
 
 ## Driving it with tern ctl
 
@@ -53,7 +58,9 @@ Codex mode:
 - File. `file` on the saved path reports `Web/P image`.
 - Edit by path. Run `$C type '"Use generate_image once to edit <saved path> (pass it in referenced_image_paths): make the circle red, keep everything else. Then reply with the saved path only."'`, `$C key Enter`, wait for a second `Saved to`, `$C shot img-edit`. A second card shows `1 reference`, a red circle, and a second saved path.
 
-OpenAI mode (each step is one small paid request; use `quality: "low"` and `size: "1024x1024"` unless the step tests them):
+OpenAI mode (get the owner's approval first; each step sends one paid request):
+
+Use `quality: "low"` and `size: "1024x1024"` unless the step tests them.
 
 - Generate. Same prompt as Codex, asking for `quality low` and `size 1024x1024`. The card shows `Saved to <path>.webp`; `file` reports `Web/P image`.
 - Multiple (`img-multi`). Ask for `n` 2. The card shows `2 images`, two numbered `Saved to` lines, and two images; the reply names two paths.
