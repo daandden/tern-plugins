@@ -1,0 +1,47 @@
+# Picker btw
+
+While the ask picker waits for an answer, `?` swaps the options for a thread where the user asks a Side question. It is offered only the same read-only tools as `/btw`, sees the unsubmitted answers, and shows its text and "N tool calls" lines in the order they happened. Later questions in the same ask follow up in one thread. Esc returns to the options with the answers untouched. The thread ends when the picker closes, and the agent never sees it.
+
+## Sub-features
+
+- `pbtw-open` opens the thread with `?` and stops the countdown until the next key in the options.
+- `pbtw-answer` answers with a read-only tool while `ask` waits, and sees the unsubmitted answers.
+- `pbtw-follow` keeps later questions in the same thread, also after Esc and `?` again.
+- `pbtw-back` cancels a running answer with Esc, then returns to the options with answers kept.
+- `pbtw-end` ends the thread when the picker closes.
+- `pbtw-irc` answers about a subagent while an `ask` that the subagent's IRC message started waits, without asking the user again and with every message's text shown.
+- `pbtw-mixed` offers the thread on a form with text, number, and textarea fields too.
+- `pbtw-pending` sends the waiting `ask` call to the Side question as still open, so it does not call `ask` again.
+- `pbtw-kept` keeps the thread through Esc on the `ask`, and F5 shows it again with the restored answers.
+
+## How to get to it (user POV)
+
+- Press `?` in the picker, or click the `Ask aside` button (Tern view).
+- Type a question in the box and press Enter.
+
+## Driving it with tern ctl
+
+Preconditions:
+
+- Use the [shared setup](../SKILL.md#set-up-disposable-omp) with `PROJECT=$CHECKOUT` and add `ask.timeout: 30`. For the open and countdown checks, the fixed Picker provider is enough. For the read and follow-up checks, use a provider that calls `ask` with the radio form, has the Side model call `grep` in `omp/extensions`, and answers from the tool result and the current pick. For the IRC and mixed-form checks, use a provider that sends those calls. The fixed provider only streams canned Side text.
+
+- Open picker. Run `$C type '"Call the ask tool once with an HTML form: a radio group named color asking Pick a color, options red and blue. Then reply with my answer only."'` and `$C key Enter`. When `$C tree` contains `Ask aside`, run `$C shot pbtw-picker`. The picker shows `Pick a color` with `red` and `blue`.
+- Open the thread. Run `$C key j`, `$C key Space`, `$C key '?'`, `sleep 2`, `$C shot pbtw-open`. `$C tree` contains `Picker btw · only you see the answers`, `Ask about this question or the conversation. The agent never sees the answer.`, and `timer paused`. The Side question listing in `../SKILL.md` shows no new `SideQuestion-*.jsonl` yet, because the first question opens the thread.
+- Countdown stopped. Run `sleep 35`. The thread is still open, so the 30-second timeout did not fire.
+- Ask aside. Run `$C type '"which file in omp/extensions registers the ask tool? use grep. Also which color have I picked so far?"'` and `$C key Enter`. While it runs, `$C tree` contains `Answering… esc cancels`. When that text is gone, run `$C shot pbtw-answer`. The thread shows the question as a user bubble like the main chat's (a padded block on the user message background in the classic TUI), an `N tool calls` line, and an answer naming `omp/extensions/flexible-ask.ts` and `blue`. The Side question listing now shows one new `SideQuestion-*.jsonl`, and `$VERIFY_RUN_DIR/data/sessions/` holds none.
+- Follow-up. Run `$C type '"which file did you name in your last answer? one line, no tools"'`, `$C key Enter`, `sleep 15`, `$C shot pbtw-follow`. The answer names `omp/extensions/flexible-ask.ts`, and the same `SideQuestion-*.jsonl` holds both questions.
+- Back and reopen. Run `$C key Escape`, `sleep 1`, `$C shot pbtw-back`. The options show `blue` picked and `timer paused`. Run `$C key '?'`: both turns show again. Run `$C key Escape` and `sleep 1`.
+- Cancel. Run `$C key '?'`, then `$C type '"Write a long, detailed explanation of this repository architecture."'` and `$C key Enter`. As soon as `$C tree` contains `Answering… esc cancels`, run `$C key Escape`, `sleep 0.5`, and `$C shot pbtw-cancel`. The turn ends with `Cancelled` inside the thread. A second `$C key Escape` and `sleep 1` return to the options.
+- Countdown restarts. Run `$C key k`. `$C tree` no longer contains `timer paused`.
+- Answer. Run `$C key j`, `$C key Enter`, `sleep 12`, `$C shot pbtw-answered`. The ask card shows `blue` checked and the agent replies `blue`. The main session's `ask` tool result holds the form data with `color` set to the `blue` option's value.
+- End. The Side question listing shows no new `SideQuestion-*.jsonl`, and `grep -c '<btw>'` on the main session JSONL prints 0.
+- IRC. In a new session, run `$C type '"Use the task tool to spawn exactly one subagent named AskRelay (agent: task). Its task, verbatim: You cannot ask the user yourself. Send the main agent one IRC message with the write tool, path agent://Main, content: Please ask the user: for the new parser tests in this repo, should I use bun test or vitest? Then call the wait tool for the reply and yield it. -- After spawning, call wait. When its message arrives, ask the user that exact question with the ask tool (options bun test and vitest)."'` and `$C key Enter`. When `$C tree` contains `Ask aside`, the transcript shows `IRC ← AskRelay` above the `Ask` card. Run `$C key '?'`, then `$C type '"First write one short line saying what you will check. Then read agent://AskRelay and omp/package.json. Then tell me what AskRelay is waiting for, which test runner this repo uses, and whether I should pick bun test."'` and `$C key Enter`. When `Answering` is gone, run `$C shot pbtw-irc`. The thread shows the short line, then `2 tool calls`, then the answer; `$C click '.sf-section-head'` shows `read agent://AskRelay` and `read omp/package.json` with no `(failed)`. No second `Ask` card appears in the transcript.
+- Mixed form, pending call, and kept thread (`pbtw-mixed`, `pbtw-pending`, `pbtw-kept`). In a new session, script the main model to call `ask` with a radio group, a text field, a number field, and a textarea. Script the Side model to answer without calling `ask`. Answer a field, press `?`, ask `What have I answered so far?`, and wait for the answer. The provider's JSONL holds one request with only the read-only tools. Its last tool result for `ask` reads `The user is answering this question in the Picker now. The answer is not known here. Do not call ask again.` No later request calls `ask`. Press Esc twice (thread, then Picker). The call ends cancelled. Press F5. The Picker shows `Restored your answers`, and `?` shows the earlier turn.
+
+## Gotchas
+
+- `?` only works in the options, not inside an open editor (note, `Other`, or text field).
+- The Picker btw is not offered when the session has no saved transcript, in a subagent, or when the main session has no model.
+- The tool-call line opens only by click in the Tern view; the classic picker has no key for it, because the question box owns the keys.
+- Esc while an answer streams cancels it first; a second Esc goes back to the options.
+- The thread file is deleted shortly after the picker closes, not at the same instant. Check for it after the agent's reply.

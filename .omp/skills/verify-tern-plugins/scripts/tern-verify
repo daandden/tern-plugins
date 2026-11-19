@@ -1,16 +1,13 @@
 #!/bin/sh
-# Runs one isolated Tern window that loads the plugins of one tern-plugins checkout, and drives it.
-# Every command takes the run dir first. The instance keeps all of its state in RUN/data: its own
-# configuration dir, daemon socket and control socket, so it never touches the Tern that you use.
 #
-#   tern-verify start  RUN            link the plugins, copy settings.json, open the window, wait
+#   tern-verify start  RUN [--profile tern-plugins|omp-tools] [--headless | --dir DIR]
 #   tern-verify doctor RUN            read-only check of the instance
 #   tern-verify ctl    RUN ARGS...    `tern ctl` on the instance's control socket
 #   tern-verify tern   RUN ARGS...    any `tern` CLI command against the instance
 #   tern-verify type   RUN LINE       types LINE and Enter into the focused pane
 #   tern-verify shot   RUN NAME       RUN/NAME.webp (lossless) and RUN/NAME.layout.json
 #   tern-verify lens   RUN            links RUN/link-lens: `echo PROBE_LINK URL` shows URL as a link
-#   tern-verify stop   RUN            close the window, stop its daemon, remove RUN/data
+#   tern-verify stop   RUN            stop the instance and remove its state
 #
 # TERN_PLUGINS_REPO overrides the checkout whose plugins load (default: the checkout of this file).
 
@@ -30,11 +27,29 @@ esac
 shift 2
 
 data=$run/data
-cfg=$data/config
-ctl_sock=$data/ctl.sock
-daemon_sock=$data/daemon.sock
+state=$run/instance
+cfg=$state/config
 script_dir=$(cd "$(dirname "$0")" && pwd -P)
 repo=${TERN_PLUGINS_REPO:-$(git -C "$script_dir" rev-parse --show-toplevel)}
+
+if [ "$cmd" != start ]; then
+	[ -d "$state" ] || die "no instance in $run"
+	profile=$(cat "$state/profile")
+	mode=$(cat "$state/mode")
+	sockets=$(cat "$state/sockets" 2>/dev/null || true)
+fi
+
+set_sockets() {
+	case ${sockets:-} in
+	/tmp/tern-verify.*)
+		[ "${sockets%/*}" = /tmp ] && [ -d "$sockets" ] && [ ! -L "$sockets" ] ||
+			die "invalid socket directory: $sockets"
+		;;
+	*) die "missing run-owned sockets for $run" ;;
+	esac
+	ctl_sock=$sockets/ctl.sock
+	daemon_sock=$sockets/daemon.sock
+}
 
 # A tern command against this instance only. With the TERN_PANE* and TERN_WINDOW* variables of the
 # calling pane, a CLI command goes to the window of that pane.
@@ -46,6 +61,51 @@ iso() {
 
 ctl() {
 	iso tern ctl --control "$ctl_sock" "$@"
+}
+
+responds() {
+	[ -S "$ctl_sock" ] && ctl state 2>/dev/null | jq -e '.ok' >/dev/null
+}
+
+plugin_sheets() {
+	ctl css | jq -er '[.sheets[].name | select(startswith("plugin:"))] | join(" ")'
+}
+
+process_stamp() {
+	stamp=$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null) || return 1
+	printf '%s\n' "${stamp%"${stamp##*[![:space:]]}"}"
+}
+
+find_owned() {
+	pids=$(bun "$script_dir/run-processes.ts" "$daemon_sock" "$state/processes" "$@") ||
+		die "could not identify processes for $run"
+}
+
+owned_alive() {
+	[ -s "$state/processes/$1" ] &&
+		[ "$(process_stamp "$1")" = "$(cat "$state/processes/$1")" ]
+}
+
+wait_for_exit() {
+	tries=0
+	while :; do
+		left=
+		for pid do
+			if owned_alive "$pid"; then left="$left $pid"; fi
+		done
+		[ -n "$left" ] || return 0
+		[ "$tries" -lt 8 ] || return 1
+		tries=$((tries + 1))
+		sleep 0.25
+	done
+}
+
+signal_owned() {
+	signal=$1
+	shift
+	for pid do
+		if owned_alive "$pid"; then kill "-$signal" "$pid" 2>/dev/null || true; fi
+	done
 }
 
 # The pid that holds a socket file open, or nothing.
@@ -61,18 +121,49 @@ omp_session_dir() {
 
 case $cmd in
 start)
+	profile=tern-plugins
+	mode=window
+	dir=
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--profile) [ $# -ge 2 ] || die "--profile needs a name"; profile=$2; shift ;;
+		--headless) mode=serve ;;
+		--dir) [ $# -ge 2 ] || die "--dir needs a path"; dir=$2; shift ;;
+		*) die "unknown start option: $1" ;;
+		esac
+		shift
+	done
+	case $profile in tern-plugins|omp-tools) ;; *) die "unknown profile: $profile" ;; esac
+	[ "$mode" = window ] || { [ "$profile" = omp-tools ] && [ -z "$dir" ]; } ||
+		die "--headless requires --profile omp-tools and accepts no --dir"
 	[ -d "$run" ] || die "$run does not exist: make it with mktemp -d"
-	# mkdir without -p fails when the dir exists, so two starts on one run dir cannot both pass.
-	mkdir "$data" 2>/dev/null || die "$data exists: another run owns $run, so do not stop it"
-	mkdir "$cfg"
-	if [ -f "$HOME/.config/tern/settings.json" ]; then
-		cp "$HOME/.config/tern/settings.json" "$cfg/settings.json"
-	else
-		echo '{}' >"$cfg/settings.json"
+	command -v bun >/dev/null || die "bun is required to check for run-owned processes on stop"
+	if [ "$profile" = tern-plugins ]; then
+		[ ! -e "$data" ] || die "$data exists: choose a new run; do not stop this one"
 	fi
-	# The user's login shell. Without it, Tern starts the $SHELL of the process that ran start.
-	jq '.shell = "/bin/zsh"' "$cfg/settings.json" >"$cfg/settings.json.new"
-	mv "$cfg/settings.json.new" "$cfg/settings.json"
+	mkdir "$state" 2>/dev/null || die "$state exists: another run owns $run, so do not stop it"
+	printf '%s\n' "$profile" >"$state/profile"
+	printf '%s\n' "$mode" >"$state/mode"
+	mkdir "$cfg" "$state/processes"
+	sockets=$(mktemp -d /tmp/tern-verify.XXXXXX)
+	printf '%s\n' "$sockets" >"$state/sockets"
+	set_sockets
+
+	if [ "$profile" = tern-plugins ]; then
+		mkdir "$data"
+		: >"$state/disposable-data"
+		if [ -f "$HOME/.config/tern/settings.json" ]; then
+			jq '.shell = "/bin/zsh"' "$HOME/.config/tern/settings.json" >"$cfg/settings.json"
+		else
+			printf '{"shell":"/bin/zsh"}\n' >"$cfg/settings.json"
+		fi
+		dir=${dir:-$data}
+	else
+		printf '{"shell":"/bin/zsh"}\n' >"$cfg/settings.json"
+		dir=${dir:-$run}
+	fi
+	[ -d "$dir" ] || die "tab folder does not exist: $dir"
+	dir=$(cd "$dir" && pwd -P)
 	# A config dir with no omp state makes Tern show its native "Tern is better with omp. Install it?"
 	# alert on top of the screen. This is the state that Tern writes when you answer Not Now.
 	mkdir "$cfg/omp"
@@ -80,68 +171,98 @@ start)
 	# Tern 0.9.26 opens its "macOS permissions" dialog in a config dir without this marker, and the
 	# dialog takes the keys that a run sends. Tern writes the empty file once it showed the dialog.
 	: >"$cfg/permissions-offered"
-	for manifest in "$repo"/*/plugin.toml; do
-		iso tern plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
-			die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
-	done
-	/usr/bin/caffeinate -u -t 2
-	# Simulate a launcher PATH without Homebrew so plugins do not inherit the agent shell's PATH.
 	tern_exe=$(command -v tern) || die "tern is not on PATH"
-	cd "$data"
-	env -u TERN_PANE -u TERN_PANE_SOCKET -u TERN_WINDOW_KEY -u TERN_WINDOW_SOCKET \
-		-u TERN_IDENTITY -u TERN_EXE -u TERN_BLOB_DIR -u TERN_LENSES -u TERN_COMPLETE \
-		PATH=/usr/bin:/bin:/usr/sbin:/sbin TERN_CONFIG_DIR="$cfg" TERN_DAEMON_SOCKET="$daemon_sock" \
-		"$tern_exe" --control "$ctl_sock" "$data" >"$run/window.log" 2>&1 </dev/null &
-	echo $! >"$data/window.pid"
-	/usr/bin/caffeinate -d -w "$!" >/dev/null 2>&1 &
+	launch_path=$PATH
+	out=$run
+	if [ "$profile" = tern-plugins ]; then
+		for manifest in "$repo"/tern/*/plugin.toml; do
+			iso "$tern_exe" plugin link "$(dirname "$manifest")" >>"$run/start.log" 2>&1 ||
+				die "plugin link failed for $(dirname "$manifest"), see $run/start.log"
+		done
+		launch_path=/usr/bin:/bin:/usr/sbin:/sbin
+		out=$data
+	fi
+	cd "$out"
+	if [ "$mode" = serve ]; then
+		set -- serve --control "$ctl_sock" --out "$run"
+	else
+		/usr/bin/caffeinate -u -t 2
+		set -- --control "$ctl_sock" --dir "$dir"
+	fi
+	iso env PATH="$launch_path" SHELL=/bin/zsh "$tern_exe" "$@" \
+		>"$run/$mode.log" 2>&1 </dev/null &
 	tries=0
-	until [ -S "$ctl_sock" ] && ctl css 2>/dev/null | grep -q '"plugin:local:'; do
+	until responds; do
 		tries=$((tries + 1))
-		[ $tries -le 60 ] || die "no plugin sheets after 30 s, see $run/window.log"
+		[ "$tries" -le 60 ] || die "no control reply after 30 s, see $run/$mode.log"
 		sleep 0.5
 	done
-	ctl ready >/dev/null || die "no shell prompt, see $run/window.log"
-	socket_owner "$daemon_sock" >"$data/daemon.pid"
-	[ -s "$data/daemon.pid" ] || die "no session daemon on $daemon_sock, see $run/window.log"
-	printf 'ready: window pid %s, daemon pid %s, repo %s\n' \
-		"$(cat "$data/window.pid")" "$(cat "$data/daemon.pid")" "$repo"
+	instance_pid=$(socket_owner "$ctl_sock")
+	[ -n "$instance_pid" ] || die "no owner for $ctl_sock"
+	printf '%s\n' "$instance_pid" >"$run/instance.pid"
+	daemon_pid=
+	if [ "$mode" = window ]; then
+		/usr/bin/caffeinate -d -w "$instance_pid" >/dev/null 2>&1 &
+		ctl ready >/dev/null || die "no shell prompt, see $run/window.log"
+		tries=0
+		while daemon_pid=$(socket_owner "$daemon_sock") && [ -z "$daemon_pid" ]; do
+			tries=$((tries + 1))
+			[ "$tries" -le 20 ] || die "no session daemon on $daemon_sock, see $run/window.log"
+			sleep 0.5
+		done
+	fi
+	printf '%s\n' "$daemon_pid" >"$run/daemon.pid"
+	if [ "$profile" = tern-plugins ]; then
+		tries=0
+		until ctl css 2>/dev/null | grep -q '"plugin:local:'; do
+			tries=$((tries + 1))
+			[ "$tries" -le 60 ] || die "no plugin sheets after 30 s, see $run/window.log"
+			sleep 0.5
+		done
+	fi
+	printf 'ready: %s pid %s, daemon pid %s, repo %s\n' \
+		"$mode" "$instance_pid" "${daemon_pid:-none}" "$repo"
 	;;
 doctor)
+	set_sockets
 	status=0
-	window_pid=$(cat "$data/window.pid" 2>/dev/null || true)
-	printf 'run:        %s\n' "$run"
+	instance_pid=$(cat "$run/instance.pid" 2>/dev/null || true)
+	printf 'run:        %s (%s, %s)\n' "$run" "$profile" "$mode"
 	printf 'repo:       %s (%s)\n' "$repo" "$(git -C "$repo" rev-parse --short HEAD)"
 	printf 'tern:       %s\n' "$(tern --version)"
-	if [ -n "$window_pid" ] && kill -0 "$window_pid" 2>/dev/null; then
-		printf 'window:     pid %s alive\n' "$window_pid"
-	else
-		printf 'window:     NOT RUNNING (pid %s)\n' "${window_pid:-none}"
-		status=1
+	control_pid=$(socket_owner "$ctl_sock")
+	printf 'control:    owner %s (started as %s)\n' "${control_pid:-none}" "${instance_pid:-none}"
+	[ -n "$control_pid" ] && [ "$control_pid" = "$instance_pid" ] || status=1
+	if [ "$mode" = window ]; then
+		daemon_pid=$(socket_owner "$daemon_sock")
+		if [ -n "$daemon_pid" ]; then
+			printf 'daemon:     pid %s (started as %s)\n' "$daemon_pid" "$(cat "$run/daemon.pid")"
+		else
+			printf 'daemon:     NOT RUNNING\n'
+			status=1
+		fi
 	fi
-	printf 'ctl.sock:   owner %s\n' "$(socket_owner "$ctl_sock")"
-	daemon_pid=$(socket_owner "$daemon_sock")
-	if [ -n "$daemon_pid" ]; then
-		printf 'daemon:     pid %s (started as %s)\n' "$daemon_pid" "$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
-	else
-		printf 'daemon:     NOT RUNNING (started as %s)\n' "$(cat "$data/daemon.pid" 2>/dev/null || echo none)"
-		status=1
-	fi
-	if ! ctl state >"$data/doctor-state.json" 2>&1; then
-		printf 'ctl state:  FAILED: %s\n' "$(cat "$data/doctor-state.json")"
+	if ! ctl state >"$state/doctor-state.json" 2>&1; then
+		printf 'ctl state:  FAILED: %s\n' "$(cat "$state/doctor-state.json")"
 		status=1
 	else
-		printf 'sessions:   %s\n' "$(jq -c '[.sessions[] | {name, tabs}]' "$data/doctor-state.json")"
-		printf 'focused:    %s\n' "$(jq -c '.focused | {id, label}' "$data/doctor-state.json")"
+		printf 'sessions:   %s\n' "$(jq -c '[.sessions[] | {name, tabs}]' "$state/doctor-state.json")"
+		printf 'focused:    %s\n' "$(jq -c '.focused | {id, label}' "$state/doctor-state.json")"
 	fi
-	daemon_sessions=$(iso tern ls 2>&1) || status=1
-	if [ "$daemon_sessions" = "no sessions" ]; then
-		printf 'daemon sessions: NONE\n'
-		status=1
+	if [ "$mode" = window ]; then
+		daemon_sessions=$(iso tern ls 2>&1) || status=1
+		if [ "$daemon_sessions" = "no sessions" ]; then
+			printf 'daemon sessions: NONE\n'
+			status=1
+		fi
 	fi
 	printf 'plugins:\n'
-	iso tern plugin list | sed 's/^/  /'
-	if iso tern plugin list | grep -qv ' ready$'; then status=1; fi
+	plugins=$(iso tern plugin list) || status=1
+	printf '%s\n' "$plugins" | sed 's/^/  /'
+	if [ -n "$plugins" ] && [ "$plugins" != 'no plugins' ] &&
+		printf '%s\n' "$plugins" | grep -qv ' ready$'; then status=1; fi
 	for link in "$cfg"/plugins/*.path; do
+		[ -f "$link" ] || continue
 		target=$(cat "$link")
 		case $target in
 		"$repo"/*) ;;
@@ -152,13 +273,17 @@ doctor)
 			;;
 		esac
 	done
-	printf 'sheets:     %s\n' "$(ctl css | jq -r '[.sheets[].name | select(startswith("plugin:"))] | join(" ")')"
-	account=$(ctl a11y | jq -r '[.. | objects | select(.role == "Button") | .name // empty
-		| select(startswith("Signed in to Stencil"))][0] // "NOT SIGNED IN"')
-	printf 'account:    %s\n' "$account"
-	[ "$account" != "NOT SIGNED IN" ] || status=1
+	sheets=$(plugin_sheets) || status=1
+	printf 'sheets:     %s\n' "$sheets"
+	if [ "$profile" = tern-plugins ]; then
+		[ -n "$sheets" ] || status=1
+		account=$(ctl a11y | jq -r '[.. | objects | select(.role == "Button") | .name // empty
+			| select(startswith("Signed in to Stencil"))][0] // "NOT SIGNED IN"')
+		printf 'account:    %s\n' "$account"
+		[ "$account" != "NOT SIGNED IN" ] || status=1
+	fi
 	# Shots do not show a native alert, so list it here.
-	alerts=$(ctl system | jq -r '.dialogs[] | "\(.message) \(.buttons)"')
+	alerts=$(ctl system | jq -er '.dialogs | map("\(.message) \(.buttons)") | join("\n")') || status=1
 	if [ -n "$alerts" ]; then
 		printf 'NATIVE ALERT OPEN: %s\n' "$alerts"
 		status=1
@@ -168,22 +293,30 @@ doctor)
 	exit $status
 	;;
 ctl)
+	set_sockets
 	ctl "$@"
 	;;
 tern)
+	set_sockets
 	iso tern "$@"
 	;;
 type)
+	set_sockets
 	[ $# -eq 1 ] || die "usage: tern-verify type RUN 'command line'"
 	case $1 in *'"'*) die "the command line cannot hold a double quote" ;; esac
 	ctl run "\"$1\""
 	;;
 shot)
+	set_sockets
 	[ $# -eq 1 ] || die "usage: tern-verify shot RUN NAME"
 	name=$1
 	reply=$(ctl shot "$name")
-	png=$data/$(printf %s "$reply" | jq -r .png)
-	layout=$data/$(printf %s "$reply" | jq -r .layout)
+	base=$run
+	[ "$profile" != tern-plugins ] || base=$data
+	png=$(printf %s "$reply" | jq -er .png)
+	layout=$(printf %s "$reply" | jq -er .layout)
+	case $png in /*) ;; *) png=$base/$png ;; esac
+	case $layout in /*) ;; *) layout=$base/$layout ;; esac
 	bun -e 'const [png, out] = process.argv.slice(1);
 await Bun.write(out, await new Bun.Image(await Bun.file(png).bytes()).webp({ lossless: true }).bytes());' \
 		"$png" "$run/$name.webp"
@@ -192,6 +325,7 @@ await Bun.write(out, await new Bun.Image(await Bun.file(png).bytes()).webp({ los
 	printf '%s\n%s\n' "$run/$name.webp" "$run/$name.layout.json"
 	;;
 lens)
+	set_sockets
 	lens=$run/link-lens
 	mkdir -p "$lens"
 	cat >"$lens/plugin.toml" <<'EOF'
@@ -226,38 +360,30 @@ EOF
 	iso tern plugin reload
 	;;
 stop)
-	window_pid=$(cat "$data/window.pid" 2>/dev/null || true)
-	daemon_pid=$(socket_owner "$daemon_sock")
-	[ -n "$daemon_pid" ] || daemon_pid=$(cat "$data/daemon.pid" 2>/dev/null || true)
-	if [ -S "$ctl_sock" ]; then ctl quit >/dev/null 2>&1 || true; fi
-	# `ctl quit` closes the window. The daemon keeps running, and its panes end when it stops.
-	# The window gets 2 s to close by itself, the daemon gets SIGTERM at once.
-	for pid in $window_pid $daemon_pid; do
-		[ "$pid" = "$daemon_pid" ] && kill "$pid" 2>/dev/null || true
-		tries=0
-		while kill -0 "$pid" 2>/dev/null && [ $tries -lt 20 ]; do
-			if [ $tries -eq 8 ]; then kill "$pid" 2>/dev/null || true; fi
-			tries=$((tries + 1))
-			sleep 0.25
-		done
-		if kill -0 "$pid" 2>/dev/null; then
-			printf 'pid %s still runs after SIGTERM, sending SIGKILL\n' "$pid"
-			kill -9 "$pid" 2>/dev/null || true
+	instance_pid=
+	daemon_pid=
+	if [ -n "$sockets" ]; then
+		set_sockets
+		instance_pid=$(socket_owner "$ctl_sock")
+		daemon_pid=$(socket_owner "$daemon_sock")
+		find_owned "$instance_pid" "$daemon_pid"
+		if [ -n "$instance_pid" ] && [ -S "$ctl_sock" ] && owned_alive "$instance_pid"; then
+			ctl quit >/dev/null 2>&1 || true
+			wait_for_exit "$instance_pid" || true
 		fi
-	done
-	# A pane program can outlive the daemon and ignore SIGTERM. Its command line can name a file
-	# in RUN/data, a dir that only this run has.
-	leftovers() { ps -Ao pid=,command= | grep -F "$data/" | grep -v grep | awk '{print $1}' || true; }
-	pids=$(leftovers)
-	if [ -n "$pids" ]; then
-		printf 'ending leftover processes of this run: %s\n' "$(echo $pids)"
-		kill $pids 2>/dev/null || true
-		sleep 1
-		pids=$(leftovers)
-		[ -z "$pids" ] || kill -9 $pids 2>/dev/null || true
+		find_owned
+		signal_owned TERM $pids
+		wait_for_exit $pids || true
+		find_owned
+		signal_owned KILL $pids
+		wait_for_exit $pids || die "owned processes did not exit:$left"
+		find_owned
+		[ -z "$pids" ] || die "owned processes did not exit: $pids"
+		rm -rf "$sockets"
 	fi
-	rm -rf "$(omp_session_dir)" "$data"
-	printf 'stopped window %s and daemon %s; kept:\n' "${window_pid:-none}" "${daemon_pid:-none}"
+	if [ -f "$state/disposable-data" ]; then rm -rf "$(omp_session_dir)" "$data"; fi
+	rm -rf "$state"
+	printf 'stopped instance %s and daemon %s; kept:\n' "${instance_pid:-none}" "${daemon_pid:-none}"
 	ls -1 "$run"
 	;;
 *)

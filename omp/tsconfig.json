@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
+		"strict": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+		"types": [
+			"bun-types"
+		]
+	},
+	"include": [
+		"extensions/**/*.ts",
+		"scripts/**/*.ts",
+		"test/**/*.ts"
+	]
+}

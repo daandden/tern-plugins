@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+[ "$#" -eq 2 ] || { echo 'usage: picker-omp RUN setup|session' >&2; exit 2; }
+run=$(cd "$1" && pwd -P)
+mode=$2
+here=$(cd "$(dirname "$0")" && pwd -P)
+checkout=$(git -C "$here" rev-parse --show-toplevel)
+omp=${OMP_BIN:-$(command -v omp)}
+data=$run/data
+agent=$data/agent
+project=$data/project
+local_omp() {
+	"$here/isolated-omp" "$run" "$omp" "$@"
+}
+case $mode in
+setup)
+	mkdir -p "$agent" "$project/.omp" "$data/home" "$data/tmp" "$data/sessions"
+	bun "$here/seed-omp.ts" "$run" <<'EOF'
+advisor:
+  enabled: false
+marketplace:
+  autoUpdate: off
+compaction:
+  enabled: false
+retry:
+  enabled: false
+  modelFallback: false
+modelRoles:
+  default: vfix/main
+  smol: vfix/side
+  tiny: vfix/side
+EOF
+	printf '%s\n' '{"settings":{"omp-tools":{"englishCoach":false}}}' >"$project/.omp/plugin-overrides.json"
+	cd "$project"
+	printf 'checkout: %s (%s)\nomp: %s\n' "$checkout" "$(git -C "$checkout" rev-parse HEAD)" "$("$omp" --version)"
+	local_omp plugin link "$checkout/omp"
+	link=$(realpath "$data/home/.omp/plugins/node_modules/omp-tools")
+	[ "$link" = "$checkout/omp" ]
+	printf 'linked plugin: %s\n' "$link"
+	local_omp plugin list --json
+	printf 'skill: %s\n' "$link/skills/generate-image/SKILL.md"
+	;;
+session)
+	cd "$project"
+	local_omp -e "$run/provider.ts" --model vfix/main --session-dir "$data/sessions"
+	;;
+*) echo "unknown command: $mode" >&2; exit 2 ;;
+esac

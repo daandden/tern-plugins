@@ -4,7 +4,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 
 ## Baseline preconditions
 
-- `RUN` is a new dir `<Scratch dir>/verify/tern-plugins-<run-id>`. Proof and `notes.md` go at its top level, app data in `RUN/data`.
+- `RUN` is a new dir `<Scratch dir>/verify/tern-plugins-<run-id>`. Put proof and `notes.md` at its top level and test files in `RUN/data`.
 - `"$V" start "$RUN"` printed `ready`, and `"$V" doctor "$RUN"` exits 0.
 - The instance has one session, `Default`, with one tab and one zsh pane in `RUN/data`. Its `settings.json` is a copy of `~/.config/tern/settings.json` with `shell` set to `/bin/zsh`, so the keys of `keybinds.html` work, `$status` works in typed lines, and `reduce_motion` starts as `off`. If `"$V" type "$RUN" 'echo SHELL=$0'` does not show `SHELL=/bin/zsh` in `"$V" tern "$RUN" capture <id>`, the run is not at the baseline: stop it and report the shell.
 - Test files go in `RUN/data`. Make them before the step that opens them, and always write them by absolute path, for example `printf '<!doctype html><title>Verify page</title><h1>First</h1>\n' >"$RUN/data/page.html"`. Do not `cd` there first: when the `cd` fails, the files go into the checkout and can overwrite a tracked file (on macOS, `readme.md` is `README.md`).
@@ -16,7 +16,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 - Prefer a key press from `keybinds.html` or the command palette. They are the user paths. `plugins run` skips the key binding and proves only the command.
 - Get pane ids from `"$V" tern "$RUN" ls`. A pane id is stable for the life of the pane. A pane number in the goto picker or a position in the window is not.
 - Wait for a result by polling a handle (`tree`, `dump`, `tern ls`) in a loop with a limit, not by one fixed sleep. Each step below names the handle.
-- After a mutation, read the stored result a second way: `settings.json` or `kv.json` under `RUN/data/config`, the panes in `"$V" tern "$RUN" ls`, or the pane output through `"$V" tern "$RUN" capture ID`.
+- After a mutation, read the stored result a second way: `settings.json` or `kv.json` under `RUN/instance/config`, the panes in `"$V" tern "$RUN" ls`, or the pane output through `"$V" tern "$RUN" capture ID`.
 
 ## Proof and skip reporting
 
@@ -24,7 +24,7 @@ This directory is the source for verifying what the plugins of this repo do for 
 - For a typed command, keep the command, its output and its exit code from `capture`.
 - In `RUN/notes.md`, write the commit under test, then for each check the feature ID, the entry point, the evidence files and the result.
 - If an entry point cannot run, write the command you tried and the precondition that failed. Do not report it as verified through another entry point.
-- If a step fails, run `"$V" doctor "$RUN"` and read the header comment of the plugin's `window.luau` (and `goto/host.luau`) before you report a bug. The plugins change often, and the comment states the intended behavior.
+- If a step fails, run `"$V" doctor "$RUN"`. Before reporting a bug, read the header comment in `tern/<id>/window.luau` and, for the Go to picker, `tern/goto/host.luau`.
 
 ## Feature entry contract
 
