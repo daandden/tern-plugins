@@ -8,6 +8,12 @@ Protocol, OMP calls `describe(cx)` instead of `render()`.
   because a `col` with `max.h` only clips. Put the `scroll` request on the
   content: Tern scrolls the scroller at or above the asking node, and the
   list's scroller is inside the list node.
+- Since omp 19.0.1, Tern's native dock puts `aboveEditor` widgets (the `/btw`
+  and English coach panels) above the working row and the tray, not next to
+  the composer, and drops the blank spacer row that came before them
+  ([oh-my-pi#19767](https://github.com/can1357/oh-my-pi/issues/19767)). The
+  panels need no spacing of their own for it: the coach's 13px bottom padding
+  balances its text's descent.
 - Tern's sheets style only `omp.*` roles, so each view sends its own sheet
   (the `s` verb) with every `describe` when `cx.feature("styles")`: the
   Picker's `NATIVE_SHEET`, `omp-tools-btw`, and `omp-tools-english-coach`. A

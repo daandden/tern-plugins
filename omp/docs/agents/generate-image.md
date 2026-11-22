@@ -53,10 +53,14 @@ rendered with the Default image generation mode.
   `mergeCallAndResult`. It shows `Mode: <label>` (with `the Default image
   generation mode` when `mode` is omitted) and the host's
   `formatApprovalArguments` output.
-  A mounted `write xd://generate_image` approval shows only the supplied
-  JSON. OMP 18.22.0 keeps the JSON key order and truncates the formatted
-  arguments at 2,000 characters. The tool description and prompting skill
-  tell the agent to put `mode` first so a long `prompt` cannot hide it.
+  Since OMP 19.1, a session with `tools.commands` on (the default) runs
+  `generate_image` as a tool command inside a `bash` call. The command passes
+  the tool's own approval, so it shows the same `Mode: <label>` line as a
+  direct call. OMP moves the `bash` call to the background while the
+  approval waits, and a denial arrives in the job's result. OMP keeps the
+  argument key order and truncates the formatted arguments at 2,000
+  characters. The tool description and prompting skill tell the agent to put
+  `mode` first so a long `prompt` cannot hide it.
   In Tern, the header follows the mode with the prompt's first line, the
   reference count, mode settings, size, and quality. Below it are the saved
   path links, any Codex near-limit warning, the folded long prompt, and the

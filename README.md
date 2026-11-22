@@ -16,9 +16,9 @@ Tern loads each plugin from `tern/<id>/`. omp loads `omp-tools` from `omp/`.
 
 ## Requirements
 
-- Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.28.
+- Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.30.
 - In `/opt/homebrew/bin`: Yazi, lazygit, and btop for floating tools. Git, `gtimeout` from GNU coreutils, and omp for worktrees.
-- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.0.0.
+- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.1.0.
   [OpenAI mode](#openai-mode) and [Codex mode](#codex-mode) need different credentials.
 
 ## Install
@@ -329,9 +329,9 @@ per call and runs the [generate-image skill](omp/skills/generate-image/SKILL.md)
 
 `defaultImageGenerationMode` is `openai`. The agent puts `mode` first and uses the other mode only when
 you ask or need an exclusive feature such as SVG. Calls without `mode` use the default. omp 18.22 treats
-`null`, `""`, and `"null"` for `mode` as omitted. Direct approvals show the mode and arguments.
-Approvals through `tools.xdev` at `xd://generate_image` show only the supplied JSON. If the call omits
-`mode`, the prompt does not show the default. The card names the mode used.
+`null`, `""`, and `"null"` for `mode` as omitted. Approvals show the mode and arguments, also when omp 19.1
+runs `generate_image` as a command inside `bash` (`tools.commands`, on by default). The card names the mode
+used.
 
 To use Codex mode by default, run:
 

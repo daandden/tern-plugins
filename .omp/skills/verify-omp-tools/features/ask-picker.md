@@ -51,7 +51,7 @@ Preconditions:
 - Second view. The main session JSONL's `toolResult` for `ask` holds the text the agent received: `User answers:` (or the timeout line) and the form data JSON, then `Option notes:`, `Other answers`, and `Note on all answers:` lines when present. `details.answers` holds one entry per question.
 - Re-answer (`ask-reanswer`). On the installed OMP, answer an ask once, then `$C type '"/tree"'`, `$C key Enter`, `$C key Up` to the `[ask: …]` entry, and `$C key Enter`: OMP's native form opens (no `Ask aside` in `$C tree`), with no provider request. Answer it: the JSONL holds a new `ask` result with the same parent and call id as the old one, holding native form data and Notes on picked options only.
 - Host dialog (`ask-hostdialog`). Make the provider answer `Call the ratchet approval please` with an `eval` call (`language: "js"`) running `await ratchet("demo").init({ cases: "cases", harness: "harness", change: "change" }); JSON.stringify(await ratchet("demo").approve("inputs", { question: "Approve the demo inputs?", preview: "cases/a.json holds one case" }))`, in a project that holds `cases/a.json`, an executable `harness/run.sh`, and `change/prompt.md`. The Picker opens with `Approve the demo inputs?`, the preview, and `Approve`, `Revise`, `Abort`, and `Other (type your own)`. Picking `Approve` makes the eval print `{"approved":true}`. A Note `not yet` on `Approve` while `Revise` is picked prints `{"approved":false,"aborted":false,"feedback":"Approve (not picked): not yet"}`.
-- Transport (`ask-transport`, no screen). Start OMP with `--mode rpc-ui` and the provider: the `ask` call sends one `extension_ui_request` per field (`select` for a radio group, `input` for a text field), and the answers come back as the native form data (`User answers:` and the JSON). A cancelled `select` ends the call with `Ask tool was cancelled by the user`. With `--mode rpc` or `-p`, the same call returns `Native ask tool unavailable for delegation`, and no `select` or `input` request reaches the client.
+- Transport (`ask-transport`, no screen). Start OMP with `--mode rpc-ui` and the provider: the `ask` call sends one `extension_ui_request` with `method: "form"` and the whole form in `html`. Answer with `{"type":"extension_ui_response","id":"<request id>","data":{...}}`, where `data` is the form data by field name. The answers come back as the native form data (`User answers:` and the JSON). A response with `"cancelled":true` ends the call with `Ask tool was cancelled by the user`. With `--mode rpc` or `-p`, the same call returns `Native ask tool unavailable for delegation`, and no form request reaches the client.
 
 ### Local Picker session
 
@@ -77,7 +77,7 @@ Type `/skill:generate-image` without submitting. Capture the completion entry an
 ## Gotchas
 
 - With `ask.timeout` set, an idle picker submits; take shots before the countdown ends or press a key to restart it.
-- In RPC-UI and ACP, `ask` goes to OMP's native tool, which asks one field at a time. Plain RPC and print have no native `ask` to hand it to. This picker is TUI only.
+- In RPC-UI, `ask` goes to OMP's native tool, which since OMP 19.1 sends the client the whole form in one `form` request. Plain RPC and print have no native `ask` to hand it to. This picker is TUI only.
 - Seed the disposable agent directory before launch. A Setup screen means the seed did not load.
 - A long question first shows from its top; after PgUp/PgDn the first move only reveals the highlighted row.
 

@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Checked the plugins against Tern 0.9.30 and omp 19.1.0. With omp 19.1,
+  `generate_image` can run as a command inside `bash`, and its approval still
+  shows the mode. The README now says so.
 - Moved the five Tern plugins to `tern/<id>/` and brought `omp-tools` into
   `omp/`. Plugin IDs, settings, and keybinds did not change.
 

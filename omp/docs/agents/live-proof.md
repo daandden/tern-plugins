@@ -2,6 +2,38 @@
 
 Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-22, Tern 0.9.30 and OMP 19.1.0 compatibility: isolated headless
+  Tern with OMP's native renderer, `81bdc7a` plus uncommitted docs and Verify
+  helper edits, SDK types 19.0.1. The four extensions loaded with no errors,
+  `/skill:generate-image` completed, and the fixed Picker returned `blue`.
+  Direct approvals showed `Allow tool: generate_image` with
+  `Mode: Codex mode, the Default image generation mode` and
+  `Mode: OpenAI mode`. With `tools.commands` on, a `bash` call running
+  `generate_image --json '…'` raised one approval with the same two lines and
+  no `Allow tool: bash`. OMP moved the call to background job `bg_1`, and the
+  denial arrived as `Tool call denied by user: generate_image`. Under yolo the
+  nested card showed `Generate image`, `OpenAI mode`, `svg`, and the missing
+  key error. The CLI accepts `--output-format`, not `--output_format`. RPC-UI
+  sent one `extension_ui_request` with `method: "form"`. Its submit returned
+  `User answers:` with the form data, and `"cancelled":true` returned
+  `Ask tool was cancelled by the user`. Plain RPC still returned
+  `Native ask tool unavailable for delegation`. Evidence under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/`:
+  `omp-tools-picker-heb8Sy/`, `omp-tools-direct-jIxIsT/`,
+  `omp-tools-mounted-exact-arU0Hx/`, `omp-tools-mounted-svg-QQGyOv/`, and
+  `omp-tools-rpc-7S2gXC/`.
+- 2026-11-20, Tern 0.9.29 and OMP 19.0.1 compatibility: isolated headless
+  Tern with OMP's native renderer, `81bdc7a` plus the SDK 19.0.1 bump. While
+  the main turn showed `Working…`, the English coach panel sat above
+  `omp.hud.activity` and the composer, as OMP 19.0.1 now orders the dock;
+  once the status read `Waiting for background job bg_1`, the tray showed
+  below the status. A `/btw` answer rendered after one real `read` above the
+  working row, and typed text reached the focused editor. Both panels stayed
+  inside the pane, and no `.tv-dock .sf-spacer` matched. At 470 × 430 the
+  coach's scroll box kept its rect through `wheel 0 600` and revealed the
+  last mistake; at 900 × 650 the fixture did not overflow. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/omp-tools-2Jg3Rh/`
+  and `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/omp-tools-Ea9z6N/`.
 - 2026-11-19, shared launcher (#26): Tern 0.9.28 and OMP 19.0.0,
   `ca7deed718a7442b794504d6f95be684534aff8c` plus the uncommitted #26 patch.
   The headless `ask-single` run returned Blue. The native launch guard

@@ -69,7 +69,7 @@ Reload and list plugins after each change. Use the isolated Verify run below to 
 
 ### Runtime and tooling
 
-- Tern 0.9.28 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
+- Tern 0.9.30 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
 - The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`.
 
@@ -183,7 +183,7 @@ Source and model-facing prompts live in `omp/extensions/`. `omp/package.json` de
 
 ### SDK imports
 
-Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.0.0 registry serves:
+Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.1.0 registry serves:
 
 - `@oh-my-pi/pi-tui` and its subpaths, including `/chrome`, `/render`, `/theme`, `/thinking`, `/media`, `/html-form/*`, `/chat/svg-figure`, `/native/blobs`, `/native/overlay`, `/chrome/form-theme`, `/keybinding-matchers`, `/overlays/*`, and `/tools/*`. In omp 18.22.0, `/html-form/media` moved to `/media`, and `loadFormImage` became `loadMedia`.
 - `@oh-my-pi/pi-coding-agent`, `/judgment`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
@@ -205,6 +205,8 @@ bun test
 Use Bun for dependencies, scripts, tests, and the image codec (`Bun.Image`). There is no build, lint, or formatter. omp loads source directly. Start a fresh session after an edit because running sessions keep the definitions they loaded. To link the plugin from the intended live checkout, run `omp plugin link "$PWD"` from its `omp/` directory. For branch checks, use the isolated Verify skill instead.
 
 From `omp/`, run `bun run update` when you intend to update both the installed omp and the SDK types. It requires an installed omp and restores the two `"latest"` specifiers after `bun update` rewrites them. `bun run check` warns and still typechecks if the installed version differs from `omp/bun.lock` or omp is missing. Both scripts use `omp/scripts/host-env.ts` to find the installed binary. A bare `omp` inside `bun run` can instead run the SDK's `node_modules/.bin/omp`, and Bun Shell ignores `.env()` PATH when resolving commands.
+
+`omp/bun.lock` keeps the SDK at 19.0.1 while omp 19.1.0 runs. The npm package `@oh-my-pi/pi-coding-agent@19.1.0` imports `../browser-relay/extension/messages`, which it does not publish, so any import of the package root fails, and `bun test` reports 13 load errors ([oh-my-pi#20058](https://github.com/can1357/oh-my-pi/issues/20058)). `tsgo --noEmit` passes against 19.1.0. Run `bun run update` again once a release fixes the import, and expect the `bun run check` version warning until then.
 
 For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching `omp --version`. Its upstream is `can1357/oh-my-pi`. If code relies on undocumented host behavior, name the version on which you verified it.
 
