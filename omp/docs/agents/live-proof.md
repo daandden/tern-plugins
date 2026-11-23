@@ -2,6 +2,16 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, worktree exit for Ctrl+Shift+T on omp 19.1.1 in an isolated
+  native Tern 0.9.30 window, with `worktree.onExit: ask`. In a fixture repo
+  with no origin, the press opened a tab running
+  `/opt/homebrew/bin/omp --own-worktree <commit>`. `/exit` showed omp's
+  "Remove worktree?" prompt, and Yes removed the folder and the `wt/*` branch.
+  After a commit in a second worktree, the prompt added "has new commits
+  (branch is kept)", and Yes removed the folder and kept the branch at that
+  commit. See `wt-prompt.webp`, `wt-after-yes.txt`, `wt-moved-prompt.webp`,
+  and `wt-moved-after.txt` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/tern-plugins-X9W76k/`.
 - 2026-11-23, review-fix smoke on omp 19.1.0 in isolated headless Tern
   0.9.30. A native `ask` opened with a Blue pick and a Label draft. The
   local read answer appeared in `omp-tools.panel-body` while the ask

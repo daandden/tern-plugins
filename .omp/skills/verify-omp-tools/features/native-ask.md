@@ -35,7 +35,7 @@ For classic, use a separate run and prefix the pane command with `PI_TUI_NATIVE=
 
 ### Answer and re-answer
 
-1. Check the three extension paths in `candidate.txt`. In Tern, open `/extensions` and capture the `generate-image`, `english-coach`, and `btw` entries. Close the dashboard. Type `/skill:generate-image` without submitting to check the autocomplete entry, then clear the composer.
+1. Check the four extension paths in `candidate.txt`. In Tern, open `/extensions` and capture the `generate-image`, `english-coach`, `btw`, and `own-worktree` entries. Close the dashboard. Type `/skill:generate-image` without submitting to check the autocomplete entry, then clear the composer.
 2. Send `Call the ask tool please`. Capture the open form and its Red, Blue, Other, and Submit controls. In Tern, use `$C tree ".sf-main [data-role='omp.ask.card']"` to locate the form in the transcript. Capture the composer below it. Use `$C expect '"Pick a color"'` to check grid text in classic.
 3. Press Down, Enter, then Enter. Save the answer card and wait for the model to reply `blue`. Check the transcript under `data/sessions` for an `ask` tool result containing `"color": "blue"`.
 4. Submit `/tree`, press Up from the model's reply to the `[ask: …]` row, and press Enter. If omp asks whether to summarize, choose **No summary**. Capture the same native form. Check that reopening the form sent no main-model request in `requests.jsonl`.

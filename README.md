@@ -18,6 +18,7 @@ Tern loads each plugin from `tern/<id>/`. omp loads `omp-tools` from `omp/`.
 
 - Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.30.
 - In `/opt/homebrew/bin`: Yazi, lazygit, and btop for floating tools. Git, `gtimeout` from GNU coreutils, and omp for worktrees.
+  The worktree agent tab also needs `omp-tools` linked, because its omp gets the `--own-worktree` flag.
 - Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.1.0.
   [OpenAI mode](#openai-mode) and [Codex mode](#codex-mode) need different credentials.
 
@@ -169,10 +170,17 @@ has the branch checked out, the shortcut shows an error toast and opens nothing.
 The worktree directory comes from `OMP_WORKTREE_DIR`, then `worktree.base`, then `~/.omp/wt`. The main
 checkout's `.omp/config.yml` applies. `worktree.clone` controls whether to copy ignored files.
 
-The worktree stays after the agent closes because `worktree.onExit` does not own it. To remove a finished
-worktree, run `git worktree remove <path>`. If the shortcut cannot add a worktree, its toast names the cause.
-The shortcut removes the new folder and deletes the new `wt/<time>` branch only if it still points at its
-starting commit. A second toast reports any cleanup failure or refusal.
+The omp in the new tab owns the worktree as if its `/wt` had made it, so omp's `worktree.onExit` applies
+when you quit that omp, for example with `/exit`: `ask` shows omp's "Remove worktree?" prompt, `remove`
+removes a worktree with no changes or new commits, `force` removes it always, and `keep` (the default)
+leaves it. Removal deletes the `wt/<time>` branch unless it has new commits. omp keeps the worktree when it
+changed after you answered, when the session moved to another folder with `/wt` or `/move`, or when the tab
+is closed without quitting omp. A later `omp --resume` in the worktree does not own it. To remove a kept
+worktree, run `git worktree remove <path>`.
+
+If the shortcut cannot add a worktree, its toast names the cause. The shortcut removes the new folder and
+deletes the new `wt/<time>` branch only if it still points at its starting commit. A second toast reports any
+cleanup failure or refusal.
 
 ## `reader-terminal-text`
 
@@ -197,6 +205,10 @@ page cannot cover them. Otherwise, toasts stay at the bottom.
 Change settings in **Settings > Plugins > omp-tools** or with `omp plugin config set omp-tools <key> <value>`.
 Project values in `.omp/plugin-overrides.json` take precedence over global values.
 Use the shape `{"settings":{"omp-tools":{"englishCoach":false}}}` for project overrides.
+
+`omp-tools` also adds the flag `--own-worktree <commit>`. With it, omp owns the worktree it starts in, as if its
+`/wt` had made the worktree's branch at that commit, so `worktree.onExit` applies on quit. The `zellij-keys`
+[worktree agent tab](#open-an-agent-in-a-worktree) passes it.
 
 ### `generate_image`
 

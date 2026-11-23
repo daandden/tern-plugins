@@ -19,6 +19,8 @@ test("plugin startup leaves ask and host dialogs to omp", async () => {
 	const api = {
 		arktype: type,
 		registerTool: (tool: ToolDefinition) => tools.push(tool.name),
+		registerFlag() {},
+		getFlag: () => undefined,
 		on: (event: string, handler: (typeof handlers.session_start)[number]) => {
 			if (event === "session_start" || event === "session_shutdown") handlers[event].push(handler);
 		},

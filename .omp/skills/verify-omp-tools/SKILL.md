@@ -71,7 +71,7 @@ EOF
 	test -f "$CHECKOUT/omp/skills/generate-image/SKILL.md"
 ```
 
-Stop if setup fails. Check `candidate.json` for the three extension paths: `generate-image.ts`, `english-coach.ts`, and `btw.ts`. In the TUI, type `/skill:generate-image` without submitting to check that omp discovered the shipped skill, then clear the composer. The seed skips OMP Setup, and `advisor.enabled: false` keeps advisor turns and cards out of the drive.
+Stop if setup fails. Check `candidate.json` for the four extension paths: `generate-image.ts`, `english-coach.ts`, `btw.ts`, and `own-worktree.ts`. In the TUI, type `/skill:generate-image` without submitting to check that omp discovered the shipped skill, then clear the composer. The seed skips OMP Setup, and `advisor.enabled: false` keeps advisor turns and cards out of the drive.
 
 ### Start Tern and omp
 

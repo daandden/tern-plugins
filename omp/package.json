@@ -2,7 +2,7 @@
 	"name": "omp-tools",
 	"version": "0.2.0",
 	"private": true,
-	"description": "Generate images in OpenAI (GPT Image 2.6 Sunburst) and Codex modes, answer read-only /btw Side questions, and check English in prompts",
+	"description": "Generate images in OpenAI (GPT Image 2.6 Sunburst) and Codex modes, answer read-only /btw Side questions, check English in prompts, and apply worktree.onExit to Tern's worktree agent tabs",
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
@@ -20,7 +20,8 @@
 		"extensions": [
 			"./extensions/generate-image.ts",
 			"./extensions/english-coach.ts",
-			"./extensions/btw.ts"
+			"./extensions/btw.ts",
+			"./extensions/own-worktree.ts"
 		],
 		"settings": {
 			"englishCoach": {

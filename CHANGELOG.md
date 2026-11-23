@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- omp's `worktree.onExit` now applies to the worktree of a Ctrl+Shift+T agent tab, as it
+  does to a `/wt` worktree. With `ask`, quitting that omp shows omp's "Remove worktree?"
+  prompt. omp-tools adds the `--own-worktree <commit>` flag that the tab's omp gets, so
+  the tab needs omp-tools linked.
+
 ### Removed
 
 - Removed the omp-tools Picker and its `ask` override. omp now answers all `ask`

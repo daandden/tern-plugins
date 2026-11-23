@@ -284,11 +284,12 @@ local function worktree_stop(cx, level, text, sub)
 	cx:toast(level, text, sub)
 end
 
--- Opens a tab that runs omp in `path`.
-local function worktree_open_tab(cx, path)
+-- Opens a tab that runs omp in `path`. `--own-worktree` (omp-tools) makes that omp own the
+-- worktree as if its `/wt` had made it at `commit`, so worktree.onExit applies on close.
+local function worktree_open_tab(cx, path, commit)
 	worktree_busy = false
 	local ok, tab = pcall(function()
-		return cx.layout:new_tab({ cwd = path, command = OMP })
+		return cx.layout:new_tab({ cwd = path, command = `{OMP} --own-worktree {commit}` })
 	end)
 	if not ok or tab == nil then
 		cx:toast("error", "Could not open an agent tab", if ok then path else tostring(tab))
@@ -423,7 +424,7 @@ local function worktree_open(cx, main, base)
 							cx:toast("error", "Could not add a worktree", first_message(why))
 							worktree_undo(cx, main, claimed, branch, commit)
 						else
-							worktree_open_tab(cx, claimed)
+							worktree_open_tab(cx, claimed, commit)
 						end
 					end, main)
 				end)
