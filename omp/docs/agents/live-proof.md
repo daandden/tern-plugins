@@ -2,6 +2,12 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, native `ask` styling on omp 19.1.1 and isolated native Tern
+  0.9.30. Open and folded question labels shared a left edge at 13px and
+  16px. Choices and typed answers used terminal weight 600. At a pane
+  width of 320px the actions wrapped and the form submitted by keyboard.
+  See `ask-input-large.webp`, `ask-narrow.webp`, and `ask-result.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/ask-css-hj4S1u/`.
 - 2026-11-23, worktree exit for Ctrl+Shift+T on omp 19.1.1 in an isolated
   native Tern 0.9.30 window, with `worktree.onExit: ask`. In a fixture repo
   with no origin, the press opened a tab running

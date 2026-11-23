@@ -187,6 +187,8 @@ cleanup failure or refusal.
 In Reader chat, omp prose, the composer, advisor notes, notices, and tool-result prose use the terminal's
 font size, row height, and weight. Single-line text such as tool titles, chips, and status uses the
 terminal size and row height but keeps Reader's weights. The UI font and Markdown theme colors stay.
+Native `ask` uses the same font size and row height for questions and controls, and the terminal
+weight for choices and typed answers. Open and folded question labels share a left edge.
 The plugin hides the empty composer's placeholder and the blank rows above it from empty dock regions.
 
 ## `vstack-flow`

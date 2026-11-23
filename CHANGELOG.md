@@ -16,6 +16,8 @@
 
 ### Changed
 
+- Native `ask` follows the terminal's text settings in Reader and aligns open
+  and folded question labels. The native colors and controls stay the same.
 - Ask `/btw` from the composer while a native `ask` waits. Return to the form with Shift+Tab.
   Panel shortcuts leave form keys alone, even if you return before the panel opens.
 - `/btw` uses the main session's Keenable MCP search and fetch tools instead

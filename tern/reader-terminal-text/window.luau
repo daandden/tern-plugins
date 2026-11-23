@@ -95,6 +95,30 @@ tern.css("reader-terminal-text", [[
 	letter-spacing: normal;
 }
 
+/* Keep the native ask controls and theme. Match open questions to the folded text
+   column, which starts 30px in (8px padding, 14px mark, 8px gap). */
+:root:root .sf-chat-reader [data-role='omp.ask.card'] [data-role='omp.ask.open'] {
+	padding-left: 30px;
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] :is(
+	.sf-text, .sf-item-label, .sf-item-detail, .sf-button, .sf-btn-label, .sf-input, .sf-editor, .sf-ed-text
+) {
+	font-size: var(--term-fs);
+	line-height: var(--term-lh);
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] :is(
+	.sf-item-label, .sf-input, .sf-editor, .sf-ed-text, [data-role='omp.ask.text'], [data-role='omp.ask.fold.answer']
+) {
+	font-weight: var(--tv-weight, 400);
+}
+
+/* The form editors use --sf-lh for their text lines and caret. */
+:root:root .sf-chat-reader [data-role='omp.ask.card'] :is(.sf-input, .sf-editor) {
+	--sf-lh: var(--term-lh);
+}
+
 /* Markdown on the terminal grid. Every line is one row, one blank row separates blocks, and boxes
    (code, callouts, raw HTML, the user bubble) take half a row of padding on each side, so they
    span whole rows. `:root:root` outranks Reader's longest selectors. */
