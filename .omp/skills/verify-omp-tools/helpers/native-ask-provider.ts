@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-if (!process.argv[2]) throw new Error("Usage: bun picker-provider.ts RUN");
+if (!process.argv[2]) throw new Error("Usage: bun native-ask-provider.ts RUN");
 const run = resolve(process.argv[2]);
 const html = `<form><fieldset><legend>Pick a color</legend><label><input type="radio" name="color" value="red">Red</label><label><input type="radio" name="color" value="blue">Blue</label></fieldset></form>`;
 

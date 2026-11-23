@@ -1,15 +1,8 @@
 import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
 
-/**
- * The roots omp-tools describes in Tern: the Picker (`omp.editor`, which holds
- * a `scrollBox`), the `/btw` panel and the English coach panel (both
- * `omp.overlay.btw`). Each holds an `omp-tools.*` role, which no native panel
- * does, so the rule leaves the composer and native `/btw` alone while every
- * sheet stays on the surface. The doubled class outranks Tern's layout rules
- * (`.sf-chat-reader .sf-col[data-role^='omp.overlay.']`, Tern 0.9.26), which
- * wash the panel with white.
- */
-const ROOTS = ".sf-col.sf-col:is([data-role='omp.editor'], [data-role^='omp.overlay.']):has([data-role^='omp-tools.'])";
+// Only these two panels have plugin roles inside an omp.overlay.btw column.
+// The doubled class outranks Tern 0.9.26's Reader overlay rule.
+const ROOTS = ".sf-col.sf-col[data-role='omp.overlay.btw']:has([data-role^='omp-tools.'])";
 
 let themeCss: { theme: Theme; css: string } | undefined;
 
@@ -56,7 +49,6 @@ ${ROOTS} {
 	--sf-c-code: ${fg("mdCode")};
 	--sf-c-link: ${fg("mdLink")};
 	--sf-c-key: var(--t2);
-	--composer-ring: var(--l2);
 	color: var(--t1);
 	background: ${panel};
 	-webkit-backdrop-filter: none;

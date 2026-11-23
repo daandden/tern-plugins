@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Removed
+
+- Removed the omp-tools Picker and its `ask` override. omp now answers all `ask`
+  calls, `/tree` re-answers, and host dialogs. Saved results are unchanged.
+
 ### Changed
 
 - Checked the plugins against Tern 0.9.30 and omp 19.1.0. With omp 19.1,

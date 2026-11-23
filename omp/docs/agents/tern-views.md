@@ -1,37 +1,30 @@
 # Tern views
 
-Rules shared by every omp-tools view in Tern: the Picker, the `/btw` panel,
-and the English coach panel. In terminals that speak the Tern Surface
-Protocol, OMP calls `describe(cx)` instead of `render()`.
+Rules shared by the `/btw` and English coach panels in Tern. In terminals that
+speak the Tern Surface Protocol, OMP calls `describe(cx)` instead of `render()`.
 
-- A scrolling region is a `scrollBox` (`ask-editor.ts`), a capped `list`,
-  because a `col` with `max.h` only clips. Put the `scroll` request on the
-  content: Tern scrolls the scroller at or above the asking node, and the
-  list's scroller is inside the list node.
+- A scrolling region is a `scrollBox` (`panel-layout.ts`), a capped `list`,
+  because a `col` with `max.h` only clips.
 - Since omp 19.0.1, Tern's native dock puts `aboveEditor` widgets (the `/btw`
   and English coach panels) above the working row and the tray, not next to
   the composer, and drops the blank spacer row that came before them
   ([oh-my-pi#19767](https://github.com/can1357/oh-my-pi/issues/19767)). The
   panels need no spacing of their own for it: the coach's 13px bottom padding
   balances its text's descent.
-- Tern's sheets style only `omp.*` roles, so each view sends its own sheet
-  (the `s` verb) with every `describe` when `cx.feature("styles")`: the
-  Picker's `NATIVE_SHEET`, `omp-tools-btw`, and `omp-tools-english-coach`. A
-  sheet belongs to one surface, and pi-tui opens a new inline surface on
-  `gone` with the same describe context, so a once-only send is lost.
+- When `cx.feature("styles")` is true, each panel sends its sheet with every
+  `describe`: `omp-tools-btw` or `omp-tools-english-coach`. A sheet belongs
+  to one surface, and pi-tui opens a new inline surface on `gone` with the
+  same describe context, so a once-only send is lost.
 - Every sheet goes out through `sheetMessage` (`tern-theme.ts`), which leads
-  it with the omp theme rules. On each omp-tools root (an `omp.editor` or
-  `omp.overlay.*` column holding an `omp-tools.*` role, so the composer and
-  native `/btw` keep Tern's look) it sets Tern's palette variables (`--t*`,
+  it with the omp theme rules. The selector matches an `omp.overlay.btw`
+  column holding an `omp-tools.*` role. It leaves the composer and native
+  `/btw` alone and sets the plugin panel's palette variables (`--t*`,
   `--l*`, `--accent`, `--sf-*`, `--sf-c-*`) and the background from the active
   omp `theme`: `selectedBg` for the surface, `toolDiffAdded` and
   `toolDiffRemoved` for `ins` and `del`. An empty `text` token leaves Tern's
   `--t1`. The rules are rebuilt when the theme instance changes. A doubled
   `.sf-col` outranks Tern 0.9.26's chat-reader rule that washes overlays with
   white. A view's root therefore needs an `omp-tools.*` role in every state.
-  Use the active omp theme's light or dark palette in all three views. The
-  Picker uses Tern's UI font, but its highlight and hover use a tint of the
-  omp text color.
 - Tern scopes a program sheet to strict descendants of its region, so a rule
   on `.sf-region` never applies (Tern 0.9.5).
 - Tern's Markdown hangs list numbers 2 cells left of the text, where a scroll

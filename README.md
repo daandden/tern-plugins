@@ -12,7 +12,7 @@ Tern loads each plugin from `tern/<id>/`. omp loads `omp-tools` from `omp/`.
 | Tern | [`reader-terminal-text`](#reader-terminal-text) | Match Reader chat text to your terminal's text settings. |
 | Tern | [`vstack-flow`](#vstack-flow) | Open vstack Flow links in Tern while other web links follow your link setting. |
 | Tern | [`toast-above-browser`](#toast-above-browser) | Keep Tern toasts visible while a browser block is shown. |
-| omp | [`omp-tools`](#omp-tools) | Answer `ask` in the Picker, generate images, ask Side questions, and get private English corrections. |
+| omp | [`omp-tools`](#omp-tools) | Generate images, ask Side questions, and get private English corrections. |
 
 ## Requirements
 
@@ -61,12 +61,10 @@ Install the locked dependencies and link the plugin:
 )
 ```
 
-`omp-tools` replaces the earlier `omp-ask` plugin. Load only `omp-tools`, with no
-loose copy of the `ask` extension.
+Unlink the old `omp-ask` plugin and remove any loose copy of its `ask` extension before starting omp.
 
-In your omp config, keep native `ask` enabled because the plugin delegates to it
-outside the interactive terminal. Disable native `generate_image`. The plugin
-registers `generate_image` under the same name even if the native tool is enabled.
+Keep `ask` enabled in your omp config. omp supplies the `ask` tool. Disable native
+`generate_image` so the plugin supplies the image tool.
 
 ```yaml
 ask:
@@ -107,8 +105,7 @@ plugin. The Tern keys below use that setup.
 
 For full contrast in unfocused panes, set Tern's **Dim unfocused panes** to **Off**.
 
-For omp, see the [Picker keys](#picker-keys), [answer editor keys](#edit-and-paste-answers),
-[Side question controls](#side-questions), and [English coach controls](#english-coach).
+For omp, see the [Side question controls](#side-questions) and [English coach controls](#english-coach).
 
 ## `goto`
 
@@ -198,129 +195,6 @@ page cannot cover them. Otherwise, toasts stay at the bottom.
 Change settings in **Settings > Plugins > omp-tools** or with `omp plugin config set omp-tools <key> <value>`.
 Project values in `.omp/plugin-overrides.json` take precedence over global values.
 Use the shape `{"settings":{"omp-tools":{"englishCoach":false}}}` for project overrides.
-
-### Answer `ask` in the Picker
-
-`ask` accepts `html`, one HTML `<form>`, a bare HTML string, or the older `questions` list, which omp rebuilds
-as a form. Its description follows native `ask` without prescribing an option count.
-
-Each named radio or checkbox group, select, multi-select, text input, number input, or textarea gets a tab
-in form order. The fieldset legend names it, or the control name if there is no legend. Context can include
-headings, paragraphs, lists, preformatted text, tables, inline code, bold, italic, and display-only images or
-inline SVG. Scripts, styles, buttons, form actions, and file inputs never run or show.
-
-Radio and single-select fields return one value. Checkbox groups and multi-select fields return arrays. A lone
-checkbox returns its value (`on` by default) or nothing. Numbers return as numbers. Text fields return their
-text, even when empty. Hidden values pass through. `checked` and `selected` options start picked and keep
-their **Recommended** badge. Fields start with their supplied value or textarea content. Disabled options
-show but cannot be picked. Radio and checkbox groups of two or more offer an Other answer unless an option
-already starts with "Other". The added option is **Other (type your own)**.
-
-Input types such as email, URL, password, and date use text fields. There is no date picker or `step` check.
-Empty rows show the placeholder. Passwords show one bullet per character in the row, review, and card. The
-open editor shows plain text, and the agent receives it. One-line fields drop pasted line breaks.
-
-#### Picker keys
-
-| Key | Action |
-| --- | --- |
-| `j`/`k` or Up/Down | Move between rows. On the Submit tab, scroll. |
-| `h`/`l`, Left/Right, or Tab | Switch tabs when there is a Submit tab. |
-| Space | Toggle the row and stay. Single-select clears other picks. On a text field, open its editor. |
-| Enter | Finish the question. Single-select picks the row first. The last question opens the Submit tab or submits when there is none. On the Submit tab, submit. |
-| `n` | Edit the row's Note, Other answer, or text. On the Submit tab, edit the Submit note. |
-| `x` | Clear that text. On Other, also un-pick it. |
-| `?` | Open Picker btw. |
-| PgUp/PgDn | Scroll a tall question. After paging away, the first move or action key only brings the highlighted row back into view. |
-
-In Tern, click a tab to switch. Click an option for Space or double-click for Enter. Buttons run their
-displayed keys: `?`, Space, `n`, `x`, Esc, and Enter. Scroll tall content with the wheel. Each question opens
-at the top and fits its content up to 70% of the pane height, or terminal height in the classic Picker.
-The active omp theme sets the Picker's colors in Tern.
-Set `PI_TUI_NATIVE=0` for the classic text Picker.
-
-#### Review and submit
-
-Several questions, multi-select, or a text question add a Submit review. Picks never discard Notes or Other
-text. Un-pick Other, then edit and save with `n` to pick it again. The agent gets native form data, then
-`Option notes:` with `(not picked)` where applicable, `Other answers` even for text equal to a listed value,
-`Note on all answers:` for the Submit note, and any pasted images after their `[Image #N]` labels.
-
-Submit checks `required`, numeric `min` and `max`, `minlength`, `maxlength`, email and URL shapes, and
-whole-value `pattern`. It ignores nonnumeric bounds and patterns that do not compile. It opens the first
-invalid field with native `ask`'s reason. The result card lists answers, including `Other: …`, Notes
-including unpicked ones, the Submit note, and any timeout notice. Images follow.
-
-`ask.timeout` and `ask.notify` apply. Plan mode does not disable the timeout, and `speech.enabled` does not
-read the questions aloud. On timeout, a valid form submits as it stands without filling in recommendations.
-The result has `details.timedOut`, and the card marks it as not your choice. An invalid form returns
-"no answer was given" with no data. Collaboration guests cannot answer.
-
-#### Edit and paste answers
-
-Space or Enter on an empty Other answer or text field opens its editor. Enter or Ctrl+Q saves and stays on
-the row. Esc discards the edit. Saving Other text picks it. The question title and context stay in view,
-with the edited option for a Note or Other answer. The Submit note editor shows the review.
-
-Editors share the main prompt's suggestions: `@` files, `^` models, `/` file commands and skills,
-`skill://`, `rule://`, `local://`, `agent://`, `omp://`, emoji, GitHub refs, and extension providers.
-They also have ghost-text completion, typo detection, autocorrect, and vim mode. Shift+Enter, Ctrl+J, or
-Alt+Enter inserts a newline. Ctrl+C clears the editor without exiting omp. There is no history, push-to-talk,
-or separate editor draft. `app.editor.external` (Ctrl+G by default) opens `$VISUAL` or `$EDITOR` and saves back.
-
-Nothing typed or accepted as a suggestion runs. `/` offers skills and file commands in `~/.agents/commands`,
-`~/.omp/commands`, or project command folders, with their icons. It matches a name prefix or the start of a
-hyphenated part. A skill inserts as `/<name>`. Built-in and extension commands and `#` actions are hidden.
-
-- In Tern, Cmd+V pastes text or a copied image into an editor. On the options, it tells you to open a Note
-  with `n` or choose Other instead.
-- The image-paste key (Ctrl+V by default) takes copied images, Finder files, or image paths on the clipboard.
-  Use it for Finder files because Cmd+V pastes only the text Tern offers.
-- Pasting an image path attaches the image. Delete its chip to remove it.
-- To copy question or option text in Tern, select it with the mouse and press Cmd+C.
-
-#### Picker btw
-
-Press `?` to ask a private Side question about the ask or conversation. The options give way to a thread
-with the same editor you use for an Other answer. Enter sends the question and any pasted images.
-The answer streams in and later questions follow up in the same thread. Picker btw can see your picks,
-Other answers, and Notes and use the [read-only tools](#side-questions). Calls fold into **N tool calls**
-lines between answer text. In Tern, click a line to expand it.
-
-Esc cancels a running answer and keeps partial text. The next Esc returns to the options without changing
-answers. `?` reopens the thread. PgUp/PgDn scroll it. The thread ends with the ask unless a Picker draft
-keeps it. The main agent never sees it. Use an Other answer or a Note to tell the agent something.
-Picker btw does not change the main prompt or enter BTW history, and you cannot branch or copy it from a panel.
-
-Opening Picker btw pauses `ask.timeout` and shows `Ask (timer paused)`. The next key in the options restarts
-the full countdown. Without a saved session, or with a subagent, the Picker does not offer `? btw`.
-
-#### Keep or discard a Picker draft
-
-Esc on the options or Submit tab, or **Cancel** in Tern, cancels `ask`. The Picker draft keeps picks, Notes,
-Other answers, the Submit note, the tab and row, and the Picker btw thread. Press F5 (omp's Retry) to run the
-cancelled ask again. The Picker says `Restored your answers` until the next key, sends nothing on restore, and
-restarts the full timeout. If you entered nothing, it restores just the tab and row without a message.
-
-An ask with the same questions, options, values, defaults, validation rules, hidden values, and context
-reuses the draft. Whitespace and layout markup do not count, so the agent can re-ask after "go on".
-Each session keeps one draft. A different form, Submit, `/new`, `/resume`, `/fork`, a branch, a tree jump,
-or quitting omp discards it.
-
-#### Questions from omp and native `ask`
-
-Structured questions from omp, such as Ratchet approvals, open in the Picker with Notes, Other answers,
-Picker btw, and the draft. The feature gets its native result: picks, Other text, and one note per question
-with each Note after its option and the Submit note last. Esc answers nothing and keeps the draft.
-Reopening the same question restores the draft and waits for Enter. Only a timeout set by the feature
-counts down. On expiry, it picks the recommendation for each unanswered question.
-`ask.timeout` and `ask.notify` do not apply. Reserved labels or duplicate IDs or labels send the question
-to the native dialog. Collaboration guests cannot answer in the Picker.
-
-Re-answering in `/tree` opens native `ask`. It keeps form data and Notes on picked options but not Notes on
-unpicked options, images, the Submit note, a Picker draft, or Picker btw. RPC, ACP, print mode, and
-subagents use native `ask`, which prompts where the transport allows it and otherwise returns its native
-unavailable outcome. Forms with no named control go to native `ask` for its error.
 
 ### `generate_image`
 
@@ -439,7 +313,7 @@ the answer or closes the panel. In Tern, click a group to toggle it. Follow-ups 
 you close the panel. When the agent takes your next main prompt, even if queued, it ends the thread and
 clears the panel. A running Side answer can finish and show, but the next `/btw` starts a new thread.
 
-`sideQuestionModel` defaults to `@smol` and uses the role's thinking level. It applies to `/btw` and Picker btw.
+`sideQuestionModel` applies to `/btw`. It defaults to `@smol` and uses the role's thinking level.
 Set a role such as `@smol:low` or a selector such as `provider/model:high`. An empty value uses the main model.
 Changes apply to the next thread. If the model is missing after a provider refresh, the thread names it in a
 warning and uses the main model. A context window too small for the history also uses the main model.
@@ -474,8 +348,8 @@ technical terms such as `git diff`, and attached images are not checked.
 Code, paths, and URLs stay out of the request and token count. Inline code, paths, and URLs show unchanged.
 A fenced block shows as `[code block, N lines]`. Pasted prose counts in full. Only arguments after `/btw`,
 `/skill:<name>`, and prompt-file commands get checked. Other commands, or an allowed command without an
-argument, clear the panel. Picker Notes, Other answers, and the Submit note are not checked. RPC, ACP,
-print mode, and subagents never trigger the coach.
+argument, clear the panel. Answers to native `ask` are not checked. RPC, ACP, print mode, and subagents
+never trigger the coach.
 
 The panel shows `Checking…`, `No mistakes`, corrections, or a reason: `Not checked: over 300 tokens`,
 `Not checked: no English text`, or `Check failed: <reason>`. Removed text is struck through and replacements

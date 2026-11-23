@@ -20,7 +20,6 @@ export type SideQuestionPart =
 	| { type: "tools"; calls: SideQuestionToolCall[] }
 	| { type: "notice"; text: string };
 
-/** One question and its answer, as the /btw panel and the Picker btw view show it. */
 export interface SideQuestionTurn {
 	question: string;
 	parts: SideQuestionPart[];

@@ -2,6 +2,29 @@
 
 Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, native ask in Tern (ticket #36): omp 19.1.0 and Tern 0.9.30
+  loaded `generate-image`, `english-coach`, and `btw` as the three modules
+  in `/extensions`. With the fixed local provider, `Pick a color` appeared
+  in `sf-main` at the end of the transcript above the composer. The result
+  was Blue. `/tree` reopened the same form without a main-model request.
+  Red produced a sibling result with the same parent and call IDs. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/tern-4Q49fv/`.
+- 2026-11-23, native ask in the classic TUI (ticket #36): omp 19.1.0 with
+  `PI_TUI_NATIVE=0` in Tern 0.9.30 displayed the text form from the fixed
+  local provider. Down, Enter, and Enter submitted Blue. `/tree` reopened
+  the text form and Red produced a sibling result on the same call. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/classic-Qz1t3v/`.
+- 2026-11-23, `/btw` panel after Picker removal (ticket #36): omp 19.1.0
+  and Tern 0.9.30 showed `/btw why it not work?` and the local Side answer
+  above the composer, alongside the English coach correction. The tree
+  showed a scroll box for each panel. See `btw-and-coach.webp` and
+  `shared-scroll-boxes.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/coach-hItaox/`.
+- 2026-11-23, English coach after Picker removal (ticket #36): in omp
+  19.1.0 and Tern 0.9.30, the local coach provider's `mistakes` scenario
+  drew a correction with 18 marked changes above the composer. See
+  `coach-correction.webp` and `requests.jsonl` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/coach-hItaox/`.
 - 2026-11-22, Tern 0.9.30 and OMP 19.1.0 compatibility: isolated headless
   Tern with OMP's native renderer, `81bdc7a` plus uncommitted docs and Verify
   helper edits, SDK types 19.0.1. The four extensions loaded with no errors,

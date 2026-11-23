@@ -1,7 +1,7 @@
 import { type Component, type DescribeContext, getKeybindings, type NativeNode, node, span, type TUI, text, truncateToWidth } from "@oh-my-pi/pi-tui";
 import { hintsRow, type NativeHint } from "@oh-my-pi/pi-tui/native/overlay";
 import { theme } from "@oh-my-pi/pi-tui/theme";
-import { hintText, SCROLL_BOX_CSS, scrollBox } from "./ask-editor";
+import { hintText, SCROLL_BOX_CSS, scrollBox } from "./panel-layout";
 import { sheetMessage } from "./tern-theme";
 import { hasToolCalls, type SideQuestionTurn, SideQuestionTurnView } from "./side-question-view";
 
@@ -60,7 +60,6 @@ export class BtwPanel implements Component {
 	}
 
 	describe(cx: DescribeContext): NativeNode {
-		// Sent with every describe: a sheet belongs to one surface (see ask-dialog.ts).
 		if (cx.feature("styles")) this.#tui.terminal.write(sheetMessage("omp-tools-btw", SCROLL_BOX_CSS));
 		const state = this.#state();
 		const content: NativeNode = {
@@ -81,12 +80,7 @@ export class BtwPanel implements Component {
 					lines: 1,
 				}),
 			]),
-			scrollBox(content, {
-				lines: Math.max(3, Math.floor(this.#rows() * PANEL_HEIGHT_RATIO) - 2),
-				fixed: false,
-				key: "btw-thread",
-				scroll: undefined,
-			}),
+			scrollBox(content, Math.max(3, Math.floor(this.#rows() * PANEL_HEIGHT_RATIO) - 2), "btw-thread"),
 			hintsRow(panelHints(state)),
 		]);
 	}

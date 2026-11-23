@@ -179,8 +179,6 @@ function imageCards(
 	const resultViews = new WeakMap<object, NativeToolView>();
 	const modeOf = (id: ImageModeId | undefined) => (id ? modes[id] : undefined);
 	return {
-		// The result view replaces the call view. The host forwards
-		// `mergeCallAndResult` from the definition like `concurrency` in flexible-ask.ts.
 		mergeCallAndResult: true,
 		describeCall: args => ({
 			tool: imageHead(modeOf(callModeId(args, defaultMode)), args ?? {}),

@@ -5,15 +5,15 @@ Read the feature file for the surface you changed. Commands use the run dir and 
 ## Baseline preconditions
 
 - Run Doctor in [the parent skill](../SKILL.md). Record the branch SHA and the linked `omp/` directory or explicit entry paths.
-- Start the headless instance through `tern-verify`. Start a fresh OMP session with `--session-dir "$VERIFY_RUN_DIR/data/sessions"`. Use the native instance for clipboard recipes.
-- The session has a saved transcript: send one main prompt (`Reply with only: ok`) and wait for the reply before anything that needs a session file (Side questions, Picker btw).
+- Start the headless instance through `tern-verify`. Start a fresh omp session with `--session-dir "$VERIFY_RUN_DIR/data/sessions"`.
+- Before a Side question, send one main prompt (`Reply with only: ok`) and wait for the reply so the main session has a saved transcript.
 - Never drive a Tern window or OMP session this run did not start.
 
 ## Driving conventions
 
 - Start each recipe from the baseline unless its preconditions say otherwise.
 - Prefer `$C tree` text and CSS classes from the layout JSON over screen coordinates.
-- Keys only reach the picker or panel when the editor is empty; clear the editor first.
+- Clear the editor before using keyboard shortcuts for the `/btw` panel or English coach.
 - Treat every command as literal. Keep the double quotes inside single quotes for `type` and `run`.
 - After a code change, start a new OMP session; a running one keeps the old code.
 
@@ -31,7 +31,6 @@ Each feature file starts with an H1 title and one paragraph of user-visible beha
 ## Features
 
 - [Side question with /btw](./side-question-btw.md): answer with read-only tools, the tool-call fold, follow-ups, cancel, the thread ending at the next main prompt, and the thread's start from the saved transcript.
-- [Picker btw](./picker-btw.md): a Side question from inside the ask picker, while `ask` waits, on choice and mixed forms.
-- [Ask picker](./ask-picker.md): HTML form questions and context, keys, Other and notes, images, Submit and `required`, timeout, the draft, `/tree` re-answer on OMP's native form, host dialogs, other transports, and the answer the agent gets.
+- [Native ask](./native-ask.md): load the three plugin extensions, answer a native form in both renderers, and answer the same form again from `/tree` using a local provider.
 - [generate_image](./generate-image.md): the shared schema with per-call `mode`, generations and edits in each Image generation mode (OpenAI mode also `n`, formats, streaming, and masks), the tool card naming the mode, and the approval prompt.
 - [English coach](./english-coach.md): private corrections, clean and over-limit prompts, protected fenced pastes, `/btw` delivery, skipped commands, and the panel height cap, with an isolated local provider in both renderers.

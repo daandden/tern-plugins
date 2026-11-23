@@ -34,7 +34,6 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
    PI_CODING_AGENT_DIR="$VERIFY_RUN_DIR/data/agent" \
    PI_PROFILE= PI_SMOL_MODEL= PI_SLOW_MODEL= PI_PLAN_MODEL= \
    "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" \
-   -e "$CHECKOUT/omp/extensions/flexible-ask.ts" \
    -e "$CHECKOUT/omp/extensions/generate-image.ts" \
    -e "$CHECKOUT/omp/extensions/english-coach.ts" \
    -e "$CHECKOUT/omp/extensions/btw.ts" \

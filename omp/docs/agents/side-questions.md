@@ -5,8 +5,8 @@ A Side question is a full agent run in a mirror session built the way OMP's
 
 - **Availability.** `sideQuestionsAvailable` needs a main agent
   (`ctx.agent.kind === "main"`), a session file, and a live session in
-  `AgentRegistry.global()` with a model. Without them `/btw` falls through to
-  native and the Picker btw is off.
+  `AgentRegistry.global()` with a model. Without them, `/btw` falls through
+  to native.
 - **Fork.** `SessionManager.forkFrom` copies the main transcript into
   `$TMPDIR/omp-side-question-<random>/SideQuestion-<uuid>.jsonl`. It stays
   outside the sessions tree because omp-stats and the Agent Hub scan that
@@ -16,10 +16,10 @@ A Side question is a full agent run in a mirror session built the way OMP's
   the old wiring fails typecheck.
 - **Tools.** `restrictToolNames` offers only read, grep, glob, find, and
   web_search (no MCP, LSP, IRC, or ambient extension tools) with OMP's
-  default prompt for them. There is no call-time gate. Copying the main prompt
-  and tools to reuse the main cache let a Picker btw call `ask`, `bash`, and
-  `write` in 3 of 15 replays (0 of 15 now), so a thread's first request never
-  reuses the main cache.
+  default prompt for them. There is no call-time gate. Copying the main
+  prompt and tools let a Side question call `ask`, `bash`, and `write` in 3
+  of 15 replays (0 of 15 with the restricted tool list). A thread's first
+  request does not reuse the main cache.
 - **Cache key.** Every thread of one main session shares
   `sideQuestionCacheKey`, sent as `providerPromptCacheKey` and Codex
   `parentSessionId` over SSE (`preferWebsockets: false`). A later thread's
@@ -124,18 +124,7 @@ A Side question is a full agent run in a mirror session built the way OMP's
   `omp.overlay.btw` (a plain `col` let the composer's meter row overlap the
   hints), a `scrollBox` capped at 40% of the rows with `reveal` at the end, and
   the tool calls as a collapsible `section`. It sends its own stylesheet
-  (`omp-tools-btw`, `SCROLL_BOX_CSS` from `ask-editor.ts`) so list numbers are
+  (`omp-tools-btw`, `SCROLL_BOX_CSS` from `panel-layout.ts`) so list numbers are
   not clipped.
 - Match the main chat's user messages: a user bubble in Tern and a Markdown
   block on the user message background in the classic terminal.
-
-## Picker btw
-
-- Each ask gets one thread (`pickerBtwRunner` in `flexible-ask.ts`), opened on
-  the first `?` question and disposed when the dialog closes, unless a Picker
-  draft keeps it. A cancelled turn keeps the thread.
-- `picker-btw.md` is its prompt, with the unsubmitted answers from
-  `formatAskAnswers`.
-- `?` disposes the countdown, and the next key in the options restarts it.
-- Pasted images go to `SideQuestionThread.ask` as prompt images, with their
-  labels renumbered in text order and sent in that order.

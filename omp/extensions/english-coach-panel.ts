@@ -14,8 +14,8 @@ import {
 	wrapTextWithAnsi,
 } from "@oh-my-pi/pi-tui";
 import { theme } from "@oh-my-pi/pi-tui/theme";
-import { keyLabel, SCROLL_BOX_CSS, scrollBox } from "./ask-editor";
 import type { CoachCorrection, CoachMistake, CoachSegment } from "./english-coach-diff";
+import { keyLabel, SCROLL_BOX_CSS, scrollBox } from "./panel-layout";
 import { sheetMessage } from "./tern-theme";
 
 const PANEL_HEIGHT_RATIO = 0.4;
@@ -255,7 +255,8 @@ export class EnglishCoachPanel implements Component {
 			node("col", { role: "omp-tools.english-coach.frame" }, [
 				scrollBox(
 					node("col", { role: "omp-tools.english-coach.body" }, body),
-					{ lines: this.#maxLines(), fixed: false, key: "english-coach-body", scroll: undefined },
+					this.#maxLines(),
+					"english-coach-body",
 				),
 				node(
 					"row",

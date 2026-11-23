@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-[ "$#" -eq 2 ] || { echo 'usage: picker-omp RUN setup|session' >&2; exit 2; }
+[ "$#" -eq 2 ] || { echo 'usage: native-ask-omp RUN setup|session' >&2; exit 2; }
 run=$(cd "$1" && pwd -P)
 mode=$2
 here=$(cd "$(dirname "$0")" && pwd -P)
@@ -42,7 +42,7 @@ EOF
 	;;
 session)
 	cd "$project"
-	local_omp -e "$run/provider.ts" --model vfix/main --session-dir "$data/sessions"
+	local_omp -e "$run/provider.ts" --offline --model vfix/main --session-dir "$data/sessions"
 	;;
 *) echo "unknown command: $mode" >&2; exit 2 ;;
 esac
