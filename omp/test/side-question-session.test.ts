@@ -169,7 +169,7 @@ test("a pending main ask and bash stay open to the Side question, with no repeat
 			"user: pick-a-target",
 			"assistant: [read#call_read, ask#call_ask, bash#call_bash]",
 			"tool call_read: deploy-notes",
-			"tool call_ask: The user is answering this question in the Picker now. The answer is not known here. Do not call ask again.",
+			"tool call_ask: The user is answering this question now. The answer is not known here. Do not call ask again.",
 			"tool call_bash: This call is still running in the main conversation. Its result is not known here. Do not call it again.",
 			"user: side-question-prompt",
 		]);

@@ -56,6 +56,9 @@ A Side question is a full agent run in a mirror session built the way OMP's
   (`buildSessionContext`). The fork skips `repairInterruptedTail`, which
   repairs the file's last branch instead of the selected one and returns an
   "outcome is unknown" error that does not say to wait.
+  A native `ask` stays open while the Side question runs. The fork sees
+  the call's questions, not the user's unsent picks, Other answer, text
+  fields, or Notes.
 - **Model.** `side-question-model.ts` reads `sideQuestionModel` per thread
   with `getPluginSettings`, and resolves the role and thinking level with
   `resolveModelOverride`. The fork records the selected role so shared-model
@@ -116,10 +119,14 @@ A Side question is a full agent run in a mirror session built the way OMP's
   in it. `before_agent_start` (a main prompt) ends it; while an answer runs,
   it marks the thread closed so the answer finishes and shows first. Session
   switch, branch, tree, and shutdown dispose it.
-- The panel is a widget above the editor (`setWidget`,
-  `placement: "aboveEditor"`), and the editor keeps focus. Keys come through
-  `ctx.ui.onTerminalInput` and act only while the panel shows and the editor
-  is empty: `app.interrupt` cancels or hides, `t` folds the tool calls.
+- From a focused native `ask`, Esc hands focus to the main composer.
+  Send `/btw <question>` or `? <question>` there and press Shift+Tab to
+  return to the form. The handled `input` event sends no main prompt.
+- The panel is a widget above the composer (`setWidget`,
+  `placement: "aboveEditor"`). `btw.ts` captures the main composer as the
+  focused component when the submission opens the widget. The terminal
+  input listener acts only while the panel shows and the empty composer
+  has focus: `app.interrupt` cancels or closes, and `t` folds tool calls.
 - In Tern the panel describes a `col` with native `/btw`'s role
   `omp.overlay.btw` (a plain `col` let the composer's meter row overlap the
   hints), a `scrollBox` capped at 40% of the rows with `reveal` at the end, and

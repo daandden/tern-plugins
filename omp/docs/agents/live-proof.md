@@ -2,6 +2,27 @@
 
 Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, `/btw` during native ask in Tern (ticket #37): omp 19.1.0
+  and Tern 0.9.30 kept the inline form open through `/btw` and `?` with a
+  local provider. The panel showed a `read` call. Shift+Tab returned to the
+  text field, which received `t`. Esc moved focus to the composer and left
+  the panel open. Submit returned the Blue pick, its Note, the Other answer,
+  and the text field. The Side requests carried the pending call but none
+  of the answers. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/tern-OjD9H7/`.
+- 2026-11-23, `/btw` during native ask in the classic TUI (ticket #37):
+  omp 19.1.0 with `PI_TUI_NATIVE=0` in Tern 0.9.30 answered both Side
+  questions while the form waited. `t` folded the `read` call from the
+  empty composer and entered text after Shift+Tab. Esc from the form
+  kept the panel open. The same draft, with the extra `t`, reached the
+  native `ask` result. No draft values reached the Side model. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/classic-VZwMTM/`.
+- 2026-11-23, ordinary message during native ask (ticket #37): a separate
+  omp 19.1.0 session in Tern 0.9.30 closed the form when the user sent an
+  ordinary message from the composer. The transcript records `Ask
+  interrupted by message`, the user's message, and the local provider's
+  acknowledgment. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/ordinary-aurcWx/`.
 - 2026-11-23, native ask in Tern (ticket #36): omp 19.1.0 and Tern 0.9.30
   loaded `generate-image`, `english-coach`, and `btw` as the three modules
   in `/extensions`. With the fixed local provider, `Pick a color` appeared

@@ -16,7 +16,7 @@ Send `Call the ask tool please` to the local fixture. Use Down to focus Blue, En
 
 ### Local native ask session
 
-The provider serves `vfix/main` and `vfix/side` on localhost. For prompts starting with `Call the ask tool`, the main model calls `ask` with the `Pick a color` form. Otherwise it echoes a submitted color or replies `ok`. The Side model streams a fixed answer without tools. Keep the provider running until the drive ends.
+The provider serves `vfix/main` and `vfix/side` on localhost. `Call the ask tool please` opens the one-question color form. `Call the ask tool for Side questions` also asks for a shape and a label. The latter form is for [the `/btw` drive](side-question-btw.md#during-a-native-ask). Keep the provider running until the drive ends.
 
 Use `CHECKOUT`, `H`, `V`, `OMP_BIN`, and the fresh `VERIFY_RUN_DIR` from [the parent skill](../SKILL.md). For a Tern plugin recipe using its own run directory, set `VERIFY_RUN_DIR=$RUN` and set the paths to the same checkout. Seed the disposable omp home and record the plugin link and manifest:
 

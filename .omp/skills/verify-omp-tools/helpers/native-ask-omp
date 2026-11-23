@@ -31,6 +31,7 @@ modelRoles:
   tiny: vfix/side
 EOF
 	printf '%s\n' '{"settings":{"omp-tools":{"englishCoach":false}}}' >"$project/.omp/plugin-overrides.json"
+	printf '%s\n' 'Local fixture contents.' >"$project/side-fixture.txt"
 	cd "$project"
 	printf 'checkout: %s (%s)\nomp: %s\n' "$checkout" "$(git -C "$checkout" rev-parse HEAD)" "$("$omp" --version)"
 	local_omp plugin link "$checkout/omp"

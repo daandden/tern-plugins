@@ -307,11 +307,16 @@ There is no retained eval runtime or eval prelude tool such as `ratchet`. It use
 `read`, `grep`, `glob`, `find`, and `web_search`, with their size limits and no round cap. It cannot ask you,
 run commands, or message or stop agents. `read agent://<id>` can read a main-session agent still running.
 
-The panel above the editor leaves the editor focused. It shows questions like main chat messages, with
-answer text and **N tool calls** groups in order. With the editor empty, `t` toggles a group and Esc cancels
-the answer or closes the panel. In Tern, click a group to toggle it. Follow-ups keep their thread even after
-you close the panel. When the agent takes your next main prompt, even if queued, it ends the thread and
-clears the panel. A running Side answer can finish and show, but the next `/btw` starts a new thread.
+The panel above the composer leaves the composer focused. It shows questions like main chat messages, with
+answer text and **N tool calls** groups in order. When the main composer has focus and is empty, `t` toggles
+tool calls and Esc cancels the answer or closes the panel. In Tern, click a group to toggle it. Follow-ups
+keep their thread even after you close the panel. When the agent takes your next main prompt, even if queued,
+it ends the thread and clears the panel. A running Side answer can finish and show, but the next `/btw`
+starts a new thread.
+
+While a native `ask` waits, press Esc on the form to focus the composer. Send `/btw <question>` or
+`? <question>` to ask aside without submitting the form. Press Shift+Tab to return to the form with your
+answers intact. The Side question knows the `ask` is still open but cannot see your unsent answers or Notes.
 
 `sideQuestionModel` applies to `/btw`. It defaults to `@smol` and uses the role's thinking level.
 Set a role such as `@smol:low` or a selector such as `provider/model:high`. An empty value uses the main model.

@@ -1,6 +1,6 @@
 import type { ImageContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import type { TUI } from "@oh-my-pi/pi-tui";
+import type { Component, TUI } from "@oh-my-pi/pi-tui";
 import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
 import { prompt } from "@oh-my-pi/pi-utils";
 import btwPrompt from "./btw.md" with { type: "text" };
@@ -28,6 +28,7 @@ class BtwCycle {
 	#revision = 0;
 	#shown = false;
 	#tui: TUI | undefined;
+	#composer: Component | null = null;
 	readonly #stopKeys: () => void;
 
 	constructor(ctx: ExtensionContext) {
@@ -95,7 +96,9 @@ class BtwCycle {
 	}
 
 	#handleKey(data: string): { consume: boolean } | undefined {
-		if (!this.#shown || this.#ctx.ui.getEditorText().trim()) return undefined;
+		if (!this.#shown || !this.#composer || this.#tui?.getFocused() !== this.#composer || this.#ctx.ui.getEditorText().trim()) {
+			return undefined;
+		}
 		if (matchesAppInterrupt(data)) {
 			if (this.#running()) this.#cancel();
 			else this.#hide();
@@ -119,6 +122,8 @@ class BtwCycle {
 			WIDGET_KEY,
 			tui => {
 				this.#tui = tui;
+				// Only a submission from the main composer opens the widget.
+				this.#composer = tui.getFocused();
 				return new BtwPanel(tui, () => ({
 					turns: this.#turns,
 					toolsOpen: this.#toolsOpen,
@@ -133,6 +138,7 @@ class BtwCycle {
 		if (!this.#shown) return;
 		this.#shown = false;
 		this.#tui = undefined;
+		this.#composer = null;
 		this.#ctx.ui.setWidget(WIDGET_KEY, undefined);
 	}
 

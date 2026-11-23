@@ -168,7 +168,7 @@ export function forwardSideQuestionUsage(fork: SessionManager, ledger: SessionMa
 type ForkEntry = ReturnType<SessionManager["getBranch"]>[number];
 
 const PENDING_ASK =
-	"The user is answering this question in the Picker now. The answer is not known here. Do not call ask again.";
+	"The user is answering this question now. The answer is not known here. Do not call ask again.";
 const PENDING_CALL =
 	"This call is still running in the main conversation. Its result is not known here. Do not call it again.";
 

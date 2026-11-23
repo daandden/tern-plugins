@@ -15,11 +15,13 @@
 - `btw-main-ends` ends the thread at the next main prompt; an answer still running finishes and shows first.
 - `btw-private` keeps Side questions out of the main transcript.
 - `btw-seed` starts a thread from the saved transcript: after compaction, after a `/tree` jump with or without a new prompt, and with a call still pending.
+- `btw-native-ask` answers from the composer while a native form waits. The form keeps the answers, and its focused controls keep their keys.
 
 ## How to get to it (user POV)
 
 - Type `/btw <question>` in the main editor and press Enter (Tern view or classic TUI).
-- Press `t` or Esc with an empty editor while the panel shows.
+- While a native `ask` waits, press Esc on the form to focus the composer. Send `/btw <question>` or `? <question>`. Press Shift+Tab to return to the form.
+- Press `t` or Esc while the panel shows and the empty composer has focus.
 - Click the "N tool calls" line (Tern view only).
 
 ## Driving it with tern ctl
@@ -52,11 +54,24 @@ Preconditions:
   - Tree, no prompt. Do the same `/tree` jump and ask `/btw` at once. The Side request ends at the selected eval answer and its saved eval state, then the `<btw>` prompt; nothing from the abandoned turn.
   - Pending call. The [local native ask session](native-ask.md#local-native-ask-session) can hold an `ask` while you send `/btw` from the composer. Check the Side request for the still-open `ask` result. For another tool, make the provider call `bash` with `sleep 60` and ask `/btw` while it runs. The Side result for that call reads `This call is still running in the main conversation. Its result is not known here. Do not call it again.`, and no later Side request calls `bash`.
 
+### During a native ask
+
+Run the [local native ask session](native-ask.md#local-native-ask-session) once in Tern and once with `PI_TUI_NATIVE=0`. Use a fresh session for each renderer. The open `ask` turn provides the saved transcript, so skip the baseline main prompt.
+
+1. Send `Call the ask tool for Side questions`. In **Pick a color**, move to Blue with Down and pick it with Space. Press `n`, type `PrivateNote-407`, and press Enter to save the Note.
+2. Press Tab to move to **Pick a shape**, then Down twice to reach **Other**. Type `PrivateOther-581` and press Enter. In **Label**, type `PrivateLabel-963`. Capture the form without submitting it.
+3. Press Esc to focus the composer. Send `/btw Read the local fixture`. Wait for `Local Side read answer.` and `1 tool call`. The form stays open. In classic, pause half a second after Esc before you type.
+4. Send `? Check the follow-up`. Wait for `Local Side follow-up answer.`. Verify that both questions appear in the same panel. With the empty composer focused, press `t` to show `read side-fixture.txt`, then press `t` again to fold it.
+5. Press Shift+Tab to return to **Label**. Press `t` and verify the field shows `PrivateLabel-963t` while tool calls stay folded. Press Esc and verify focus returns to the composer while the panel stays open.
+6. Press Shift+Tab, Tab, and Enter to submit. Check the main transcript for a native `ask` result with `color: blue`, `shape: PrivateOther-581`, `label: PrivateLabel-963t`, and the Note `PrivateNote-407` on Blue.
+7. In `requests.jsonl`, select the `side` requests with a `<btw>` message. Each has the pending `ask` call and the still-open result with the same call ID, no submitted `answers` or `notes` result, and none of the three private markers. Blue is present in the form's HTML, not as a submitted pick. Check that the main transcript contains neither Side question nor answer.
+8. Start a separate fresh session with the same local provider. Open the form again, press Esc, and send `Continue with the ordinary message`. Check that the native form closes and the main model replies `Local main received the ordinary message.`. Confirm the user message in the main transcript and provider log.
+
 ## Gotchas
 
 - `/btw` sent before the main prompt's reply lands is answered from the transcript as it was then; the Side question does not see the reply still streaming.
 - The Side question's thread file (`SideQuestion-<uuid>.jsonl` under `$TMPDIR/omp-side-question-*/`, never in the sessions dir) exists only while the thread lives. Read usage from the main session's `model_usage` entries with `purpose: "side-question"` instead (`jq -c 'select(.type=="model_usage" and .purpose=="side-question") | .usage' <main session>.jsonl`).
-- `t` and Esc are ignored while the editor has text. Esc is the default `app.interrupt` key. If the user's keybindings change it, use that key.
+- `t` and Esc pass through while the composer has text or another component has focus. Esc is the default `app.interrupt` key. If the user's keybindings change it, use that key.
 - Bare `/btw`, a focused subagent view, and RPC go to OMP's own `/btw`; they are not this feature.
 - Classic TUI (`PI_TUI_NATIVE=0`) and the Tern view are separate entry points.
 - `/btw` uses `sideQuestionModel`, default `@smol`, with the selected role's thinking and fallback chain. Model-setting changes apply to the next thread.
