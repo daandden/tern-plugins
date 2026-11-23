@@ -79,11 +79,11 @@
   its own, so the panel spans the composer like `/btw`. The body column has
   the role `omp-tools.english-coach.body` in every state, so the theme sheet
   finds the panel.
-- `app.interrupt` (Esc) closes the panel, as on the `/btw` panel, only while
-  the main editor is empty and has focus. The focus is the component focused
-  when the widget was created, read with `tui.getFocused()`, so a Picker or
-  selector keeps its Esc. In Tern the bottom-right `esc` keycap is also a
-  click target. Closing aborts an unfinished check.
+- `app.interrupt` (Esc) closes the panel only while the empty main editor
+  has focus. The coach records the focused component with `tui.getFocused()`
+  when it creates the widget. A focused form or selector keeps its Esc.
+  In Tern the bottom-right `esc` keycap also closes the panel. Closing aborts
+  an unfinished check.
 - Every interactive submission clears the previous outcome and aborts an
   unfinished check. Session switch, branch, tree, and shutdown do the same.
   Failures stay in the panel and never reject input dispatch.

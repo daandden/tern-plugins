@@ -5,8 +5,8 @@ A Side question is a full agent run in a mirror session built the way OMP's
 
 - **Availability.** `sideQuestionsAvailable` needs a main agent
   (`ctx.agent.kind === "main"`), a session file, and a live session in
-  `AgentRegistry.global()` with a model. Without them `/btw` falls through to
-  native and the Picker btw is off.
+  `AgentRegistry.global()` with a model. Without them, `/btw` falls through
+  to native.
 - **Fork.** `SessionManager.forkFrom` copies the main transcript into
   `$TMPDIR/omp-side-question-<random>/SideQuestion-<uuid>.jsonl`. It stays
   outside the sessions tree because omp-stats and the Agent Hub scan that
@@ -14,12 +14,23 @@ A Side question is a full agent run in a mirror session built the way OMP's
 - **One constructor.** Build the mirror only with `createMirrorSession`. Its
   input type has no `systemPrompt`, tool list, or plain-string cache key, so
   the old wiring fails typecheck.
-- **Tools.** `restrictToolNames` offers only read, grep, glob, find, and
-  web_search (no MCP, LSP, IRC, or ambient extension tools) with OMP's
-  default prompt for them. There is no call-time gate. Copying the main prompt
-  and tools to reuse the main cache let a Picker btw call `ask`, `bash`, and
-  `write` in 3 of 15 replays (0 of 15 now), so a thread's first request never
-  reuses the main cache.
+- **Tools.** `restrictToolNames` limits the mirror to enabled `read`, `grep`,
+  `glob`, and `find`, plus two explicit custom tools when available. It excludes
+  `web_search`, ambient MCP, LSP, IRC, and other extension tools. The `/btw`
+  prompt lists the actual roster and says when search and fetch are unavailable.
+- **Keenable.** At thread start, `createMirrorSession` uses `MCPManager.instance()`
+  to look up `mcp__keenable_search_web_pages` and
+  `mcp__keenable_fetch_page_content` on the main connection. Both must belong
+  to server `keenable`. The mirror uses `allowRestrictedCustomTools` to offer both
+  with their original schemas and descriptions, or neither. Each call looks up
+  its exact name and server again in the owner's tool list. A disconnect leaves
+  the current thread's roster intact, but calls report that Keenable is
+  unavailable. The next thread reads the manager again. The mirror does not open
+  an MCP connection. Each forwarded call has a unique invocation ID tracked in
+  a separate Side scope, so a catalog change announced during the call does not
+  add tools to the main agent's roster. Its headless approval gate rejects
+  explicit deny and prompt rules without calling the server. The main connection
+  owns reauthentication.
 - **Cache key.** Every thread of one main session shares
   `sideQuestionCacheKey`, sent as `providerPromptCacheKey` and Codex
   `parentSessionId` over SSE (`preferWebsockets: false`). A later thread's
@@ -56,6 +67,9 @@ A Side question is a full agent run in a mirror session built the way OMP's
   (`buildSessionContext`). The fork skips `repairInterruptedTail`, which
   repairs the file's last branch instead of the selected one and returns an
   "outcome is unknown" error that does not say to wait.
+  A native `ask` stays open while the Side question runs. The fork sees
+  the call's questions, not the user's unsent picks, Other answer, text
+  fields, or Notes.
 - **Model.** `side-question-model.ts` reads `sideQuestionModel` per thread
   with `getPluginSettings`, and resolves the role and thinking level with
   `resolveModelOverride`. The fork records the selected role so shared-model
@@ -116,26 +130,19 @@ A Side question is a full agent run in a mirror session built the way OMP's
   in it. `before_agent_start` (a main prompt) ends it; while an answer runs,
   it marks the thread closed so the answer finishes and shows first. Session
   switch, branch, tree, and shutdown dispose it.
-- The panel is a widget above the editor (`setWidget`,
-  `placement: "aboveEditor"`), and the editor keeps focus. Keys come through
-  `ctx.ui.onTerminalInput` and act only while the panel shows and the editor
-  is empty: `app.interrupt` cancels or hides, `t` folds the tool calls.
+- From a focused native `ask`, Esc hands focus to the main composer.
+  Send `/btw <question>` or `? <question>` there and press Shift+Tab to
+  return to the form. The handled `input` event sends no main prompt.
+- The panel is a widget above the composer (`setWidget`,
+  `placement: "aboveEditor"`). The terminal input listener requires an empty,
+  focused main composer. omp 19.1.0 attaches `onUpFromTop` to the main composer
+  to return to the native ask. `/btw` checks for that hook on the focused
+  component instead of assuming the composer has focus when the widget opens.
+  `app.interrupt` cancels or closes, and `t` folds tool calls.
 - In Tern the panel describes a `col` with native `/btw`'s role
   `omp.overlay.btw` (a plain `col` let the composer's meter row overlap the
-  hints), a `scrollBox` capped at 40% of the rows with `reveal` at the end, and
-  the tool calls as a collapsible `section`. It sends its own stylesheet
-  (`omp-tools-btw`, `SCROLL_BOX_CSS` from `ask-editor.ts`) so list numbers are
-  not clipped.
+  hints), an `omp-tools.panel-body` scroll box capped at 40% of the rows with
+  `reveal` at the end, and the tool calls as a collapsible `section`. Its sheet
+  (`omp-tools-btw`) includes the shared Markdown list marker gutter.
 - Match the main chat's user messages: a user bubble in Tern and a Markdown
   block on the user message background in the classic terminal.
-
-## Picker btw
-
-- Each ask gets one thread (`pickerBtwRunner` in `flexible-ask.ts`), opened on
-  the first `?` question and disposed when the dialog closes, unless a Picker
-  draft keeps it. A cancelled turn keeps the thread.
-- `picker-btw.md` is its prompt, with the unsubmitted answers from
-  `formatAskAnswers`.
-- `?` disposes the countdown, and the next key in the options restarts it.
-- Pasted images go to `SideQuestionThread.ask` as prompt images, with their
-  labels renumbered in text order and sent in that order.

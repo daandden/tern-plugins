@@ -1,0 +1,6 @@
+schema = 1
+id = "goto-agent-status"
+name = "Go to agent status probe"
+version = "0.1.0"
+description = "Runs a local fixture for Go to's agent status checks."
+window = "window.luau"

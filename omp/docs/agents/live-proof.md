@@ -1,7 +1,90 @@
 # Live proof
 
-Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
+Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, review-fix smoke on omp 19.1.0 in isolated headless Tern
+  0.9.30. A native `ask` opened with a Blue pick and a Label draft. The
+  local read answer appeared in `omp-tools.panel-body` while the ask
+  stayed open. From the composer, `t` expanded and collapsed the tool
+  section: the body's height changed from 78 to 98.5 and back to 78 px.
+  The drive stopped before returning to the form because its text check
+  included the collapsed tool row. See `form-draft.webp`, `side-answer.json`,
+  `scroll-body.json`, and `fold-{open,closed}.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/review-fix/tern-5mkBGL/`.
+- 2026-11-23, `/btw` Keenable roster (ticket #38): omp 19.1.0 in RPC,
+  launched from isolated headless Tern 0.9.30, loaded the Side question
+  probe. Its roster held `read`, `grep`, `glob`, `find`, and both Keenable
+  MCP tools, with no `web_search`. The Side question read a local file.
+  The installed host and the probe shared the MCP manager through the
+  SDK `/mcp` export. See `tools.json`, `requests.jsonl`, and `notes.md` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/38/verify-omp-tools-jZaqdY/`.
+- 2026-11-23, Go to with a waiting native ask (ticket #39): omp 19.1.0 and
+  Tern 0.9.30 showed the unfocused `Pick a color` pane under Waiting on you
+  with the warning mark and a waiting time. The raw agent list reported
+  `waiting_input` for that pane with the picker open. See `ask-goto.webp`
+  and `ask-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with `/btw` during a held turn (ticket #39): omp 19.1.0
+  and Tern 0.9.30 kept the pane `working` with the Side answer visible
+  and no ask open. The pane showed only under Sessions with a working
+  time. See `held-panel.webp`, `held-goto.webp`, and
+  `held-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with the English coach (ticket #39): omp 19.1.0 and
+  Tern 0.9.30 showed the correction while the pane was idle. Go to gave
+  the pane an Idle row and no needs-input mark or Waiting on you row.
+  See `coach-panel.webp`, `coach-goto.webp`, and
+  `coach-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with the retired Picker list role (ticket #39): a
+  local terminal fixture on Tern 0.9.30 reported `working` and sent the
+  old list role. Go to classified it as waiting before the change and
+  Working afterward. See `red-legacy.webp` and `green-legacy.webp` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, `/btw` during native ask in Tern (ticket #37): omp 19.1.0
+  and Tern 0.9.30 kept the inline form open through `/btw` and `?` with a
+  local provider. The panel showed a `read` call. Shift+Tab returned to the
+  text field, which received `t`. Esc moved focus to the composer and left
+  the panel open. Submit returned the Blue pick, its Note, the Other answer,
+  and the text field. The Side requests carried the pending call but none
+  of the answers. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/tern-OjD9H7/`.
+- 2026-11-23, `/btw` during native ask in the classic TUI (ticket #37):
+  omp 19.1.0 with `PI_TUI_NATIVE=0` in Tern 0.9.30 answered both Side
+  questions while the form waited. `t` folded the `read` call from the
+  empty composer and entered text after Shift+Tab. Esc from the form
+  kept the panel open. The same draft, with the extra `t`, reached the
+  native `ask` result. No draft values reached the Side model. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/classic-VZwMTM/`.
+- 2026-11-23, ordinary message during native ask (ticket #37): a separate
+  omp 19.1.0 session in Tern 0.9.30 closed the form when the user sent an
+  ordinary message from the composer. The transcript records `Ask
+  interrupted by message`, the user's message, and the local provider's
+  acknowledgment. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/37/ordinary-aurcWx/`.
+- 2026-11-23, native ask in Tern (ticket #36): omp 19.1.0 and Tern 0.9.30
+  loaded `generate-image`, `english-coach`, and `btw` as the three modules
+  in `/extensions`. With the fixed local provider, `Pick a color` appeared
+  in `sf-main` at the end of the transcript above the composer. The result
+  was Blue. `/tree` reopened the same form without a main-model request.
+  Red produced a sibling result with the same parent and call IDs. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/tern-4Q49fv/`.
+- 2026-11-23, native ask in the classic TUI (ticket #36): omp 19.1.0 with
+  `PI_TUI_NATIVE=0` in Tern 0.9.30 displayed the text form from the fixed
+  local provider. Down, Enter, and Enter submitted Blue. `/tree` reopened
+  the text form and Red produced a sibling result on the same call. Evidence:
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/classic-Qz1t3v/`.
+- 2026-11-23, `/btw` panel after Picker removal (ticket #36): omp 19.1.0
+  and Tern 0.9.30 showed `/btw why it not work?` and the local Side answer
+  above the composer, alongside the English coach correction. The tree
+  showed a scroll box for each panel. See `btw-and-coach.webp` and
+  `shared-scroll-boxes.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/coach-hItaox/`.
+- 2026-11-23, English coach after Picker removal (ticket #36): in omp
+  19.1.0 and Tern 0.9.30, the local coach provider's `mistakes` scenario
+  drew a correction with 18 marked changes above the composer. See
+  `coach-correction.webp` and `requests.jsonl` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/36/coach-hItaox/`.
 - 2026-11-22, Tern 0.9.30 and OMP 19.1.0 compatibility: isolated headless
   Tern with OMP's native renderer, `81bdc7a` plus uncommitted docs and Verify
   helper edits, SDK types 19.0.1. The four extensions loaded with no errors,

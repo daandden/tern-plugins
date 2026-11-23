@@ -5,9 +5,9 @@
 This repo holds plugins for two hosts:
 
 - `tern/<id>/` holds Luau plugins for [Tern](https://github.com/stencil-hq/tern-sdk). `bin/open` sends `open FILE` into Tern.
-- `omp/` is the plugin root for `omp-tools`, a TypeScript plugin for Oh My Pi (omp). Its four parts are the `ask` Picker, `generate_image`, Side questions through `/btw` and Picker btw, and the English coach.
+- `omp/` is the plugin root for `omp-tools`, a TypeScript plugin for Oh My Pi (omp). It provides `/btw` Side questions, `generate_image`, and the English coach.
 
-Use the terms and Avoid lists in [GLOSSARY.md](GLOSSARY.md) in code, tests, and issues. The Picker answers `ask`; the Go to picker jumps between Tern destinations. Read the relevant [ADRs](docs/adr/) before changing either host's behavior.
+Use the terms and Avoid lists in [GLOSSARY.md](GLOSSARY.md) in code, tests, and issues. Read the relevant [ADRs](docs/adr/) before changing either host's behavior.
 
 ## Tern
 
@@ -139,7 +139,7 @@ goto Waiting on you: `collect` copies attention rows other than the current row 
 
 goto status: `cx.agents:list()` supplies working, waiting_input, idle or exited, including omp terminal panes. Plain terminals use `busy` and `alert` from `cx.session:panes()`. To recover richer omp states, `omp_signals` reads only `dock` and `layer` roots with `cx.session:surface`, never the whole-chat `main` region. It recognizes `omp.ask.question` and `omp.plan.options` as input, `omp.working` with a `meter` as retrying or `progress` as compacting, `omp.errorBanner` as error, and `omp.hud.seg` with a `text` child as running jobs or subagents. An old `omp.hud.pill` can remain with only a muted icon and no count text; it does not count as running. These are omp TSP roles, not an API; renames fall back to Tern's plain states. They still match omp 18.13.3.
 
-goto Picker status: omp-tools' Picker opens through `ctx.ui.custom`, which omp 19.0.0 does not count as a dialog, so omp reports the pane `working` over OSC 7501 for as long as the Picker waits. Every Picker view (a question, Picker review, an answer editor's context, the Picker btw thread after `?`) draws its body as a list with the role `omp-tools.ask-body`, and `omp_signals` treats that list as input. The Picker btw thread has no `omp.ask.question`, so without this rule the pane showed working while you asked aside. omp-tools' `/btw` panel and English coach draw the same list inside `omp.overlay.btw` while the agent works, so a list under that role is not input. Both roles belong to omp-tools, not an API.
+goto native ask status: omp 19.1.0 reports a waiting native `ask` over OSC 7501 when `terminal.programStatus` is on. Tern maps that report to `waiting_input`, which supplies the mark and waiting time. The `/btw` and English coach panels do not count as waiting for input.
 
 goto pause: omp 18.18.1's `/pause` draws `omp.overlay.pause` in `layer`. It wins over every status except exited, including while calls settle. Goal, loop and plan badges and Ctrl+Z are not pause signals. Paused rows use a still U+F04C `icon muted` mark with tooltip `Paused`, join Waiting on you after done and before idle even with idle hidden, and show no time. Pausing changes neither `finished` nor `since`: resume restores the underlying result or working time, including the hold.
 
@@ -171,10 +171,9 @@ goto times: rows show working time and waiting time (GLOSSARY.md) in the picker'
 
 ### Architecture and subsystem notes
 
-`omp/package.json` registers four default-exported initializers through `omp.extensions`. Each registers tools and event handlers on `ExtensionAPI` and keeps its registration state local. Before changing a part, read its notes:
+`omp/package.json` registers three default-exported initializers through `omp.extensions`. Each registers tools or event handlers on `ExtensionAPI` and keeps its registration state local. Before changing a part, read its notes:
 
-- [`ask` and the Picker](omp/docs/agents/ask-picker.md). `flexible-ask.ts` reads the native HTML form and opens the Picker in the TUI. Other callers reach native `ask` through `ctx.invokeTool`. Read the notes for editors, paste, drafts, host `askDialog` routing, and the tool card.
-- [Side questions](omp/docs/agents/side-questions.md). `/btw` and Picker btw each own a `LazySideQuestionThread` backed by a read-only mirror session. Read the notes before changing dispatch, streaming, or thread ownership.
+- [Side questions](omp/docs/agents/side-questions.md). `/btw` uses a `LazySideQuestionThread` backed by a read-only mirror session. Read the notes before changing dispatch, streaming, or thread ownership.
 - [`generate_image`](omp/docs/agents/generate-image.md). One tool dispatches to OpenAI mode or Codex mode per call, using `defaultImageGenerationMode` when the call omits `mode`. Read the notes before changing mode selection, results, clients, or the prompting skill.
 - [English coach](omp/docs/agents/english-coach.md). The coach checks interactive prompts with `@tiny` and shows private corrections above the editor without changing the prompt. Read the notes for settings, protected text, the diff, or the widget.
 - [Tern views](omp/docs/agents/tern-views.md). Read before changing an omp-tools view in Tern. Covers scroll boxes, stylesheets, and theme colors.
@@ -186,7 +185,7 @@ Source and model-facing prompts live in `omp/extensions/`. `omp/package.json` de
 Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.1.0 registry serves:
 
 - `@oh-my-pi/pi-tui` and its subpaths, including `/chrome`, `/render`, `/theme`, `/thinking`, `/media`, `/html-form/*`, `/chat/svg-figure`, `/native/blobs`, `/native/overlay`, `/chrome/form-theme`, `/keybinding-matchers`, `/overlays/*`, and `/tools/*`. In omp 18.22.0, `/html-form/media` moved to `/media`, and `loadFormImage` became `loadMedia`.
-- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
+- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/mcp`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
 - `@oh-my-pi/pi-utils` and flat subpaths such as `/dom`.
 - `@oh-my-pi/pi-ai` for `completeSimple` and `@oh-my-pi/pi-agent-core` for `Tokenizer`.
 
@@ -214,9 +213,9 @@ For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching
 
 - Indent TypeScript with tabs. Use double quotes, semicolons, and trailing commas. Use camelCase for functions and locals and PascalCase for types. Use `import type` for SDK types and `with { type: "text" }` for prompts, as declared in `omp/extensions/assets.d.ts`.
 - Keep state local to the initializer. Tool `execute` keeps `(toolCallId, params, signal, onUpdate, ctx)` and returns results shaped like native results. Pass `approval`, `concurrency`, and `mergeCallAndResult` on the tool definition.
-- Propagate errors with an actionable message. An invalid image mode registers a tool whose calls fail; missing native delegation throws. Side question views turn failures into turn state for display.
-- Pass the abort signal through the UI, mirror session, and HTTP. Clients combine it with a five-minute timeout. Throw `ToolAbortError` for a user abort and a plain `Error` for a timeout. Only a user's cancel in the Picker also calls `ctx.abort()` to end the main turn.
-- Dispose per-load owners such as `PickerDraftSlot`, `BtwCycle`, and `LazySideQuestionThread` on session switch, branch, tree, and shutdown. Use `Symbol.for("omp-tools.*")` keys for state shared across module loads. Use types for wiring rules, as in `SideQuestionCacheKey` and `createMirrorSession`'s input.
+- Propagate errors with an actionable message. An invalid image mode registers a tool whose calls fail. Side question views turn failures into turn state for display.
+- Pass the abort signal through the UI, mirror session, and HTTP. Clients combine it with a five-minute timeout. Throw `ToolAbortError` for a user abort and a plain `Error` for a timeout.
+- Dispose per-load owners such as `BtwCycle` and `LazySideQuestionThread` on session switch, branch, tree, and shutdown. Use `Symbol.for("omp-tools.*")` keys for state shared across module loads. Use types for wiring rules, as in `SideQuestionCacheKey` and `createMirrorSession`'s input.
 
 ### Testing
 
@@ -228,7 +227,7 @@ Run `bun run check` and `bun test` from `omp/` after code changes. The suite use
 - Use `omp/test/helpers/english-coach-session.ts` for the `input` handlers with a fake TUI context, local SSE, and the real model registry. Assert widget lines, provider requests, and ledger entries, not prompt wording or private helpers. Tests cover both `/btw` entry-point orders, but not terminal layout, deferred startup ordering, or correction quality with a real `@tiny` model.
 - The [OpenAI live test](omp/test/generate-image-openai.live.test.ts) sends three paid requests: a still image with complexity, an SVG, and a GIF. It checks API results, not tool cards. With approval for paid requests and `OPENAI_API_KEY`, opt in with `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
 
-For changes to registration, `ask`, the Picker, Side questions, the English coach, tool cards, or event handling, run a fresh-session smoke through [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). Use `PI_TUI_NATIVE=0` for the classic text renderer or RPC for checks without a screen. The five-tool limit, real panel and keys, and a kept Picker btw thread require live proof. Record each smoke in [the live proof log](omp/docs/agents/live-proof.md).
+For changes to registration, Side questions, the English coach, tool cards, or event handling, run a fresh-session smoke through [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). Use `PI_TUI_NATIVE=0` for the classic text renderer or RPC for checks without a screen. Prove panel rendering and keys in a fresh session. Record each smoke in [the live proof log](omp/docs/agents/live-proof.md).
 
 ## Shared verification and change notes
 

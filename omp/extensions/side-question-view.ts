@@ -20,7 +20,6 @@ export type SideQuestionPart =
 	| { type: "tools"; calls: SideQuestionToolCall[] }
 	| { type: "notice"; text: string };
 
-/** One question and its answer, as the /btw panel and the Picker btw view show it. */
 export interface SideQuestionTurn {
 	question: string;
 	parts: SideQuestionPart[];
@@ -162,21 +161,16 @@ function cacheMissLabel(tokens: number): string {
 	return `${icon ? `${icon} ` : ""}cache miss ${theme.sep.dot.trim()} ${formatNumber(tokens)} tokens`;
 }
 
-function runningLabel(turn: SideQuestionTurn, fallback: string): string {
+function runningLabel(turn: SideQuestionTurn): string {
 	const retry = turn.retry;
-	if (!retry) return fallback;
+	if (!retry) return "Answering…";
 	return `Retrying (${retry.attempt}/${retry.maxAttempts}) in ${formatDuration(Math.max(0, retry.retryAt - Date.now()))}…`;
 }
 
-/** Draws turns in both renderers; `runningLabel` is the line under an answer still running. */
+/** Draws Side question turns in both renderers. */
 export class SideQuestionTurnView {
-	readonly #runningLabel: string;
 	#markdown = new WeakMap<SideQuestionPart, { source: string; markdown: Markdown }>();
 	#questions = new WeakMap<SideQuestionTurn, Markdown>();
-
-	constructor(runningLabel: string) {
-		this.#runningLabel = runningLabel;
-	}
 
 	invalidate(): void {
 		this.#markdown = new WeakMap();
@@ -204,7 +198,7 @@ export class SideQuestionTurnView {
 			const label = cacheMissLabel(turn.cacheMissTokens);
 			lines.push(truncateToWidth(`${theme.fg("dim", "─".repeat(10))} ${theme.fg("muted", label)}`, width));
 		}
-		if (turn.status === "running") lines.push(theme.fg("dim", runningLabel(turn, this.#runningLabel)));
+		if (turn.status === "running") lines.push(theme.fg("dim", runningLabel(turn)));
 		else if (turn.status === "cancelled") lines.push(theme.fg("warning", "Cancelled"));
 		else if (turn.status === "error") lines.push(...wrapTextWithAnsi(theme.fg("error", errorText(turn)), width));
 		return lines;
@@ -247,7 +241,7 @@ export class SideQuestionTurnView {
 		});
 		if (turn.cacheMissTokens) children.push(text([span(cacheMissLabel(turn.cacheMissTokens), "muted")]));
 		if (turn.status === "running") {
-			children.push(node("spinner", { style: "dots", label: [span(runningLabel(turn, this.#runningLabel), "dim")] }));
+			children.push(node("spinner", { style: "dots", label: [span(runningLabel(turn), "dim")] }));
 		} else if (turn.status === "cancelled") {
 			children.push(text([span("Cancelled", "warning")]));
 		} else if (turn.status === "error") {

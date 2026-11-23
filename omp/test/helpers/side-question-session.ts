@@ -11,6 +11,7 @@ import {
 	type AgentSession,
 	type ExtensionContext,
 } from "@oh-my-pi/pi-coding-agent";
+import { MCPManager, type MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp";
 import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 import { SideQuestionThread, type SideQuestionCallbacks } from "../../extensions/side-question";
 
@@ -27,6 +28,9 @@ export async function sideQuestionFixture(options: {
 	toolCalls?: (body: Record<string, any>) => [id: string, name: string, args: Record<string, unknown>][] | undefined;
 	/** Main-session tools by name: the text each returns, or null to run until `release`. */
 	tools?: Record<string, string | null>;
+	find?: "on" | "off";
+	approval?: Record<string, "allow" | "deny" | "prompt">;
+	mcp?: Record<string, MCPServerConfig>;
 } = {}) {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "side-question-test-"));
 	const id = `SideMain-${crypto.randomUUID()}`;
@@ -43,6 +47,8 @@ export async function sideQuestionFixture(options: {
 	const release = () => hold.resolve();
 	let authStorage: AuthStorage | undefined;
 	let main: AgentSession | undefined;
+	const previousMcp = options.mcp && MCPManager.instance();
+	if (previousMcp && !(previousMcp instanceof MCPManager)) throw new Error("Cannot replace a remote MCP manager in the fixture.");
 	const dispose = async () => {
 		release();
 		try {
@@ -50,6 +56,7 @@ export async function sideQuestionFixture(options: {
 		} finally {
 			try { await main?.dispose(); }
 			finally {
+				if (options.mcp) MCPManager.setInstance(previousMcp || undefined);
 				server?.stop(true);
 				authStorage?.close();
 				AgentRegistry.global().unregister(id);
@@ -143,6 +150,9 @@ export async function sideQuestionFixture(options: {
 			"retry.fallbackChains": Object.fromEntries(Object.entries(options.fallback ?? { default: ["backup"] }).map(([role, names]) => [role, names.map(route)])),
 			"session.maxCost": options.maxCost,
 			"marketplace.autoUpdate": "off",
+			"find.enabled": options.find ?? "off",
+			...(options.mcp && { "tools.approvalMode": "always-ask" as const }),
+			"tools.approval": options.approval,
 		});
 		settings.setModelRole("default", route("main"));
 		settings.setModelRole("smol", route(options.smol ?? "small"));
@@ -156,10 +166,11 @@ export async function sideQuestionFixture(options: {
 			modelPattern: route("main"),
 			thinkingLevel: parseConfiguredThinkingLevel("high"),
 			agentId: id,
-			parentTaskPrefix: id,
+			parentTaskPrefix: options.mcp ? undefined : id,
+			bindProcessState: false,
 			hasUI: false,
 			toolNames: [],
-			enableMCP: false,
+			enableMCP: !!options.mcp,
 			enableLsp: false,
 			disableExtensionDiscovery: true,
 			preloadedExtensionPaths: [extension],
@@ -167,6 +178,16 @@ export async function sideQuestionFixture(options: {
 			promptTemplates: [],
 		});
 		main = created.session;
+		const mcp = created.mcpManager;
+		if (options.mcp) {
+			if (!mcp || MCPManager.instance() !== mcp) throw new Error("The main SDK session did not install its MCP manager.");
+			const { errors } = await mcp.connectServers(options.mcp, {});
+			if (errors.size) throw new Error(`MCP fixture could not connect: ${JSON.stringify([...errors])}`);
+			await mcp.waitForPendingConnections();
+			for (const name of Object.keys(options.mcp)) {
+				if (!mcp.getConnectedServers().includes(name)) throw new Error(`MCP fixture server ${name} did not connect.`);
+			}
+		}
 		const session = main;
 		if (!session.model) throw new Error(`Fixture model unavailable: ${created.modelFallbackMessage}`);
 		const ctx = {
@@ -180,7 +201,7 @@ export async function sideQuestionFixture(options: {
 			threads.push(thread);
 			return thread;
 		};
-		return { main: session, ctx, requests, abortedRequests, warnings, trace, settings, route, setSpec, open, release, dispose };
+		return { main: session, ctx, requests, abortedRequests, warnings, trace, settings, route, setSpec, open, release, dispose, mcp };
 	} catch (error) {
 		await dispose();
 		throw error;

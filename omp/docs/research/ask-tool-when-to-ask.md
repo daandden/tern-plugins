@@ -1,6 +1,6 @@
 # When to ask: ask-tool guidance in other coding-agent harnesses
 
-Researched 2026-10-08. The question: what do other harnesses tell the model about **when** to use their ask/question tool (and when not to), and how do their option-count, batching, `Other`, and recommended-option rules compare with this plugin's `ask` description (`extensions/flexible-ask.md`)?
+Researched 2026-10-08, before omp-tools retired the Picker. This comparison records what the tools told the model about when to ask, option counts, batching, `Other`, and recommended options. It does not describe the current omp-tools behavior.
 
 Snapshots read (quotes below are verbatim from these):
 
@@ -16,16 +16,16 @@ Claims I did not observe directly are marked **[INFERENCE]**.
 
 | | Where the when-to-ask rule lives | Default when not blocked | Option count | Questions per call | `Other` | Recommended option |
 |---|---|---|---|---|---|---|
-| **This plugin** | Tool description | Act; on decisions not left to the user, pick the conservative/standard option and state it | No fixed count | Batch related questions | UI adds it; model must not | `recommended` index; UI adds " (Recommended)" |
+| **omp-tools Picker (retired)** | Tool description | Act; on decisions not left to the user, pick the conservative/standard option and state it | No fixed count | Batch related questions | UI adds it; model must not | `recommended` index; UI adds " (Recommended)" |
 | **OMP native** | Tool description | Act; pick the conservative/standard option and state it | 2–5 | Batch related questions | UI adds it; model must not | `recommended` index; UI adds " (Recommended)" |
 | **Claude Code** | Tool description, plus plan-mode and proactivity reminders | Pick the obvious option, mention it, proceed | 2–4 (enforced) | 1–4 | UI adds it; model must not add `Other` or `Skip` | First option, label suffixed " (Recommended)" |
 | **Codex CLI** | Collaboration-mode prompts (`default.md`, `plan.md`) | Default mode: "strongly prefer making reasonable assumptions and executing" | Schema says 2–3; plan prompt says 2–4 | 1–3, "Prefer 1" | Client adds it; model must not | First option, label suffixed "(Recommended)" |
 | **opencode** | Plan-mode prompts and per-model system prompts; the tool description gives none | Depends on the model prompt; only `codex.txt` says "do the work without asking" | No rule | Array accepted; no batching rule | On by default; model must not add it | First option, label suffixed "(Recommended)" |
 | **pi** | No native tool. The first-party example extensions say only when to use it | Nothing stated | No rule | `questionnaire` takes several | Always on (`question`); `allowOther` defaults to true (`questionnaire`) | No convention |
 
-## This plugin and OMP native
+## Picker and native omp before retirement
 
-This plugin (`extensions/flexible-ask.md`):
+The Picker's [former `ask` description][picker-ask-prompt]:
 
 > Ask only for materially different tradeoffs the user must decide, or for decisions a skill, workflow, or instruction leaves to the user (interview rounds, approvals, confirmations). Default: act using code/config/docs/history and conventions. Several viable choices on a decision not left to the user: pick conservative/standard, proceed, state choice.
 >
@@ -37,7 +37,7 @@ OMP native, 18.8.1 (unchanged since 18.4.4):
 >
 > - Batch related questions; 2–5 distinct options each; short labels, tradeoffs in `description`.
 
-The native schema also describes three fields: `header` "display chip", `preview` "rich preview", and `recommended` "0-based default index". This plugin's schema has no descriptions on those fields.
+The native schema also described three fields: `header` "display chip", `preview` "rich preview", and `recommended` "0-based default index". The Picker's schema gave those fields no descriptions.
 
 ## Claude Code: `AskUserQuestion`
 
@@ -154,7 +154,7 @@ The first-party example extensions are opt-in and set no `promptGuidelines`.
 
 None of them limits the option count or has a recommended-option convention.
 
-## Takeaways for this plugin
+## Takeaways at the time
 
 - **The default to act is common ground.** Claude Code ("pick the obvious option, mention it in your response, and proceed"), Codex Default mode, and opencode's `codex.txt` all say what this plugin says: act on conventions, and state the choice. Only pi and opencode's tool description leave it out.
 - **Nobody else carves out "decisions left to the user".** No harness gives skills, workflows, or instructions an exception like this plugin's "(interview rounds, approvals, confirmations)". The nearest are Claude Code's general tool description ("a decision that is genuinely the user's to make"), which applies in every mode, and Codex Plan mode ("You SHOULD ask many questions", each changing the plan, locking an assumption, or choosing a tradeoff). Neither names skills, workflows, or instructions as a source of user-owned decisions. **[INFERENCE]** This carve-out is unique to this plugin.
@@ -163,4 +163,6 @@ None of them limits the option count or has a recommended-option convention.
 - **No answer means continue.** Codex says what to do then: continue with best judgment, or with the recommended option in plan mode. This plugin's description says nothing about it; the picker's `ask.timeout` picks the recommended option instead.
 - **Batching differs.** This plugin says "Batch related questions". Codex says "Prefer 1", and opencode's `codex.txt` says "ask exactly one targeted question".
 
-**Applied 2026-10-08.** This plugin dropped the "decisions left to the user" exception and the "as many … as there are materially different tradeoffs — no fixed count" wording. Its description now matches OMP native except for one line, which states no option count: "Batch related questions; distinct options; short labels, tradeoffs in `description`." The table and quotes above show the description as it was before this change.
+**Applied 2026-10-08.** The Picker dropped the "decisions left to the user" exception and the "as many … as there are materially different tradeoffs — no fixed count" wording. After that edit, its description matched native omp except for one line, which stated no option count: "Batch related questions; distinct options; short labels, tradeoffs in `description`." The table and quotes above show the description before that edit.
+
+[picker-ask-prompt]: https://github.com/daandden/tern-plugins/blob/5a82f71/omp/extensions/flexible-ask.md

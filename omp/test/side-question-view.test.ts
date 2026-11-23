@@ -13,8 +13,15 @@ function pendingAnswer() {
 	return { turn, callbacks, done, resolve };
 }
 
-const view = () => new SideQuestionTurnView("Answering…");
+const view = () => new SideQuestionTurnView();
 const lines = (turn: ReturnType<typeof newTurn>) => view().lines(turn, 120, false).map(Bun.stripANSI).join("\n");
+
+test("the turn view labels an answer that is still running in both renderers", () => {
+	const turn = newTurn("What changed?");
+	const renderer = new SideQuestionTurnView();
+	expect(renderer.lines(turn, 120, false).map(Bun.stripANSI)).toContain("Answering…");
+	expect(JSON.stringify(renderer.describe(turn, 0, false))).toContain("Answering…");
+});
 
 test("a retry countdown is visible in both renderers and ends when the next request starts", async () => {
 	const clock = spyOn(Date, "now").mockReturnValue(10_000);

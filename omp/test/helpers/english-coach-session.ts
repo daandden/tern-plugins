@@ -166,7 +166,6 @@ export async function englishCoachFixture(options: {
 		key: (data: string) => keyHandlers.some(handler => handler(data)?.consume === true),
 		/** Puts text in the main editor, as typing would. */
 		type: (text: string) => { editorText = text; },
-		/** Moves focus off the main editor, as an open Picker or selector does. */
 		focusElsewhere: () => { focused = {}; },
 		focus: () => focused === editor,
 		renders: () => renders,

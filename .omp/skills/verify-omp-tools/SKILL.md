@@ -1,6 +1,6 @@
 ---
 name: verify-omp-tools
-description: Verify omp-tools registration, the ask Picker, Picker btw, /btw Side questions, generate_image, or the English coach. Drive the Tern view, classic text TUI, or RPC in a fresh session that loads the checkout under test.
+description: Verify omp-tools registration, native ask, /btw Side questions, generate_image, or the English coach. Drive the Tern view, classic text TUI, or RPC in a fresh session that loads the checkout under test.
 ---
 
 # Verify omp-tools
@@ -46,20 +46,7 @@ For the launch guard, skip OMP setup and set `PROJECT=$VERIFY_RUN_DIR` while the
 
 For a recipe that reads the repo, leave `PROJECT=$CHECKOUT`. Start the provider the recipe needs. Set `PROVIDER` to its extension path and `MODEL`, `SMOL_MODEL`, and `TINY_MODEL` to its model IDs, including their provider prefix. Use the main model for any roles the recipe does not use. Do not copy user credentials or plugin state.
 
-For the [fixed Picker smoke](features/ask-picker.md#local-picker-session), use this provider and a scratch project instead. Run the provider in a separate terminal or as a supervised process. Wait for `ready:` before you start OMP.
-
-```sh
-PROJECT="$VERIFY_RUN_DIR/data/project"
-mkdir -p "$PROJECT/.omp"
-printf '%s\n' '{"settings":{"omp-tools":{"englishCoach":false}}}' >"$PROJECT/.omp/plugin-overrides.json"
-PROVIDER="$VERIFY_RUN_DIR/provider.ts"
-MODEL=vfix/main
-SMOL_MODEL=vfix/side
-TINY_MODEL=vfix/side
-bun "$H/picker-provider.ts" "$VERIFY_RUN_DIR"
-```
-
-With the provider ready, run this shared setup before starting Tern:
+For the fixed local ask provider and launcher, use [the native ask recipe](features/native-ask.md#local-native-ask-session). For other providers, run this shared setup before starting Tern:
 
 ```sh
 OMP_CONFIG="$VERIFY_RUN_DIR/data/agent/config.yml"
@@ -84,16 +71,7 @@ EOF
 	test -f "$CHECKOUT/omp/skills/generate-image/SKILL.md"
 ```
 
-Stop if setup fails. Check `candidate.json` for all four extension paths. In the TUI, type `/skill:generate-image` without submitting to check that OMP discovered the shipped skill, then clear the composer. The seed skips OMP Setup. `advisor.enabled: false` keeps advisor turns and cards out of the drive.
-
-For a recipe that needs a Picker timeout, append this once before starting OMP. OMP reads `$OMP_CONFIG` from the disposable agent directory:
-
-```sh
-cat >>"$OMP_CONFIG" <<'YAML'
-ask:
-  timeout: 30
-YAML
-```
+Stop if setup fails. Check `candidate.json` for the three extension paths: `generate-image.ts`, `english-coach.ts`, and `btw.ts`. In the TUI, type `/skill:generate-image` without submitting to check that omp discovered the shipped skill, then clear the composer. The seed skips OMP Setup, and `advisor.enabled: false` keeps advisor turns and cards out of the drive.
 
 ### Start Tern and omp
 
@@ -104,7 +82,7 @@ For headless Tern:
 $C size 1400 900
 ```
 
-For native Tern, such as a clipboard check:
+For a native Tern window:
 
 ```sh
 "$V" start "$VERIFY_RUN_DIR" --profile omp-tools --dir "$PROJECT"
@@ -124,7 +102,7 @@ For classic TUI drives, insert `env PI_TUI_NATIVE=0` after `exec`. After Escape 
 
 - Type text: `$C type '"<text>"'` (the inner double quotes keep spaces). Submit: `$C key Enter`.
 - Keys: `$C key Escape`, `$C key t`, `$C key '?'`, `$C key Tab`, `$C key ctrl+o` (expands a folded tool card).
-- Click: `$C click '<css selector>'` and `$C dblclick '<css selector>'`. The selector parser takes descendant and `:nth-child` selectors. It rejects `~` and `:has`. Examples: `.sf-section-head` for a collapsible section head, `.sf-list-slot .sf-act:nth-child(3)` for the second option row of the picker (child 1 is the question).
+- Click: `$C click '<css selector>'` or `$C dblclick '<css selector>'`. The selector parser accepts descendant and `:nth-child` selectors, but not `~` or `:has`. For a collapsible tool-call group, click `.sf-section-head`.
 - Inspect: `$C tree` prints the visible element tree with text as JSON. Search it for visible strings instead of reading pixels.
 - Wait by polling `$C tree` for the string that marks the state (for example `to cancel` while a Side answer runs), or with `sleep`. Model turns take 10 to 30 seconds with Haiku. A shot taken too early shows a running state, not a result.
 
@@ -132,7 +110,7 @@ For checks without a screen, run the same isolated OMP command in `PROJECT` with
 
 ## Helpers
 
-- For `btw-tools`, `btw-usage`, and `btw-agent`, copy `helpers/side-question-probe.ts` to `$CHECKOUT/omp/extensions/verify-side-question-probe.ts` so it can import `@oh-my-pi/*`. Use the RPC drive with `--no-extensions -e` on that path, `VERIFY_PROBE=tools`, `usage`, or `agent`, and `VERIFY_PROBE_LOG=$VERIFY_RUN_DIR/<check>.json`. Delete the copy after the drive.
+- For `btw-tools`, `btw-usage`, and `btw-agent`, copy `helpers/side-question-probe.ts` to `$CHECKOUT/omp/extensions/verify-side-question-probe.ts` so it can import `@oh-my-pi/*`. Use the RPC drive with `--no-extensions`, `-e "$PROVIDER"`, and `-e` on the copied probe. Set `VERIFY_PROBE` (`tools`, `usage`, or `agent`) and `VERIFY_PROBE_LOG="$VERIFY_RUN_DIR/<check>.json"` on `isolated-omp`. It passes those variables through `env -i` without inheriting credentials. Keep stdin open until the probe writes its log. Delete the copy after the drive.
 
 ## Evidence
 

@@ -2,8 +2,6 @@ import type { ImageContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import type { TUI } from "@oh-my-pi/pi-tui";
 import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
-import { prompt } from "@oh-my-pi/pi-utils";
-import btwPrompt from "./btw.md" with { type: "text" };
 import { BtwPanel } from "./btw-panel";
 import { forwardCoachInput } from "./english-coach-input";
 import { LazySideQuestionThread, sideQuestionsAvailable } from "./side-question";
@@ -50,7 +48,7 @@ class BtwCycle {
 		void answerInto(
 			turn,
 			async callbacks =>
-				(await this.#thread.get(abort.signal)).ask(prompt.render(btwPrompt, { question }), callbacks, abort.signal, images),
+				(await this.#thread.get(abort.signal)).ask(question, callbacks, abort.signal, images),
 			() => this.#render(),
 		).then(() => {
 			if (this.#abort === abort) this.#abort = undefined;
@@ -95,7 +93,12 @@ class BtwCycle {
 	}
 
 	#handleKey(data: string): { consume: boolean } | undefined {
-		if (!this.#shown || this.#ctx.ui.getEditorText().trim()) return undefined;
+		if (!this.#shown) return undefined;
+		const focused = this.#tui?.getFocused();
+		// omp 19.1.0 installs this hook on the main composer to return focus to native ask.
+		if (!focused || !("onUpFromTop" in focused) || typeof focused.onUpFromTop !== "function" || this.#ctx.ui.getEditorText().trim()) {
+			return undefined;
+		}
 		if (matchesAppInterrupt(data)) {
 			if (this.#running()) this.#cancel();
 			else this.#hide();

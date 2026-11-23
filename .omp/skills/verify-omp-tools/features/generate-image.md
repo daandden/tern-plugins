@@ -79,7 +79,7 @@ Per-call mode, default switch, and approval (`img-mode-call`, `img-mode-switch`,
    ```sh
    env -u OPENAI_API_KEY -u OPENAI_BASE_URL -u PI_CONFIG_DIR -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
      HOME="$VERIFY_RUN_DIR/data/home" PI_CODING_AGENT_DIR="$VERIFY_RUN_DIR/data/agent" PI_PROFILE= OMP_PROFILE= \
-     "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" -e "$CHECKOUT/omp/extensions/flexible-ask.ts" \
+     "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" \
      -e "$CHECKOUT/omp/extensions/generate-image.ts" -e "$CHECKOUT/omp/extensions/english-coach.ts" \
      -e "$CHECKOUT/omp/extensions/btw.ts" \
      --no-skills --no-rules --no-context-files --no-lsp --offline --no-tools --tools generate_image \

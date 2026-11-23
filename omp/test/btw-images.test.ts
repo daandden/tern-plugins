@@ -39,7 +39,12 @@ test("registered /btw input sends images to the model and keeps them for follow-
 	btw({ on(event: string, handler: (event: any, ctx: ExtensionContext) => unknown) { handlers.set(event, handler); } } as ExtensionAPI);
 	let panel: Component | undefined;
 	const warnings: string[] = [];
-	const tui = { terminal: { rows: 100, columns: 160, write() {} }, requestRender() {} } as unknown as TUI;
+	const composer = { render: () => [], invalidate() {} };
+	const tui = {
+		terminal: { rows: 100, columns: 160, write() {} },
+		getFocused: () => composer,
+		requestRender() {},
+	} as unknown as TUI;
 	const ctx = {
 		...fixture.ctx,
 		mode: "tui", hasUI: true,
