@@ -15,16 +15,10 @@ export function hintText(hints: readonly NativeHint[]): string {
 // A list row includes another 6px, so 0.72 rows approximate one 16px text line.
 const LIST_ROWS_PER_LINE = 0.72;
 
-// Give Markdown list markers room to hang left of the text without clipping.
-export const SCROLL_BOX_CSS = `
-.sf-list[data-role='omp-tools.ask-body'] > .sf-list-scroll {
-	margin-left: calc(-2 * var(--sf-cw));
-	padding-left: calc(2 * var(--sf-cw));
-}
-`;
+export const PANEL_BODY_ROLE = "omp-tools.panel-body";
 
 // A capped Tern list scrolls; a capped column only clips.
 export function scrollBox(content: NativeNode, lines: number, key: string): NativeNode {
 	const rows = Math.max(1, Math.floor(lines * LIST_ROWS_PER_LINE));
-	return node("list", { role: "omp-tools.ask-body", max: { lines: rows } }, [content], key);
+	return node("list", { role: PANEL_BODY_ROLE, max: { lines: rows } }, [content], key);
 }

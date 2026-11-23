@@ -10,10 +10,11 @@
 ### Changed
 
 - Ask `/btw` from the composer while a native `ask` waits. Return to the form with Shift+Tab.
-  Panel shortcuts leave form keys alone.
+  Panel shortcuts leave form keys alone, even if you return before the panel opens.
 - `/btw` uses the main session's Keenable MCP search and fetch tools instead
   of `web_search`. If either Keenable tool is missing when the thread starts,
   `/btw` offers only the enabled file tools.
+  Tools announced during a Side question's Keenable call stay out of the main agent's roster.
 - Go to uses Tern's `waiting_input` status for a waiting native `ask`. The
   `/btw` and English coach panels do not count as waiting for input.
 - Checked the plugins against Tern 0.9.30 and omp 19.1.0. With omp 19.1,

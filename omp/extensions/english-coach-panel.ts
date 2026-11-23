@@ -15,7 +15,7 @@ import {
 } from "@oh-my-pi/pi-tui";
 import { theme } from "@oh-my-pi/pi-tui/theme";
 import type { CoachCorrection, CoachMistake, CoachSegment } from "./english-coach-diff";
-import { keyLabel, SCROLL_BOX_CSS, scrollBox } from "./panel-layout";
+import { keyLabel, scrollBox } from "./panel-layout";
 import { sheetMessage } from "./tern-theme";
 
 const PANEL_HEIGHT_RATIO = 0.4;
@@ -33,7 +33,7 @@ type TspPropNode = NonNullable<NonNullable<Parameters<typeof node<"text">>[1]>["
 // above and 18px below (Tern 0.9.26), and the last line's descent adds about
 // 3px more under the glyphs, so the panel trims its bottom padding to show the
 // same space below the text as above it.
-const SHEET_CSS = `${SCROLL_BOX_CSS}
+const SHEET_CSS = `
 [data-role='omp-tools.english-coach.body'] { min-inline-size: 0; max-inline-size: 100%; font-family: var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-role='omp-tools.english-coach.diff'] { line-height: 1.75; }
 [data-role='omp-tools.english-coach.diff'] :is(.sf-t-del, .sf-t-ins) { padding: 1px 2px; border-radius: 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }

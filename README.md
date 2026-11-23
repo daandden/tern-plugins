@@ -308,10 +308,11 @@ compaction. Pending main calls stay open and are not repeated. Interrupted calls
 There is no retained eval runtime or eval prelude tool such as `ratchet`. A Side question can use
 `read`, `grep`, `glob`, and `find` when enabled. If your main session has both Keenable MCP tools,
 `mcp__keenable_search_web_pages` and `mcp__keenable_fetch_page_content`, a new thread can search and fetch
-through that connection. Otherwise it has only the file tools. It cannot ask you, run commands, or message
-or stop agents. `read agent://<id>` can read a main-session agent still running.
+through that connection, without adding tools to the main agent's roster. Otherwise it has only the file
+tools. It cannot ask you, run commands, or message or stop agents. `read agent://<id>` can read a
+main-session agent still running.
 
-The panel above the composer leaves the composer focused. It shows questions like main chat messages, with
+The panel above the composer does not move focus. It shows questions like main chat messages, with
 answer text and **N tool calls** groups in order. When the main composer has focus and is empty, `t` toggles
 tool calls and Esc cancels the answer or closes the panel. In Tern, click a group to toggle it. Follow-ups
 keep their thread even after you close the panel. When the agent takes your next main prompt, even if queued,
@@ -320,7 +321,8 @@ starts a new thread.
 
 While a native `ask` waits, press Esc on the form to focus the composer. Send `/btw <question>` or
 `? <question>` to ask aside without submitting the form. Press Shift+Tab to return to the form with your
-answers intact. The Side question knows the `ask` is still open but cannot see your unsent answers or Notes.
+answers intact. The panel leaves the form's `t` and Esc keys alone. The Side question knows the `ask` is
+still open but cannot see your unsent answers or Notes.
 
 `sideQuestionModel` applies to `/btw`. It defaults to `@smol` and uses the role's thinking level.
 Set a role such as `@smol:low` or a selector such as `provider/model:high`. An empty value uses the main model.

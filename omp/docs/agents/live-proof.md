@@ -2,6 +2,15 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, review-fix smoke on omp 19.1.0 in isolated headless Tern
+  0.9.30. A native `ask` opened with a Blue pick and a Label draft. The
+  local read answer appeared in `omp-tools.panel-body` while the ask
+  stayed open. From the composer, `t` expanded and collapsed the tool
+  section: the body's height changed from 78 to 98.5 and back to 78 px.
+  The drive stopped before returning to the form because its text check
+  included the collapsed tool row. See `form-draft.webp`, `side-answer.json`,
+  `scroll-body.json`, and `fold-{open,closed}.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/review-fix/tern-5mkBGL/`.
 - 2026-11-23, `/btw` Keenable roster (ticket #38): omp 19.1.0 in RPC,
   launched from isolated headless Tern 0.9.30, loaded the Side question
   probe. Its roster held `read`, `grep`, `glob`, `find`, and both Keenable

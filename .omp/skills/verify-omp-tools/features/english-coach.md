@@ -60,7 +60,7 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
 
    Wait for each completed outcome before sending the next scenario. Capture a shot and tree for every scenario. In classic, `$C expect '"<expected text>"'` checks grid text when the tree has no terminal contents. Pair screenshots with `requests.jsonl` and the saved session JSONL. Record request indices before and after each submission, rather than counting the entire file.
 
-7. On the long correction, check that the panel stays above the composer and within the pane width. In Tern, inspect `.sf-list-scroll` geometry, hover `[data-role="omp-tools.english-coach.body"]`, and run `$C wheel 0 600`. Capture the last mistake, `I look forward to hearing`, after scrolling. The capped body must not grow. In classic, the panel must end with `… N more lines` and leave the editor visible.
+7. On the long correction, check that the panel stays above the composer and within the pane width. In Tern, inspect the geometry with `$C dump '[data-role="omp-tools.panel-body"] > .sf-list-scroll'`. Hover `[data-role="omp-tools.english-coach.body"]` and run `$C wheel 0 600`. Capture the last mistake, `I look forward to hearing`, after scrolling. The capped body must not grow. In classic, the panel must end with `… N more lines` and leave the editor visible.
 8. Keep the shots, trees, requests, and session transcript. Record the feature IDs, renderer, and evidence in `notes.md`. Run `"$V" stop "$VERIFY_RUN_DIR"`, then stop the provider PID this run started.
 
 ## Gotchas

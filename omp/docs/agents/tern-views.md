@@ -3,8 +3,9 @@
 Rules shared by the `/btw` and English coach panels in Tern. In terminals that
 speak the Tern Surface Protocol, OMP calls `describe(cx)` instead of `render()`.
 
-- A scrolling region is a `scrollBox` (`panel-layout.ts`), a capped `list`,
-  because a `col` with `max.h` only clips.
+- A scrolling region is a `scrollBox` (`panel-layout.ts`). It emits a capped
+  `list` with the role `omp-tools.panel-body`, because a `col` with `max.h`
+  only clips.
 - Since omp 19.0.1, Tern's native dock puts `aboveEditor` widgets (the `/btw`
   and English coach panels) above the working row and the tray, not next to
   the composer, and drops the blank spacer row that came before them
@@ -27,9 +28,9 @@ speak the Tern Surface Protocol, OMP calls `describe(cx)` instead of `render()`.
   white. A view's root therefore needs an `omp-tools.*` role in every state.
 - Tern scopes a program sheet to strict descendants of its region, so a rule
   on `.sf-region` never applies (Tern 0.9.5).
-- Tern's Markdown hangs list numbers 2 cells left of the text, where a scroll
-  box clips them, so `SCROLL_BOX_CSS` pads each `scrollBox` scroller 2 cells
-  left and cancels it with a negative margin.
+- Tern's Markdown hangs list markers two cells left of the text, where the
+  scroller clips them. `MARKDOWN_LIST_MARKER_GUTTER_CSS` (`tern-theme.ts`) adds
+  two cells of left padding to the scroller and cancels it with a negative margin.
 - Tern draws with its own CSS engine (stencil), not a browser. `position:
   absolute` with `right` and `bottom` works; the logical `inset-inline-end`
   and `inset-block-end` are ignored (Tern 0.9.26). Prefer physical properties

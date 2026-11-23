@@ -1,6 +1,6 @@
 import type { ImageContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import type { Component, TUI } from "@oh-my-pi/pi-tui";
+import type { TUI } from "@oh-my-pi/pi-tui";
 import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
 import { BtwPanel } from "./btw-panel";
 import { forwardCoachInput } from "./english-coach-input";
@@ -26,7 +26,6 @@ class BtwCycle {
 	#revision = 0;
 	#shown = false;
 	#tui: TUI | undefined;
-	#composer: Component | null = null;
 	readonly #stopKeys: () => void;
 
 	constructor(ctx: ExtensionContext) {
@@ -94,7 +93,10 @@ class BtwCycle {
 	}
 
 	#handleKey(data: string): { consume: boolean } | undefined {
-		if (!this.#shown || !this.#composer || this.#tui?.getFocused() !== this.#composer || this.#ctx.ui.getEditorText().trim()) {
+		if (!this.#shown) return undefined;
+		const focused = this.#tui?.getFocused();
+		// omp 19.1.0 installs this hook on the main composer to return focus to native ask.
+		if (!focused || !("onUpFromTop" in focused) || typeof focused.onUpFromTop !== "function" || this.#ctx.ui.getEditorText().trim()) {
 			return undefined;
 		}
 		if (matchesAppInterrupt(data)) {
@@ -120,8 +122,6 @@ class BtwCycle {
 			WIDGET_KEY,
 			tui => {
 				this.#tui = tui;
-				// Only a submission from the main composer opens the widget.
-				this.#composer = tui.getFocused();
 				return new BtwPanel(tui, () => ({
 					turns: this.#turns,
 					toolsOpen: this.#toolsOpen,
@@ -136,7 +136,6 @@ class BtwCycle {
 		if (!this.#shown) return;
 		this.#shown = false;
 		this.#tui = undefined;
-		this.#composer = null;
 		this.#ctx.ui.setWidget(WIDGET_KEY, undefined);
 	}
 

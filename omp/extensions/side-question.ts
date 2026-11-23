@@ -20,6 +20,7 @@ import { sideQuestionModel } from "./side-question-model";
 const FILE_TOOLS = ["read", "grep", "glob", "find"];
 const KEENABLE_SEARCH = "mcp__keenable_search_web_pages";
 const KEENABLE_FETCH = "mcp__keenable_fetch_page_content";
+const KEENABLE_SIDE_SCOPE = "omp-tools:side-question";
 
 function keenableTools() {
 	const manager = MCPManager.instance();
@@ -37,10 +38,16 @@ function keenableTools() {
 		mcpServerName: tool.mcpServerName,
 		mcpToolName: tool.mcpToolName,
 		mcpReadOnlyHint: tool.mcpReadOnlyHint,
-		async execute(...args: Parameters<typeof tool.execute>) {
+		async execute(...[toolCallId, params, onUpdate, ctx, signal]: Parameters<typeof tool.execute>) {
 			const source = keenableTool(manager, tool.name);
 			if (!source) throw new Error(`Keenable is unavailable. Reconnect the keenable MCP server to use ${tool.name}.`);
-			return source.execute(...args);
+			const invocationId = `${toolCallId}:${crypto.randomUUID()}`;
+			const release = manager.trackToolCall(KEENABLE_SIDE_SCOPE, invocationId);
+			try {
+				return await source.execute(invocationId, params, onUpdate, ctx, signal);
+			} finally {
+				release();
+			}
 		},
 	}));
 }

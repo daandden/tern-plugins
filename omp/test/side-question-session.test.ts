@@ -380,7 +380,7 @@ async function withKeenable(
 	options: Parameters<typeof sideQuestionFixture>[0],
 	run: (fixture: Fixture, entries: () => Promise<unknown[]>) => Promise<void>,
 	name = "keenable",
-	catalog?: "search_web_pages" | "fetch_page_content",
+	catalog?: "search_web_pages" | "fetch_page_content" | "announce-on-call",
 ) {
 	const dir = await mkdtemp(join(tmpdir(), "side-keenable-test-"));
 	const log = join(dir, "mcp.jsonl");
@@ -480,6 +480,39 @@ function searchOnce(question: string): NonNullable<Parameters<typeof sideQuestio
 		}
 	};
 }
+
+test("a Side question's Keenable call does not add tools to the main agent's next request", async () => {
+	const question = "Search before the Keenable catalog changes.";
+	await withKeenable({ find: "off", toolCalls: searchOnce(question) }, async (fixture, entries) => {
+		const { main, requests } = fixture;
+		const initial = fixture.mcp!.getTools();
+		await main.refreshMCPTools(initial);
+		await main.setActiveToolsByName(initial.map(tool => tool.name));
+		await main.prompt("Main question before the Side question.");
+		await main.waitForIdle();
+
+		const thread = await fixture.open();
+		expect(await thread.ask(question, callbacks(), AbortSignal.timeout(5_000))).toBe("answered by main");
+		expect(transcript(requests[2])).toContain("tool call_search: Keenable fixture search result");
+		expect(await entries()).toEqual([
+			{ method: "initialize" },
+			{ method: "tools/call", params: { name: "search_web_pages", arguments: { query: "fixture query" } } },
+			{ method: "notifications/tools/list_changed" },
+			{ method: "tools/list", tools: ["search_web_pages", "fetch_page_content", "other_tool"] },
+		]);
+
+		await main.prompt("Main question after the Side question.");
+		await main.waitForIdle();
+		const names = (index: number) => offeredTools(requests[index]!).map(tool => tool.name).sort();
+		const keenable = [fetchPage, search];
+		const side = ["glob", "grep", "read", ...keenable].sort();
+		expect(requests).toHaveLength(4);
+		expect(names(0)).toEqual(keenable);
+		expect(names(1)).toEqual(side);
+		expect(names(2)).toEqual(side);
+		expect(names(3)).toEqual(keenable);
+	}, "keenable", "announce-on-call");
+}, 30_000);
 
 test("a disconnect keeps the existing Side question roster and drops Keenable in the next thread", async () => {
 	const question = "Try to search after disconnect.";

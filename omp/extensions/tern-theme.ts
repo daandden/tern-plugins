@@ -1,8 +1,15 @@
 import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+import { PANEL_BODY_ROLE } from "./panel-layout";
 
-// Only these two panels have plugin roles inside an omp.overlay.btw column.
 // The doubled class outranks Tern 0.9.26's Reader overlay rule.
 const ROOTS = ".sf-col.sf-col[data-role='omp.overlay.btw']:has([data-role^='omp-tools.'])";
+
+const MARKDOWN_LIST_MARKER_GUTTER_CSS = `
+.sf-list[data-role='${PANEL_BODY_ROLE}'] > .sf-list-scroll {
+	margin-left: calc(-2 * var(--sf-cw));
+	padding-left: calc(2 * var(--sf-cw));
+}
+`;
 
 let themeCss: { theme: Theme; css: string } | undefined;
 
@@ -63,13 +70,13 @@ const messages = new Map<string, { theme: Theme; css: string; message: string }>
 
 /**
  * The stylesheet message (`ESC _ tsp;s;{name,css} ESC \`) for one omp-tools
- * sheet, led by the omp theme rules. Senders write it with every describe, so
- * a theme change reaches the next frame.
+ * sheet, with the shared theme and Markdown list marker gutter. Panels send
+ * it on every describe so the next frame picks up theme changes.
  */
-export function sheetMessage(name: string, css: string): string {
+export function sheetMessage(name: string, css = ""): string {
 	const last = messages.get(name);
 	if (last?.theme === theme && last.css === css) return last.message;
-	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${ompThemeCss()}${css}` })}\x1b\\`;
+	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${ompThemeCss()}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
 	messages.set(name, { theme, css, message });
 	return message;
 }

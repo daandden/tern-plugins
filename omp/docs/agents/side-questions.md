@@ -23,11 +23,14 @@ A Side question is a full agent run in a mirror session built the way OMP's
   `mcp__keenable_fetch_page_content` on the main connection. Both must belong
   to server `keenable`. The mirror uses `allowRestrictedCustomTools` to offer both
   with their original schemas and descriptions, or neither. Each call looks up
-  its exact name and server again on the same manager. A disconnect leaves the
-  current thread's roster intact, but calls report that Keenable is unavailable.
-  The next thread reads the manager again. The mirror does not open an MCP
-  connection. Its headless approval gate rejects explicit deny and prompt rules
-  without calling the server. The host's main connection owns reauthentication.
+  its exact name and server again in the owner's tool list. A disconnect leaves
+  the current thread's roster intact, but calls report that Keenable is
+  unavailable. The next thread reads the manager again. The mirror does not open
+  an MCP connection. Each forwarded call has a unique invocation ID tracked in
+  a separate Side scope, so a catalog change announced during the call does not
+  add tools to the main agent's roster. Its headless approval gate rejects
+  explicit deny and prompt rules without calling the server. The main connection
+  owns reauthentication.
 - **Cache key.** Every thread of one main session shares
   `sideQuestionCacheKey`, sent as `providerPromptCacheKey` and Codex
   `parentSessionId` over SSE (`preferWebsockets: false`). A later thread's
@@ -131,15 +134,15 @@ A Side question is a full agent run in a mirror session built the way OMP's
   Send `/btw <question>` or `? <question>` there and press Shift+Tab to
   return to the form. The handled `input` event sends no main prompt.
 - The panel is a widget above the composer (`setWidget`,
-  `placement: "aboveEditor"`). `btw.ts` captures the main composer as the
-  focused component when the submission opens the widget. The terminal
-  input listener acts only while the panel shows and the empty composer
-  has focus: `app.interrupt` cancels or closes, and `t` folds tool calls.
+  `placement: "aboveEditor"`). The terminal input listener requires an empty,
+  focused main composer. omp 19.1.0 attaches `onUpFromTop` to the main composer
+  to return to the native ask. `/btw` checks for that hook on the focused
+  component instead of assuming the composer has focus when the widget opens.
+  `app.interrupt` cancels or closes, and `t` folds tool calls.
 - In Tern the panel describes a `col` with native `/btw`'s role
   `omp.overlay.btw` (a plain `col` let the composer's meter row overlap the
-  hints), a `scrollBox` capped at 40% of the rows with `reveal` at the end, and
-  the tool calls as a collapsible `section`. It sends its own stylesheet
-  (`omp-tools-btw`, `SCROLL_BOX_CSS` from `panel-layout.ts`) so list numbers are
-  not clipped.
+  hints), an `omp-tools.panel-body` scroll box capped at 40% of the rows with
+  `reveal` at the end, and the tool calls as a collapsible `section`. Its sheet
+  (`omp-tools-btw`) includes the shared Markdown list marker gutter.
 - Match the main chat's user messages: a user bubble in Tern and a Markdown
   block on the user message background in the classic terminal.

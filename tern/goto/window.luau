@@ -301,6 +301,7 @@ local WAIT_ROLES = {
 -- Reads omp's dock and layer surface roles for pane status.
 local function omp_signals(cx, pane)
 	local sig = { paused = false, waiting = false, working = nil, error = false, jobs = false }
+	-- Collects pane status signals from this surface node and its children.
 	local function walk(node, root)
 		local p = node.p or {}
 		local role = p.role

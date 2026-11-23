@@ -38,7 +38,7 @@ describe("parseBtwQuestion", () => {
 	});
 });
 
-test("the /btw tool fold and Esc respond only to the focused, empty composer", async () => {
+test.each(["before", "after"] as const)("the /btw panel leaves form keys alone when focus returns %s widget creation", async timing => {
 	const fixture = await sideQuestionFixture({
 		toolCalls: body => body.messages.at(-1)?.role === "user"
 			? [["call_read", "read", { path: "fold-fixture.txt" }]]
@@ -46,7 +46,7 @@ test("the /btw tool fold and Esc respond only to the focused, empty composer", a
 	});
 	const handlers = new Map<string, (event: ExtensionEvent, ctx: ExtensionContext) => unknown>();
 	btw({ on(event: string, handler: (event: ExtensionEvent, ctx: ExtensionContext) => unknown) { handlers.set(event, handler); } } as ExtensionAPI);
-	const composer = { render: () => [], invalidate() {} };
+	const composer = { render: () => [], invalidate() {}, onUpFromTop: () => false };
 	const form = { render: () => [], invalidate() {} };
 	let focused: Component = composer;
 	let draft = "";
@@ -63,7 +63,10 @@ test("the /btw tool fold and Esc respond only to the focused, empty composer", a
 		ui: {
 			onTerminalInput: (listener: typeof terminalInput) => { terminalInput = listener; return () => {}; },
 			getEditorText: () => draft,
-			setWidget: (_key: string, factory: ((tui: TUI) => Component) | undefined) => { panel = factory?.(tui); },
+			setWidget: (_key: string, factory: ((tui: TUI) => Component) | undefined) => {
+				if (factory && timing === "before") focused = form;
+				panel = factory?.(tui);
+			},
 		},
 	} as unknown as ExtensionContext;
 	const key = (data: string) => terminalInput!(data);
@@ -78,7 +81,7 @@ test("the /btw tool fold and Esc respond only to the focused, empty composer", a
 		expect(render()).toContain("to show tool calls");
 		expect(render()).not.toContain("fold-fixture.txt");
 
-		focused = form;
+		if (timing === "after") focused = form;
 		expect(key("t")).toBeUndefined();
 		expect(key("\x1b")).toBeUndefined();
 		expect(render()).toContain("to show tool calls");

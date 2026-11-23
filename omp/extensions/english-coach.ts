@@ -112,7 +112,6 @@ export default function englishCoach(pi: ExtensionAPI) {
 			shown = true;
 		}
 	};
-	// A focused form or selector keeps its Esc instead of closing the coach.
 	const closeOnInterrupt = (ctx: ExtensionContext, data: string) => {
 		if (!shown || !matchesAppInterrupt(data) || ctx.ui.getEditorText().trim() || tui?.getFocused() !== editorFocus) return undefined;
 		clear(ctx);

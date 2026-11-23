@@ -1,7 +1,7 @@
 import { type Component, type DescribeContext, getKeybindings, type NativeNode, node, span, type TUI, text, truncateToWidth } from "@oh-my-pi/pi-tui";
 import { hintsRow, type NativeHint } from "@oh-my-pi/pi-tui/native/overlay";
 import { theme } from "@oh-my-pi/pi-tui/theme";
-import { hintText, SCROLL_BOX_CSS, scrollBox } from "./panel-layout";
+import { hintText, scrollBox } from "./panel-layout";
 import { sheetMessage } from "./tern-theme";
 import { hasToolCalls, type SideQuestionTurn, SideQuestionTurnView } from "./side-question-view";
 
@@ -26,7 +26,7 @@ function panelHints(state: BtwPanelState): NativeHint[] {
 export class BtwPanel implements Component {
 	readonly #tui: TUI;
 	readonly #state: () => BtwPanelState;
-	readonly #turns = new SideQuestionTurnView("Answering…");
+	readonly #turns = new SideQuestionTurnView();
 
 	constructor(tui: TUI, state: () => BtwPanelState) {
 		this.#tui = tui;
@@ -60,7 +60,7 @@ export class BtwPanel implements Component {
 	}
 
 	describe(cx: DescribeContext): NativeNode {
-		if (cx.feature("styles")) this.#tui.terminal.write(sheetMessage("omp-tools-btw", SCROLL_BOX_CSS));
+		if (cx.feature("styles")) this.#tui.terminal.write(sheetMessage("omp-tools-btw"));
 		const state = this.#state();
 		const content: NativeNode = {
 			...node(
