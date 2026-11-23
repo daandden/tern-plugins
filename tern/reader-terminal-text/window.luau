@@ -95,10 +95,47 @@ tern.css("reader-terminal-text", [[
 	letter-spacing: normal;
 }
 
+/* Compact the inline card without changing the native button sizes. */
+:root:root .sf-chat-reader [data-role='omp.ask.card'] {
+	gap: 8px;
+	padding-top: 8px;
+}
+
 /* Keep the native ask controls and theme. Match open questions to the folded text
    column, which starts 30px in (8px padding, 14px mark, 8px gap). */
 :root:root .sf-chat-reader [data-role='omp.ask.card'] [data-role='omp.ask.open'] {
 	padding-left: 30px;
+	gap: 6px;
+	margin-top: 2px;
+	margin-bottom: 2px;
+	padding-top: 8px;
+	padding-bottom: 8px;
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] [data-role='omp.ask.fold'] {
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] [data-role='omp.ask.fold.well'] {
+	height: auto;
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+/* Tern uses these same values to position the choice marks and the focus bar. */
+:root:root .sf-chat-reader [data-role='omp.ask.card'] .sf-list[data-role='omp.ask.options'] {
+	--ask-row-y: 4px;
+	--ask-line: var(--term-lh);
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] [data-role='omp.ask.options'] .sf-item {
+	min-height: 26px;
+}
+
+:root:root .sf-chat-reader [data-role='omp.ask.card'] > [data-role='omp.actions'] {
+	padding-top: 6px;
+	padding-bottom: 6px;
 }
 
 :root:root .sf-chat-reader [data-role='omp.ask.card'] :is(

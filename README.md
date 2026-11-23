@@ -189,6 +189,7 @@ font size, row height, and weight. Single-line text such as tool titles, chips, 
 terminal size and row height but keeps Reader's weights. The UI font and Markdown theme colors stay.
 Native `ask` uses the same font size and row height for questions and controls, and the terminal
 weight for choices and typed answers. Open and folded question labels share a left edge.
+The card uses shorter choice rows and less space between questions, without shrinking the buttons.
 The plugin hides the empty composer's placeholder and the blank rows above it from empty dock regions.
 
 ## `vstack-flow`

@@ -2,6 +2,12 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, compact native `ask` on omp 19.1.1 and isolated native Tern
+  0.9.30. The three-question card went from 426 to 328.5px at 13px text,
+  and single-line choices went from 36 to 26px. In a 319px pane, keyboard
+  submission saved both choices, a typed answer, and a Note. See
+  `ask-final.webp`, `ask-narrow-final.webp`, and `ask-result-final.json`
+  under `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/ask-compact-3HW2nO/`.
 - 2026-11-23, native `ask` styling on omp 19.1.1 and isolated native Tern
   0.9.30. Open and folded question labels shared a left edge at 13px and
   16px. Choices and typed answers used terminal weight 600. At a pane
