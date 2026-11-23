@@ -305,9 +305,11 @@ Attached images go with the question and stay available to follow-ups.
 
 A Side question reads the saved transcript on the selected branch, with eval state saved after `/tree` or
 compaction. Pending main calls stay open and are not repeated. Interrupted calls with no result drop out.
-There is no retained eval runtime or eval prelude tool such as `ratchet`. It uses only the main agent's available
-`read`, `grep`, `glob`, `find`, and `web_search`, with their size limits and no round cap. It cannot ask you,
-run commands, or message or stop agents. `read agent://<id>` can read a main-session agent still running.
+There is no retained eval runtime or eval prelude tool such as `ratchet`. A Side question can use
+`read`, `grep`, `glob`, and `find` when enabled. If your main session has both Keenable MCP tools,
+`mcp__keenable_search_web_pages` and `mcp__keenable_fetch_page_content`, a new thread can search and fetch
+through that connection. Otherwise it has only the file tools. It cannot ask you, run commands, or message
+or stop agents. `read agent://<id>` can read a main-session agent still running.
 
 The panel above the composer leaves the composer focused. It shows questions like main chat messages, with
 answer text and **N tool calls** groups in order. When the main composer has focus and is empty, `t` toggles

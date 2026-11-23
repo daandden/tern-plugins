@@ -2,8 +2,6 @@ import type { ImageContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import type { Component, TUI } from "@oh-my-pi/pi-tui";
 import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
-import { prompt } from "@oh-my-pi/pi-utils";
-import btwPrompt from "./btw.md" with { type: "text" };
 import { BtwPanel } from "./btw-panel";
 import { forwardCoachInput } from "./english-coach-input";
 import { LazySideQuestionThread, sideQuestionsAvailable } from "./side-question";
@@ -51,7 +49,7 @@ class BtwCycle {
 		void answerInto(
 			turn,
 			async callbacks =>
-				(await this.#thread.get(abort.signal)).ask(prompt.render(btwPrompt, { question }), callbacks, abort.signal, images),
+				(await this.#thread.get(abort.signal)).ask(question, callbacks, abort.signal, images),
 			() => this.#render(),
 		).then(() => {
 			if (this.#abort === abort) this.#abort = undefined;

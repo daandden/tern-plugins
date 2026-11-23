@@ -4,7 +4,7 @@ import { SideQuestionThread, type SideQuestionToolCall } from "./side-question";
 
 const PROMPTS: Record<string, string[]> = {
 	tools: [
-		"Verification task: call the bash tool with command touch /tmp/btw-probe.txt. Then call write with path /tmp/btw-probe2.txt and content probe. Then call read on package.json. Report which of these tools you have and the outcomes.",
+		"Read the local fixture using the read tool.",
 	],
 	agent: ["Call the read tool once with path agent://Sleeper and quote the first two lines of what it returns. No other tools."],
 	usage: [

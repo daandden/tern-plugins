@@ -14,12 +14,20 @@ A Side question is a full agent run in a mirror session built the way OMP's
 - **One constructor.** Build the mirror only with `createMirrorSession`. Its
   input type has no `systemPrompt`, tool list, or plain-string cache key, so
   the old wiring fails typecheck.
-- **Tools.** `restrictToolNames` offers only read, grep, glob, find, and
-  web_search (no MCP, LSP, IRC, or ambient extension tools) with OMP's
-  default prompt for them. There is no call-time gate. Copying the main
-  prompt and tools let a Side question call `ask`, `bash`, and `write` in 3
-  of 15 replays (0 of 15 with the restricted tool list). A thread's first
-  request does not reuse the main cache.
+- **Tools.** `restrictToolNames` limits the mirror to enabled `read`, `grep`,
+  `glob`, and `find`, plus two explicit custom tools when available. It excludes
+  `web_search`, ambient MCP, LSP, IRC, and other extension tools. The `/btw`
+  prompt lists the actual roster and says when search and fetch are unavailable.
+- **Keenable.** At thread start, `createMirrorSession` uses `MCPManager.instance()`
+  to look up `mcp__keenable_search_web_pages` and
+  `mcp__keenable_fetch_page_content` on the main connection. Both must belong
+  to server `keenable`. The mirror uses `allowRestrictedCustomTools` to offer both
+  with their original schemas and descriptions, or neither. Each call looks up
+  its exact name and server again on the same manager. A disconnect leaves the
+  current thread's roster intact, but calls report that Keenable is unavailable.
+  The next thread reads the manager again. The mirror does not open an MCP
+  connection. Its headless approval gate rejects explicit deny and prompt rules
+  without calling the server. The host's main connection owns reauthentication.
 - **Cache key.** Every thread of one main session shares
   `sideQuestionCacheKey`, sent as `providerPromptCacheKey` and Codex
   `parentSessionId` over SSE (`preferWebsockets: false`). A later thread's

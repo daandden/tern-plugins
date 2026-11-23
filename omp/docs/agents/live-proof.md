@@ -2,6 +2,13 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, `/btw` Keenable roster (ticket #38): omp 19.1.0 in RPC,
+  launched from isolated headless Tern 0.9.30, loaded the Side question
+  probe. Its roster held `read`, `grep`, `glob`, `find`, and both Keenable
+  MCP tools, with no `web_search`. The Side question read a local file.
+  The installed host and the probe shared the MCP manager through the
+  SDK `/mcp` export. See `tools.json`, `requests.jsonl`, and `notes.md` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/38/verify-omp-tools-jZaqdY/`.
 - 2026-11-23, Go to with a waiting native ask (ticket #39): omp 19.1.0 and
   Tern 0.9.30 showed the unfocused `Pick a color` pane under Waiting on you
   with the warning mark and a waiting time. The raw agent list reported

@@ -10,12 +10,45 @@ import {
 	createSubagentSettings,
 	SessionManager,
 } from "@oh-my-pi/pi-coding-agent";
+import { MCPManager, type MCPManagerApi } from "@oh-my-pi/pi-coding-agent/mcp";
 import { cfgDisplayCacheMissMarker } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { prompt } from "@oh-my-pi/pi-utils";
+import btwPrompt from "./btw.md" with { type: "text" };
 import type { SideQuestionRecovery } from "./side-question-recovery";
 import { sideQuestionModel } from "./side-question-model";
 
-/** The only tools a Side question is offered. */
-const SIDE_QUESTION_TOOLS = ["read", "grep", "glob", "find", "web_search"];
+const FILE_TOOLS = ["read", "grep", "glob", "find"];
+const KEENABLE_SEARCH = "mcp__keenable_search_web_pages";
+const KEENABLE_FETCH = "mcp__keenable_fetch_page_content";
+
+function keenableTools() {
+	const manager = MCPManager.instance();
+	if (!manager) return [];
+	const search = keenableTool(manager, KEENABLE_SEARCH);
+	const fetch = keenableTool(manager, KEENABLE_FETCH);
+	if (!search || !fetch) return [];
+	return [search, fetch].map(tool => ({
+		name: tool.name,
+		label: tool.label,
+		description: tool.description,
+		parameters: tool.parameters,
+		strict: tool.strict,
+		approval: tool.approval,
+		mcpServerName: tool.mcpServerName,
+		mcpToolName: tool.mcpToolName,
+		mcpReadOnlyHint: tool.mcpReadOnlyHint,
+		async execute(...args: Parameters<typeof tool.execute>) {
+			const source = keenableTool(manager, tool.name);
+			if (!source) throw new Error(`Keenable is unavailable. Reconnect the keenable MCP server to use ${tool.name}.`);
+			return source.execute(...args);
+		},
+	}));
+}
+
+function keenableTool(manager: MCPManagerApi, name: string) {
+	if (!manager.getConnectedServers().includes("keenable")) return undefined;
+	return manager.getTools().find(tool => tool.name === name && tool.mcpServerName === "keenable");
+}
 
 const CANCELLED_NOTE = "The user cancelled the previous side question. Do not answer it.";
 
@@ -309,9 +342,12 @@ type MirrorSessionInput = Pick<
 > & { agentId: string; cacheKey: SideQuestionCacheKey };
 
 async function createMirrorSession({ cacheKey, ...input }: MirrorSessionInput): Promise<AgentSession> {
+	const customTools = keenableTools();
 	const { session } = await createAgentSession({
 		...input,
-		toolNames: SIDE_QUESTION_TOOLS,
+		toolNames: [...FILE_TOOLS, ...customTools.map(tool => tool.name)],
+		customTools,
+		allowRestrictedCustomTools: true,
 		restrictToolNames: true,
 		providerPromptCacheKey: cacheKey,
 		hasUI: false,
@@ -454,7 +490,7 @@ export class SideQuestionThread {
 
 	/** Run one question to its answer; follow-ups see the earlier questions, answers, and tool results. */
 	async ask(
-		promptText: string,
+		question: string,
 		callbacks: SideQuestionCallbacks,
 		signal: AbortSignal,
 		images?: ImageContent[],
@@ -513,6 +549,12 @@ export class SideQuestionThread {
 		const abort = () => void this.#session.abort();
 		signal.addEventListener("abort", abort, { once: true });
 		try {
+			const tools = this.toolNames;
+			const roster = tools.length ? `Read-only tools: ${tools.join(", ")}.` : "No tools are available.";
+			const toolInstructions = tools.includes(KEENABLE_SEARCH)
+				? roster
+				: `${roster}\nWeb search and page fetch are unavailable.`;
+			const promptText = prompt.render(btwPrompt, { question, toolInstructions });
 			const message = this.#lastCancelled ? `${CANCELLED_NOTE}\n${promptText}` : promptText;
 			const fallback = this.#contextFallback;
 			const window = this.#session.model?.contextWindow;
@@ -550,7 +592,7 @@ export class SideQuestionThread {
 		}
 	}
 
-	/** The tools the mirror's requests offer, for verification. */
+	/** The tools the mirror offers to the model. */
 	get toolNames(): string[] {
 		return this.#session.agent.state.tools.map(tool => tool.name);
 	}

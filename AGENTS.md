@@ -185,7 +185,7 @@ Source and model-facing prompts live in `omp/extensions/`. `omp/package.json` de
 Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.1.0 registry serves:
 
 - `@oh-my-pi/pi-tui` and its subpaths, including `/chrome`, `/render`, `/theme`, `/thinking`, `/media`, `/html-form/*`, `/chat/svg-figure`, `/native/blobs`, `/native/overlay`, `/chrome/form-theme`, `/keybinding-matchers`, `/overlays/*`, and `/tools/*`. In omp 18.22.0, `/html-form/media` moved to `/media`, and `loadFormImage` became `loadMedia`.
-- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
+- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/mcp`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
 - `@oh-my-pi/pi-utils` and flat subpaths such as `/dom`.
 - `@oh-my-pi/pi-ai` for `completeSimple` and `@oh-my-pi/pi-agent-core` for `Tokenizer`.
 

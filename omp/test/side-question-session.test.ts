@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AgentRegistry, type SessionManager } from "@oh-my-pi/pi-coding-agent";
 import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 import { sideQuestionsAvailable } from "../extensions/side-question";
+import { keenableTools } from "./helpers/keenable-mcp";
 import { callbacks, sideQuestionFixture } from "./helpers/side-question-session";
 
 type Fixture = Awaited<ReturnType<typeof sideQuestionFixture>>;
@@ -45,7 +49,7 @@ function history(fixture: Fixture) {
 }
 
 // Without the system prompt and the date reminder OMP puts before the first user message.
-function transcript(request: Record<string, any> | undefined): string[] {
+function transcript(request: Record<string, any> | undefined, unwrapQuestion = false): string[] {
 	return (request?.messages as Record<string, any>[] ?? [])
 		.filter(message => message.role !== "system" && message.role !== "developer")
 		.map(message => {
@@ -54,8 +58,11 @@ function transcript(request: Record<string, any> | undefined): string[] {
 				: (message.content as Record<string, any>[] ?? []).map(part => part.text ?? `[${part.type}]`).join(""))
 				.replace(/^<system-reminder>\nToday: [^]*?<\/system-reminder>/, "");
 			if (message.role === "tool") return `tool ${message.tool_call_id}: ${text}`;
+			const question = unwrapQuestion && message.role === "user"
+				? /^<btw>\n[\s\S]*?\nQuestion:\n([\s\S]*?)\n<\/btw>\s*$/.exec(text)?.[1]
+				: undefined;
 			const calls = (message.tool_calls as Record<string, any>[] ?? []).map(call => `${call.function.name}#${call.id}`);
-			return [`${message.role}:`, text, calls.length ? `[${calls.join(", ")}]` : ""].filter(Boolean).join(" ");
+			return [`${message.role}:`, question ?? text, calls.length ? `[${calls.join(", ")}]` : ""].filter(Boolean).join(" ");
 		});
 }
 
@@ -63,7 +70,7 @@ async function firstSideRequest(fixture: Fixture): Promise<string[]> {
 	const before = fixture.requests.length;
 	const thread = await fixture.open();
 	expect(await thread.ask("side-question-prompt", callbacks(), AbortSignal.timeout(5_000))).toBe("answered by main");
-	return transcript(fixture.requests[before]);
+	return transcript(fixture.requests[before], true);
 }
 
 const evalState = expect.stringMatching(/^user: <system-reminder>\nEval runtime state is host-retained/);
@@ -267,7 +274,7 @@ test("persisted history that cannot fit the selected model uses the main model w
 		turn.assistant("selected-answer");
 		const thread = await fixture.open();
 		expect(await thread.ask("Answer briefly.", callbacks(), AbortSignal.timeout(5_000))).toBe("answered by main");
-		expect(transcript(fixture.requests[0])).toEqual([
+		expect(transcript(fixture.requests[0], true)).toEqual([
 			expect.stringMatching(/^user: selected-branch (history ){8000}$/),
 			"assistant: selected-answer",
 			"user: Answer briefly.",
@@ -350,3 +357,164 @@ test("an all-failing Side question exhausts native retry chains without cycling 
 		expect(events).toContainEqual(expect.objectContaining({ type: "auto_retry_end", success: false, attempt: 1 }));
 	} finally { await fixture.dispose(); }
 }, 30_000);
+
+const search = "mcp__keenable_search_web_pages";
+const fetchPage = "mcp__keenable_fetch_page_content";
+const fileTools = ["read", "grep", "glob", "find"];
+
+function offeredTools(request: Record<string, any>) {
+	return (request.tools as { function: { name: string; description: string; parameters: unknown } }[])
+		.map(tool => tool.function);
+}
+
+function expectPromptRoster(request: Record<string, any>, expected: string[], hasKeenable: boolean) {
+	const text = transcript(request).at(-1);
+	expect(text).toContain("Read-only tools:");
+	expect(/\nRead-only tools: (.+)\./.exec(text!)?.[1].split(", ").sort()).toEqual([...expected].sort());
+	const unavailable = "Web search and page fetch are unavailable.";
+	if (hasKeenable) expect(text).not.toContain(unavailable);
+	else expect(text).toContain(unavailable);
+}
+
+async function withKeenable(
+	options: Parameters<typeof sideQuestionFixture>[0],
+	run: (fixture: Fixture, entries: () => Promise<unknown[]>) => Promise<void>,
+	name = "keenable",
+	catalog?: "search_web_pages" | "fetch_page_content",
+) {
+	const dir = await mkdtemp(join(tmpdir(), "side-keenable-test-"));
+	const log = join(dir, "mcp.jsonl");
+	try {
+		const fixture = await sideQuestionFixture({
+			...options,
+			mcp: {
+				[name]: {
+					type: "stdio",
+					command: process.execPath,
+					args: [join(import.meta.dir, "helpers/keenable-mcp.ts"), log, ...(catalog ? [catalog] : [])],
+				},
+			},
+		});
+		try {
+			const entries = async () => (await Bun.file(log).text()).trim().split("\n").map(line => JSON.parse(line));
+			expect(await entries()).toEqual([{ method: "initialize" }]);
+			await run(fixture, entries);
+		} finally {
+			await fixture.dispose();
+		}
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+}
+
+test("the Side question searches and fetches through the main session's single Keenable connection", async () => {
+	const searchArgs = { query: "fixture query" };
+	const fetchArgs = { url: "https://example.test/page" };
+	await withKeenable({
+		find: "on",
+		tools: { extension_example: "not for the Side question" },
+		toolCalls: body => {
+			const previous = body.messages.at(-1);
+			if (previous.role === "user") return [["call_search", search, searchArgs]];
+			if (previous.tool_call_id === "call_search") return [["call_fetch", fetchPage, fetchArgs]];
+		},
+	}, async (fixture, entries) => {
+		expect(fixture.mcp?.getTools().map(tool => tool.name)).toContain("mcp__keenable_other_tool");
+		expect(fixture.main.getActiveToolNames()).toContain("extension_example");
+		const thread = await fixture.open();
+		await thread.ask("Find a source and read it.", callbacks(), AbortSignal.timeout(5_000));
+		const tools = offeredTools(fixture.requests[0]!);
+		expect(tools.map(tool => tool.name).sort()).toEqual([...fileTools, search, fetchPage].sort());
+		for (const tool of keenableTools) {
+			const offered = tools.find(item => item.name === `mcp__keenable_${tool.name}`);
+			expect(offered?.description).toBe(tool.description);
+			expect(offered?.parameters).toEqual(tool.inputSchema);
+		}
+		expect(transcript(fixture.requests.at(-1))).toContain("tool call_search: Keenable fixture search result");
+		expect(transcript(fixture.requests.at(-1))).toContain("tool call_fetch: Keenable fixture page content");
+		expect(await entries()).toEqual([
+			{ method: "initialize" },
+			{ method: "tools/call", params: { name: "search_web_pages", arguments: searchArgs } },
+			{ method: "tools/call", params: { name: "fetch_page_content", arguments: fetchArgs } },
+		]);
+		expectPromptRoster(fixture.requests[0]!, [...fileTools, search, fetchPage], true);
+	});
+}, 30_000);
+
+test("without a Keenable server or enabled find tool, the Side question lists only the available file tools", async () => {
+	const fixture = await sideQuestionFixture({ find: "off" });
+	try {
+		const thread = await fixture.open();
+		await thread.ask("Which tools can you use?", callbacks(), AbortSignal.timeout(5_000));
+		const expected = ["glob", "grep", "read"];
+		expect(offeredTools(fixture.requests[0]!).map(tool => tool.name).sort()).toEqual(expected);
+		expectPromptRoster(fixture.requests[0]!, expected, false);
+	} finally { await fixture.dispose(); }
+}, 30_000);
+
+for (const tool of ["search_web_pages", "fetch_page_content"] as const) {
+	test(`a Keenable server offering only ${tool} does not add a web tool to the Side question`, async () => {
+		await withKeenable({ find: "on" }, async fixture => {
+			expect(fixture.mcp?.getTools().map(tool => tool.name)).toEqual([`mcp__keenable_${tool}`]);
+			await firstSideRequest(fixture);
+			expect(offeredTools(fixture.requests[0]!).map(tool => tool.name).sort()).toEqual([...fileTools].sort());
+		}, "keenable", tool);
+	}, 30_000);
+}
+
+test("the Side question ignores even matching tool names from a different MCP server", async () => {
+	await withKeenable({ find: "on" }, async fixture => {
+		const tools = fixture.mcp?.getTools();
+		expect(tools).toContainEqual(expect.objectContaining({ name: search, mcpServerName: "Keenable" }));
+		expect(tools).toContainEqual(expect.objectContaining({ name: fetchPage, mcpServerName: "Keenable" }));
+		await firstSideRequest(fixture);
+		expect(offeredTools(fixture.requests[0]!).map(tool => tool.name).sort()).toEqual([...fileTools].sort());
+	}, "Keenable");
+}, 30_000);
+
+function searchOnce(question: string): NonNullable<Parameters<typeof sideQuestionFixture>[0]>["toolCalls"] {
+	return body => {
+		const previous = transcript(body).at(-1);
+		if (previous?.startsWith("user:") && previous.includes(question)) {
+			return [["call_search", search, { query: "fixture query" }]];
+		}
+	};
+}
+
+test("a disconnect keeps the existing Side question roster and drops Keenable in the next thread", async () => {
+	const question = "Try to search after disconnect.";
+	await withKeenable({ find: "off", toolCalls: searchOnce(question) }, async (fixture, entries) => {
+		const thread = await fixture.open();
+		await thread.ask("Can you search?", callbacks(), AbortSignal.timeout(5_000));
+		const names = (index: number) => offeredTools(fixture.requests[index]!).map(tool => tool.name).sort();
+		const expected = ["glob", "grep", "read", search, fetchPage].sort();
+		expect(names(0)).toEqual(expected);
+
+		await fixture.mcp!.disconnectServer("keenable");
+		await thread.ask(question, callbacks(), AbortSignal.timeout(5_000));
+		expect(names(1)).toEqual(expected);
+		expect(transcript(fixture.requests[2])).toContainEqual(expect.stringMatching(/^tool call_search: Keenable is unavailable\./));
+
+		const next = await fixture.open();
+		await next.ask("Can you search now?", callbacks(), AbortSignal.timeout(5_000));
+		expect(names(3)).toEqual(["glob", "grep", "read"]);
+		expect(await entries()).toEqual([{ method: "initialize" }]);
+	});
+}, 30_000);
+
+for (const [rule, error] of [
+	["deny", /is blocked by user policy/i],
+	["prompt", /requires approval but no interactive UI available/i],
+] as const) {
+	test(`an explicit ${rule} rule blocks a Side question's Keenable call without a prompt or server request`, async () => {
+		const question = "Search with an approval rule.";
+		await withKeenable({ approval: { [search]: rule }, toolCalls: searchOnce(question) }, async (fixture, entries) => {
+			const thread = await fixture.open();
+			await thread.ask(question, callbacks(), AbortSignal.timeout(5_000));
+			expect(offeredTools(fixture.requests[0]!).map(tool => tool.name)).toContain(search);
+			expect(transcript(fixture.requests[1]).find(message => message.startsWith("tool call_search:")))
+				.toMatch(error);
+			expect(await entries()).toEqual([{ method: "initialize" }]);
+		});
+	}, 30_000);
+}

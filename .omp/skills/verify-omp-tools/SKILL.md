@@ -110,7 +110,7 @@ For checks without a screen, run the same isolated OMP command in `PROJECT` with
 
 ## Helpers
 
-- For `btw-tools`, `btw-usage`, and `btw-agent`, copy `helpers/side-question-probe.ts` to `$CHECKOUT/omp/extensions/verify-side-question-probe.ts` so it can import `@oh-my-pi/*`. Use the RPC drive with `--no-extensions -e` on that path, `VERIFY_PROBE=tools`, `usage`, or `agent`, and `VERIFY_PROBE_LOG=$VERIFY_RUN_DIR/<check>.json`. Delete the copy after the drive.
+- For `btw-tools`, `btw-usage`, and `btw-agent`, copy `helpers/side-question-probe.ts` to `$CHECKOUT/omp/extensions/verify-side-question-probe.ts` so it can import `@oh-my-pi/*`. Use the RPC drive with `--no-extensions`, `-e "$PROVIDER"`, and `-e` on the copied probe. Set `VERIFY_PROBE` (`tools`, `usage`, or `agent`) and `VERIFY_PROBE_LOG="$VERIFY_RUN_DIR/<check>.json"` on `isolated-omp`. It passes those variables through `env -i` without inheriting credentials. Keep stdin open until the probe writes its log. Delete the copy after the drive.
 
 ## Evidence
 
