@@ -11,6 +11,8 @@
 
 - Ask `/btw` from the composer while a native `ask` waits. Return to the form with Shift+Tab.
   Panel shortcuts leave form keys alone.
+- Go to uses Tern's `waiting_input` status for a waiting native `ask`. The
+  `/btw` and English coach panels do not count as waiting for input.
 - Checked the plugins against Tern 0.9.30 and omp 19.1.0. With omp 19.1,
   `generate_image` can run as a command inside `bash`, and its approval still
   shows the mode. The README now says so.

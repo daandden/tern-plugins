@@ -12,7 +12,8 @@ The Go to picker is a sheet in the middle of the window, in the place of the com
 - `goto-enter` moves the focus to the cursor row with Up, Down and Enter.
 - `goto-waiting` shows a pane that waits for you under `Waiting on you`, named `session / tab / pane`, without the tab when its name is the pane's name. It leaves out the pane that you opened the picker from.
 - `goto-tab-order` lists the tabs of a session by their tab status (input, error, alert, done, paused, idle, retrying, compacting, working, background, running, exited, then quiet), and tabs of the same status by working time or waiting time, longest first, then in Tern's order. A split tab takes the most urgent status of its panes in the view, and the longest time among those panes. The panes of a split tab come by time, longest first.
-- `goto-native-ask-status` shows a pane with a waiting native `ask` under `Waiting on you`.
+- `goto-native-ask-status` shows a waiting native `ask` under `Waiting on you` with a needs-input mark and waiting time.
+- `goto-panel-status` leaves a working pane with the `/btw` panel and an idle pane with the English coach panel out of `Waiting on you`.
 - `goto-finished` shows an agent whose turn ended while its pane had no focus as `done` in the Waiting on you rows, and one whose turn failed as `error`, until you focus that pane. A turn that ends while its pane has focus adds no row. An agent that exits stays out of the group.
 - `goto-idle` shows or hides idle agents in the Waiting on you rows with ctrl+; then `i`, or `Show idle` in the action bar, and keeps the choice.
 - `goto-close` closes the picker on Esc with no search, on a second F1, when the focus goes to another pane (also by a click outside the box), and on `tern plugin reload`.
@@ -44,7 +45,6 @@ Preconditions:
 - Waiting on you. Focus pane B with `"$V" tern "$RUN" focus B`, run `"$V" ctl "$RUN" alert bell '"verify bell"'`, focus pane A, press F1, then ctrl+; and `a`. `opts` starts with `Waiting on you1`, then `1 Default / <pane B>`, then `Sessions` and the tree numbered from 2. The bell row's `title` is `Alert` and its label holds the bell glyph span `sf-t-icon sf-t-error`.
 - Time order. Make tabs `T1`, `T2`, `T3` (`tab new`, each named by `cd` into a folder of its name) and a split tab with panes `P1` and `P2` (`tab new`, Alt+N), ring `alert bell` in each of those five panes, and focus pane A last: a focus ends the waiting time of the focused pane. Then write `RUN/instance/config/plugin-data/goto/kv.json` (make the folder; goto writes no file until it stores something) with `.since` holding, by pane id, `{"kind":"waiting","at":<now - N>}` with N = 100 for T1, 600 for T2, 300 for T3, 50 for P1 and 400 for P2. Press F1, then ctrl+; and `a`. The group is T2 (10m), P2 (6m40s), P1 (50s). Under `Default` the tabs are T2, the split tab, T3, T1, then `BASE`, and the split tab lists P2 before P1.
 - Tab order. From the baseline, name pane A `BASE`. Then make these tabs with `tab new`, each named by `cd` into a folder of its name: `BELL` (ring `alert bell`), `SPLIT` (Alt+N, name the new pane `RING` and ring a bell in it, then `"$V" tern "$RUN" focus <SPLIT id>`), `SLEEP` (type `sleep 300`, which makes its label `SLEEP: sleep 300`) and `QUIET`. Press F1, then ctrl+; and `a`. The tab rows under `Default` are `BELL`, `SPLIT`, `SLEEP`, `BASE`, `QUIET`: the two alert tabs first, then the busy tab, then the quiet tabs, each status in Tern's order, because a bell starts no waiting time. Type `s`: the tab rows are `SPLIT`, `SLEEP`, `BASE`.
-- Native ask status. Open a second tab and launch the [local native ask session](../../verify-omp-tools/features/native-ask.md#local-native-ask-session) there with `VERIFY_RUN_DIR=$RUN`. Enable `terminal.programStatus` in the disposable omp config. Send `Call the ask tool please` and leave the form open. Switch to pane A and press F1. Capture `Waiting on you` and the row titled `Waits for your input` with `.sf-t-icon.sf-t-warning`. Record the row capture, shot, and resolved candidate code paths in `RUN/notes.md`.
 - Enter. Run `"$V" ctl "$RUN" key up` until the cursor is on the bell row (`.pk-row.sel`), then `"$V" ctl "$RUN" key enter`. The focus goes to pane B and the picker closes.
 - Close. Open the picker, then each of these closes it (count 0): `key escape` with no search, `"$V" tern "$RUN" focus A`, a click on the head of a tiled pane above the box (`"$V" ctl "$RUN" click '".tn-stage > section.tn-pane:not(.off):not(.pip) > header.tn-head"'`), and a second `key f1`.
 - Idle choice. Open the picker, press ctrl+; then `type i`. `RUN/instance/config/plugin-data/goto/kv.json` holds `"waiting_idle": true`. A second ctrl+; `i` sets it to `false`.
@@ -63,6 +63,59 @@ Preconditions:
 - Pause without a model request. In an idle omp pane B, type `/pause` with `ctl type` and press Enter. The layer sheet reads `Paused`. Focus pane A and press F1. With idle rows hidden, B has a Waiting on you row and a tree row, both titled `Paused`; `tree ".sf-picker .pk-row[title='Paused'] .sf-t-icon.sf-t-muted"` shows U+F04C, and `tree ".sf-picker .pk-row[title='Paused'] .pk-fact"` has count 0. Close the picker, focus B and press Esc to resume. Focus A and press F1 again: B is `Idle` and absent from Waiting on you. Keep the before, paused and resumed row dumps and shots.
 - Pause precedence and time at the local protocol boundary. A disposable TSP sender can emit the same `omp.overlay.pause` role in the layer, alongside ask, retry, compacting or error nodes, and report OSC 7501 `working`, `done` or `error` with `app=omp`. Write TSP frames as `ESC _tsp;<verb>;<json> ESC \` and the state as `ESC ]7501;state=<state>:app=omp ESC \`; a `;` between the fields or a BEL terminator gives no state event. Open F1 from another pane. Paused wins over those statuses and has no elapsed fact, including with a stored done or error. Remove the layer pause and check that the earlier status returns. With `working` unchanged, compare the visible working time before and after the hold: it includes the hold. A pause role under main or dock, or composer badges `Goal`, `Loop paused` and `Plan (paused)`, must not produce Paused. Use this boundary only for combinations; keep the real `/pause` check above as proof of the integration.
 - Proof. Run `"$V" shot "$RUN" goto-<step>` with the picker open. The shot shows the sheet with its rows and action bar over the dimmed window.
+
+### Native ask and panel status with local models
+
+Start from the baseline with one shell pane, A. Run `"$V" tern "$RUN" plugin reload goto`, then `"$V" tern "$RUN" plugin list`. Save both outputs and require `goto` to show `ready`. Leave idle rows hidden.
+
+Run from the checkout root. Link this read-only status probe into the isolated instance only:
+
+```sh
+CHECKOUT=$PWD
+H="$CHECKOUT/.omp/skills/verify-omp-tools/helpers"
+OMP_BIN=$(command -v omp)
+"$V" tern "$RUN" plugin link "$CHECKOUT/.omp/skills/verify-tern-plugins/fixtures/goto-agent-status"
+"$V" tern "$RUN" plugin reload goto-agent-status
+```
+
+With the Go to picker open, run `"$V" ctl "$RUN" plugins run plugin.goto-agent-status.capture`. Save `RUN/instance/config/plugin-data/goto-agent-status/kv.json` as a separate capture for each case. Match `.agents[].pane` to the pane ID and check its `state`. This list comes directly from Tern, not from Go to.
+
+1. **Native ask.** Set `VERIFY_RUN_DIR=$RUN` and follow [Local native ask session](../../verify-omp-tools/features/native-ask.md#local-native-ask-session). After `setup` and before starting omp, enable status reports in the disposable config:
+
+   ```sh
+   printf '\nterminal:\n  programStatus: true\n' >>"$RUN/data/agent/config.yml"
+   "$H/isolated-omp" "$RUN" "$OMP_BIN" config get terminal.programStatus
+   ```
+
+   Require `true`. Open a second tab with `"$V" ctl "$RUN" tab new` and launch the session there. Submit `Call the ask tool please`. Poll `tree ".sf-main [data-role='omp.ask.card']"` for `Pick a color`. Capture the form without answering.
+
+   Focus pane A with `"$V" tern "$RUN" focus <A>`, then press F1. Save the rows and the probe's list while the picker is open. Require the unfocused omp pane to report `waiting_input`. Its row under `Waiting on you` has the title `Waits for your input`, a `.sf-t-icon.sf-t-warning` mark, and a `.pk-fact` with the waiting time. Capture the picker and the corresponding `since` entry in Go to's `kv.json`. Close the picker. Answer the form, exit omp, and close the test tab before the next case.
+
+2. **Side question in a held turn.** Keep the disposable omp config and plugin link from step 1. Start `bun "$CHECKOUT/.omp/skills/verify-tern-plugins/helpers/goto-held-provider.ts" "$RUN"` as an owned process. Wait for `ready:`. Start a fresh tab and launch:
+
+   ```sh
+   "$V" type "$RUN" "cd '$RUN/data/project' && exec '$H/isolated-omp' '$RUN' '$OMP_BIN' -e '$RUN/held-provider.ts' --offline --model goto-held/main --smol goto-held/side --session-dir '$RUN/data/held-sessions'"
+   ```
+
+   Submit `Say ready` and wait for `Main ready.`. Submit `Hold the main turn` and wait for `Main turn held open.`. The local provider keeps that response open without an `ask` call. Submit `/btw What is the local status?` and wait for `Local Side answer during a held turn.` in the panel. Capture the panel and save `held-requests.jsonl`.
+
+   Focus A, clear Tern's inbox with `"$V" ctl "$RUN" inbox clear`, and press F1. Require `working` in the probe's list. In Go to, the pane belongs only under `Sessions`, with title `Working`, an `.sf-t-num.sf-t-accent` mark, and a working time. Close the picker and focus the omp pane. Press Esc to close the panel, then Esc again to cancel the turn before exiting omp and closing its tab.
+
+3. **English coach.** Set `COACH=$RUN/coach`. Create its disposable home, tmp, and session directories:
+
+   ```sh
+   mkdir -p "$COACH/data/home" "$COACH/data/tmp" "$COACH/data/sessions"
+   ```
+
+   Start `bun "$H/english-coach-provider.ts" "$COACH"` as an owned process. Wait for `ready:`. In a fresh tab, launch:
+
+   ```sh
+   "$V" type "$RUN" "cd '$COACH/data/project' && exec '$H/isolated-omp' '$COACH' '$OMP_BIN' --no-extensions -e '$COACH/provider.ts' -e '$CHECKOUT/omp/extensions/english-coach.ts' --no-skills --no-rules --no-context-files --no-lsp --offline --no-tools --thinking off --model coach-smoke/main --config '$COACH/smoke-config.yml' --session-dir '$COACH/data/sessions'"
+   ```
+
+   Submit `it not work`. Wait for the main answer and for `tree "[data-role='omp-tools.english-coach.change']"` to show the correction. Capture the panel. Focus A, clear the inbox, and press F1. Require `idle` in the probe's list and a row titled `Idle` under `Sessions`. The pane has no needs-input mark and does not join `Waiting on you`.
+
+Save the rows, shots, raw agent lists, and provider requests. Record the results and resolved candidate paths in `RUN/notes.md`. Copy transcripts out of `RUN/data` before stopping the instance and the owned providers.
 
 ## Gotchas
 

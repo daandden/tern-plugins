@@ -132,10 +132,12 @@ paused, then idle if enabled. Within a status, the longest wait comes first. Exi
 Each waiting pane still appears in the tree and gets a separate jump number in the group. The highlight
 starts on the first waiting pane, if any.
 
-The omp-tools Picker counts as waiting for input, including its Submit review and Submit note editor,
-even with `ask.timeout` set. Paused panes get a still, muted pause mark and no time. Resume in omp to
-restore the pane's other status. Working time includes the pause. A stopped goal, loop, or plan and
-Ctrl+Z do not count as `/pause`.
+With omp's `terminal.programStatus` on, a pane with a waiting native `ask` gets a needs-input mark.
+The `/btw` and English coach panels do not count as waiting for input.
+
+Paused panes get a still, muted pause mark and no time. Resume in omp to restore the pane's other
+status. Working time includes the pause. A stopped goal, loop, or plan and Ctrl+Z do not count as
+`/pause`.
 
 ## `zellij-keys`
 

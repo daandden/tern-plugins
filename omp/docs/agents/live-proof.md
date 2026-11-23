@@ -1,7 +1,30 @@
 # Live proof
 
-Dated results of live OMP smokes through the `verify-omp-tools` skill, newest first. Add an entry after each smoke: the OMP and Tern versions, what was driven, what was observed, and the evidence path.
+Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-23, Go to with a waiting native ask (ticket #39): omp 19.1.0 and
+  Tern 0.9.30 showed the unfocused `Pick a color` pane under Waiting on you
+  with the warning mark and a waiting time. The raw agent list reported
+  `waiting_input` for that pane with the picker open. See `ask-goto.webp`
+  and `ask-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with `/btw` during a held turn (ticket #39): omp 19.1.0
+  and Tern 0.9.30 kept the pane `working` with the Side answer visible
+  and no ask open. The pane showed only under Sessions with a working
+  time. See `held-panel.webp`, `held-goto.webp`, and
+  `held-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with the English coach (ticket #39): omp 19.1.0 and
+  Tern 0.9.30 showed the correction while the pane was idle. Go to gave
+  the pane an Idle row and no needs-input mark or Waiting on you row.
+  See `coach-panel.webp`, `coach-goto.webp`, and
+  `coach-agents-during-f1.json` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
+- 2026-11-23, Go to with the retired Picker list role (ticket #39): a
+  local terminal fixture on Tern 0.9.30 reported `working` and sent the
+  old list role. Go to classified it as waiting before the change and
+  Working afterward. See `red-legacy.webp` and `green-legacy.webp` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/implement-spec/20261123-retire-picker/39/goto-nSLovz/`.
 - 2026-11-23, `/btw` during native ask in Tern (ticket #37): omp 19.1.0
   and Tern 0.9.30 kept the inline form open through `/btw` and `?` with a
   local provider. The panel showed a `read` call. Shift+Tab returned to the

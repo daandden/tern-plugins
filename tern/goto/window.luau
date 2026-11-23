@@ -298,21 +298,13 @@ local WAIT_ROLES = {
 	["omp.plan.options"] = true,
 }
 
--- omp-tools' Picker draws its body, in every view (a question, Picker review, an answer editor's
--- context, the Picker btw thread), as a list with this role. omp reports the Picker as working,
--- because an extension's custom view opens no dialog. omp-tools' /btw panel and English coach
--- draw the same list inside omp.overlay.btw while the agent works, so that list waits for nothing.
-local PICKER_BODY = "omp-tools.ask-body"
-local BTW_PANEL = "omp.overlay.btw"
-
 -- Reads omp's dock and layer surface roles for pane status.
 local function omp_signals(cx, pane)
 	local sig = { paused = false, waiting = false, working = nil, error = false, jobs = false }
-	local function walk(node, root, in_panel)
+	local function walk(node, root)
 		local p = node.p or {}
 		local role = p.role
-		in_panel = in_panel or role == BTW_PANEL
-		if WAIT_ROLES[role] or (role == PICKER_BODY and not in_panel) then
+		if WAIT_ROLES[role] then
 			sig.waiting = true
 		elseif role == "omp.overlay.pause" and root == "layer" then
 			sig.paused = true
@@ -335,7 +327,7 @@ local function omp_signals(cx, pane)
 			end
 		end
 		for _, child in node.c or {} do
-			walk(child, root, in_panel)
+			walk(child, root)
 		end
 	end
 	for _, root in { "dock", "layer" } do
@@ -343,7 +335,7 @@ local function omp_signals(cx, pane)
 			return cx.session:surface(pane, { as = "table", root = root, depth = 24, nodes = 2000, max_chars = 80 })
 		end)
 		if ok and type(tree) == "table" and type(tree.main) == "table" then
-			walk(tree.main, root, false)
+			walk(tree.main, root)
 		end
 	end
 	return sig
