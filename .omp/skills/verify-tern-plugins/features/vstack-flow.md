@@ -41,6 +41,6 @@ Preconditions:
 - A selector-centre click on a link that wraps to two lines can land between the lines and click nothing. The full-width shell of a fresh tab fits a Flow URL on one line; a split or floating shell needs the zoom step of the preconditions.
 - `flow-not-claimed` and a red run before the plugin exists hand the link to the default browser, which opens a tab there. Name that in `notes.md`.
 - A Cmd+⌥ chord written as one `cmd+alt` token is read as part of the selector and clicks nothing.
-- Control shots show a browser pane's cover, not the page's pixels. Read the page's URL from `blocks`, not from a shot.
+- Since Tern 0.9.33, control shots show a browser page's pixels. Still read the page's URL from `blocks`, not from a shot.
 - The link lens proves clicked-link routing for native links. omp's popup uses the same native Markdown link; raw terminal text and OSC 8 links have no selector, so they stay untested here.
 - A page that the plugin opens shows Tern's `agent` website data chip, while Tern's own link opens show `Share`. Tern picks the store for pages opened through browser automation; the plugin cannot choose it.

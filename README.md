@@ -11,15 +11,14 @@ Tern loads each plugin from `tern/<id>/`. omp loads `omp-tools` from `omp/`.
 | Tern | [`zellij-keys`](#zellij-keys) | Move between panes and tabs, open floating tools, and start omp in a new worktree. |
 | Tern | [`reader-terminal-text`](#reader-terminal-text) | Match Reader chat text to your terminal's text settings. |
 | Tern | [`vstack-flow`](#vstack-flow) | Open vstack Flow links in Tern while other web links follow your link setting. |
-| Tern | [`toast-above-browser`](#toast-above-browser) | Keep Tern toasts visible while a browser block is shown. |
 | omp | [`omp-tools`](#omp-tools) | Generate images, ask Side questions, and get private English corrections. |
 
 ## Requirements
 
-- Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.30.
+- Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.34.
 - In `/opt/homebrew/bin`: Yazi, lazygit, and btop for floating tools. Git, `gtimeout` from GNU coreutils, and omp for worktrees.
   The worktree agent tab also needs `omp-tools` linked, because its omp gets the `--own-worktree` flag.
-- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.1.0.
+- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.1.1.
   [OpenAI mode](#openai-mode) and [Codex mode](#codex-mode) need different credentials.
 
 ## Install
@@ -29,12 +28,12 @@ with [Relink after the move](#relink-after-the-move).
 
 ### Tern
 
-Link the five plugin folders. The command replaces old links for these IDs and checks each target before the final reload:
+Link the four plugin folders. The command replaces old links for these IDs and checks each target before the final reload:
 
 ```sh
 (
 	links=$(tern plugin dir) || exit
-	for id in goto zellij-keys vstack-flow reader-terminal-text toast-above-browser; do
+	for id in goto zellij-keys vstack-flow reader-terminal-text; do
 		link="$links/$id.path"
 		if [ -f "$link" ]; then tern plugin unlink "$id" || exit; fi
 		target=$(realpath "$PWD/tern/$id") || exit
@@ -45,7 +44,7 @@ Link the five plugin folders. The command replaces old links for these IDs and c
 )
 ```
 
-Check that all five show `ready`. `tern plugin reload` exits with code 1 if a plugin fails to load.
+Check that all four show `ready`. `tern plugin reload` exits with code 1 if a plugin fails to load.
 Tern also reloads linked plugins when files in the checkout change.
 
 ### omp
@@ -92,7 +91,7 @@ Other calls go to `/usr/bin/open`.
 ### Relink after the move
 
 From the checkout you intend to use, run the [Tern install commands](#tern) to unlink the old `.path`
-files and link the new `tern/<id>/` folders. Check that all five plugins show `ready`.
+files and link the new `tern/<id>/` folders. Check that all four plugins show `ready`.
 
 Run the [omp install commands](#omp) to replace and verify the link to `omp/` before starting a new omp
 session. The ID stays `omp-tools`, so your settings and project overrides still apply.
@@ -185,8 +184,9 @@ cleanup failure or refusal.
 ## `reader-terminal-text`
 
 In Reader chat, omp prose, the composer, advisor notes, notices, and tool-result prose use the terminal's
-font size, row height, and weight. Single-line text such as tool titles, chips, and status uses the
-terminal size and row height but keeps Reader's weights. The UI font and Markdown theme colors stay.
+font size, row height, and weight. Single-line text such as tool titles, chips, status, and the composer
+bar's branch, changes, and pull request uses the terminal size and row height but keeps Reader's weights.
+The UI font and Markdown theme colors stay.
 Native `ask` uses the same font size and row height for questions and controls, and the terminal
 weight for choices and typed answers. Open and folded question labels share a left edge.
 The card uses shorter choice rows and less space between questions, without shrinking the buttons.
@@ -197,11 +197,6 @@ The plugin hides the empty composer's placeholder and the blank rows above it fr
 Cmd-click a Flow link to open it in Tern beside the opener pane. If that tab already shows a browser pane
 for the same Flow, Tern focuses it and jumps to the linked question. Other web links follow Tern's
 `link_target` setting. Cmd+Option-click uses Tern's own alternate target instead of the plugin.
-
-## `toast-above-browser`
-
-While the active tab shows a browser block, tiled or floating, toasts appear over the title bar, where the
-page cannot cover them. Otherwise, toasts stay at the bottom.
 
 ## `omp-tools`
 

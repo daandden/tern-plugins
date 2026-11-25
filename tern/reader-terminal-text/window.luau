@@ -2,7 +2,7 @@
 -- composer 14px/22px, advisor notes 13.5px/1.55, tool prose 12.5px/1.55, chrome 11 to 13px). These
 -- rules put that text on the terminal's font size and row height instead (--sf-fs and --sf-lh,
 -- which follow font_size and adjust_cell_height), so the chat reads like a terminal. Single-line
--- chrome (tool titles and meta, card heads, the advisor label, chips, status) keeps Reader's
+-- chrome (tool titles and meta, card heads, the advisor label, chips, status, composer facts) keeps Reader's
 -- weights. Message text gets the terminal's Font weight (--tv-weight), which Reader's `font`
 -- shorthands reset to 400. `:root` makes each rule outrank Reader's own.
 tern.css("reader-terminal-text", [[
@@ -80,7 +80,9 @@ tern.css("reader-terminal-text", [[
 :root:root .sf-chat-reader .sf-row:is([data-role='omp.working'], [data-role='omp.hint.retry']),
 :root:root .sf-chat-reader [data-role='omp.working'] :is(.sf-shimmer, [data-role='omp.working.label']),
 :root:root .sf-chat-reader .sf-status[data-role='omp.status'],
-:root:root .sf-chat-reader .sf-status[data-role='omp.status'] .sf-seg-t {
+:root:root .sf-chat-reader .sf-status[data-role='omp.status'] .sf-seg-t,
+:root:root .sf-chat-reader .sf-seg[data-role='omp.composer.fact'],
+:root:root .sf-chat-reader .sf-seg[data-role='omp.composer.fact'] .sf-seg-t {
 	font-size: var(--term-fs);
 	line-height: var(--term-lh);
 }

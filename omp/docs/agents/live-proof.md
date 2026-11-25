@@ -2,6 +2,22 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-25, Tern 0.9.34 and omp 19.1.1 compatibility, isolated native
+  windows with local fixtures only. Smoked goto, zellij-keys, native files,
+  vstack-flow and reader-terminal-text. Skipped: the goto veil cost at
+  100,000 nodes (the transcript reached 10,988), the hand-made pause
+  precedence matrix, the empty dock-gap region, and Flow links from omp's
+  popup, plain terminal text and OSC 8. After ctrl+; and `a` with a Waiting
+  on you row, Go to left a stale `Default` row with `aria-selected=true`;
+  only the cursor's row was painted and Enter followed it. The native ask
+  card kept 328.5px and 26px choices, and `/tree` re-answered it. The
+  composer bar's `omp.composer.fact` segments were 11.5px and 11px; with the
+  new rule they are 13px on 16.5px rows inside the 32px bar. With the
+  toast-above-browser sheet dropped, a bottom toast showed over a live page,
+  so the plugin was removed. Notes: `notes.md` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/` runs
+  `tern-plugins-HxmmlW`, `-okZs8U`, `-ZaCXDT`, `-0jdHTQ`, `-KPhLIH`,
+  `-szlGc5` and `-PtF8pI`.
 - 2026-11-23, compact native `ask` on omp 19.1.1 and isolated native Tern
   0.9.30. The three-question card went from 426 to 328.5px at 13px text,
   and single-line choices went from 36 to 26px. In a 319px pane, keyboard

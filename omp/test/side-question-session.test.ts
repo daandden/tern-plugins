@@ -396,8 +396,12 @@ async function withKeenable(
 			},
 		});
 		try {
-			const entries = async () => (await Bun.file(log).text()).trim().split("\n").map(line => JSON.parse(line));
-			expect(await entries()).toEqual([{ method: "initialize" }]);
+			const read = async () => (await Bun.file(log).text()).trim().split("\n").map(line => JSON.parse(line));
+			// omp 19.1 probes an unknown server's MCP era over its own connection, so setup can initialize twice.
+			const setup = await read();
+			expect(setup.length).toBeGreaterThan(0);
+			expect(setup).toEqual(setup.map(() => ({ method: "initialize" })));
+			const entries = async () => (await read()).slice(setup.length);
 			await run(fixture, entries);
 		} finally {
 			await fixture.dispose();
@@ -433,7 +437,6 @@ test("the Side question searches and fetches through the main session's single K
 		expect(transcript(fixture.requests.at(-1))).toContain("tool call_search: Keenable fixture search result");
 		expect(transcript(fixture.requests.at(-1))).toContain("tool call_fetch: Keenable fixture page content");
 		expect(await entries()).toEqual([
-			{ method: "initialize" },
 			{ method: "tools/call", params: { name: "search_web_pages", arguments: searchArgs } },
 			{ method: "tools/call", params: { name: "fetch_page_content", arguments: fetchArgs } },
 		]);
@@ -495,7 +498,6 @@ test("a Side question's Keenable call does not add tools to the main agent's nex
 		expect(await thread.ask(question, callbacks(), AbortSignal.timeout(5_000))).toBe("answered by main");
 		expect(transcript(requests[2])).toContain("tool call_search: Keenable fixture search result");
 		expect(await entries()).toEqual([
-			{ method: "initialize" },
 			{ method: "tools/call", params: { name: "search_web_pages", arguments: { query: "fixture query" } } },
 			{ method: "notifications/tools/list_changed" },
 			{ method: "tools/list", tools: ["search_web_pages", "fetch_page_content", "other_tool"] },
@@ -507,10 +509,11 @@ test("a Side question's Keenable call does not add tools to the main agent's nex
 		const keenable = [fetchPage, search];
 		const side = ["glob", "grep", "read", ...keenable].sort();
 		expect(requests).toHaveLength(4);
-		expect(names(0)).toEqual(keenable);
+		expect(names(0)).toEqual(expect.arrayContaining(keenable));
+		expect(names(0)).not.toContain("mcp__keenable_other_tool");
 		expect(names(1)).toEqual(side);
 		expect(names(2)).toEqual(side);
-		expect(names(3)).toEqual(keenable);
+		expect(names(3)).toEqual(names(0));
 	}, "keenable", "announce-on-call");
 }, 30_000);
 
@@ -531,7 +534,7 @@ test("a disconnect keeps the existing Side question roster and drops Keenable in
 		const next = await fixture.open();
 		await next.ask("Can you search now?", callbacks(), AbortSignal.timeout(5_000));
 		expect(names(3)).toEqual(["glob", "grep", "read"]);
-		expect(await entries()).toEqual([{ method: "initialize" }]);
+		expect(await entries()).toEqual([]);
 	});
 }, 30_000);
 
@@ -547,7 +550,7 @@ for (const [rule, error] of [
 			expect(offeredTools(fixture.requests[0]!).map(tool => tool.name)).toContain(search);
 			expect(transcript(fixture.requests[1]).find(message => message.startsWith("tool call_search:")))
 				.toMatch(error);
-			expect(await entries()).toEqual([{ method: "initialize" }]);
+			expect(await entries()).toEqual([]);
 		});
 	}, 30_000);
 }

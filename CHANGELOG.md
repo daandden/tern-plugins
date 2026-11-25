@@ -13,9 +13,13 @@
 
 - Removed the omp-tools Picker and its `ask` override. omp now answers all `ask`
   calls, `/tree` re-answers, and host dialogs. Saved results are unchanged.
+- Removed the `toast-above-browser` Tern plugin. Since Tern 0.9.33, browser pages no
+  longer cover toasts, so toasts stay at the bottom. Run `tern plugin unlink toast-above-browser`.
 
 ### Changed
 
+- Checked the plugins against Tern 0.9.34 and omp 19.1.1. In Reader, the composer bar's
+  branch, changes, and pull request now use the terminal's text size and row height.
 - Native `ask` follows the terminal's text settings in Reader and aligns open
   and folded question labels. The card has shorter choice rows and less
   vertical padding. The native colors and button sizes stay the same.

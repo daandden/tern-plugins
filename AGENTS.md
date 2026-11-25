@@ -32,7 +32,7 @@ State lives in two places:
 
 ### Key directories
 
-- `tern/`: `goto`, `zellij-keys`, `reader-terminal-text`, `vstack-flow`, and `toast-above-browser`. Only goto has a `host.luau`; reader-terminal-text and toast-above-browser are CSS only.
+- `tern/`: `goto`, `zellij-keys`, `reader-terminal-text` and `vstack-flow`. Only goto has a `host.luau`; reader-terminal-text is CSS only.
 - `bin/`: shell commands for Tern panes (`bin/open`).
 
 ### Development commands
@@ -69,7 +69,7 @@ Reload and list plugins after each change. Use the isolated Verify run below to 
 
 ### Runtime and tooling
 
-- Tern 0.9.30 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
+- Tern 0.9.34 (`tern --version`) runs the Luau plugins. The Tern plugins have no package manager, formatter, or linter config.
 - Homebrew tools the plugins call: git, omp, GNU coreutils `gtimeout`, yazi, lazygit, btop, all in `/opt/homebrew/bin`.
 - The user's login shell is zsh (`/bin/zsh`); `~/.zprofile` puts `~/.local/bin` and Homebrew before `/usr/bin` in `PATH`.
 
@@ -109,7 +109,7 @@ zellij-keys worktree settings: both `omp config get worktree.base` and `omp work
 
 zellij-keys fetch deadline: `/opt/homebrew/bin/gtimeout` (GNU coreutils) wraps the fetch and terminates its process group after 30 seconds, with `--kill-after=1s` for a process that ignores TERM. Tern's own `tern.process.run` timeout kills only the parent; a surviving SSH transport can keep its output pipes open and delay the callback past the deadline. The group deadline lets the command continue with the cached origin branch without waiting for the transport.
 
-reader-terminal-text: the plugin is CSS only, through `tern.css`. Its selectors use Tern's Reader classes and omp roles: `.sf-chat-reader`, `omp.assistant`, `omp.editor`, `omp.advisor.note`, `omp.notice.*`, and `.sf-tool-body > .sf-md`. Prose, advisor notes, notice rows and section bodies, and tool-result prose use the terminal size, weight, and row height. Single-line chrome uses the terminal size and row height with Reader's own weights: advisor heads and labels, tool title, target, meta, time and more, card heads, chips, the working row, and status. If Tern changes these selectors, the rules stop working. The `:root` and `:root:root` prefixes outrank Reader's rules.
+reader-terminal-text: the plugin is CSS only, through `tern.css`. Its selectors use Tern's Reader classes and omp roles: `.sf-chat-reader`, `omp.assistant`, `omp.editor`, `omp.advisor.note`, `omp.notice.*`, and `.sf-tool-body > .sf-md`. Prose, advisor notes, notice rows and section bodies, and tool-result prose use the terminal size, weight, and row height. Single-line chrome uses the terminal size and row height with Reader's own weights: advisor heads and labels, tool title, target, meta, time and more, card heads, chips, the working row, status (`omp.status`), and the composer bar's facts (`omp.composer.fact` segments inside `omp.composer.extras`: branch, changes, pull request, which Tern 0.9.34 shows at 11 to 11.5px without the plugin). If Tern changes these selectors, the rules stop working. The `:root` and `:root:root` prefixes outrank Reader's rules.
 
 reader-terminal-text weight: Tern's Font weight setting (`font_weight`) sets `--tv-weight`, which only the terminal grid uses. Reader's `font` shorthands set message text back to 400, so the plugin gives that text `var(--tv-weight, 400)`, and its strong text and headings `bolder` (700 from 400, 900 from 600 or 700). Tern's CSS engine does not apply `min(900, calc(var(--tv-weight) + 300))` in `font-weight`, so bold cannot follow the grid's +300 exactly. Single-line chrome (tool titles, chips, status) keeps Reader's own weights.
 
@@ -119,7 +119,7 @@ reader-terminal-text dock gap: Reader gives every dock region (`.sf-region.sf-do
 
 Pane dimming: set Tern's **Dim unfocused panes** to Off (`unfocused_dim: 0`) to keep panes at full contrast. Tern then omits `.dim` on unfocused panes. Select verification targets without relying on `.dim`.
 
-toast-above-browser: Tern 0.9.18 draws a browser block's page in a native view above its own UI, so it covers the part of a toast (`body > .toast`, centred at `bottom: var(--toast-bottom, 28px)`) that overlaps the page. For the palette and other modals Tern swaps the page for a snapshot (`.kit-web.veiled`), but not for a toast, and no plugin API can veil a page. While the visible tab shows a browser pane (`.tn-pane.web` without `.off`; a pane of another tab and a hidden float have `.off`), the sheet moves the toast to `top: 0`, over the 40 px title bar, which no page covers, and slides it in from above. A toast that wraps to more lines grows down over the pane heads, which are Tern's own UI. With no browser shown, the toast stays at the bottom. The classes are Tern internals, so an update can put the toast back under the page.
+Toasts over browser pages: since Tern 0.9.33 a browser block's page no longer sits above Tern's own UI, so a toast at the bottom stays readable over a page and needs no plugin. The `toast-above-browser` plugin, which moved toasts to the title bar for Tern 0.9.18 to 0.9.30, was removed.
 
 Native files: text and code files use Tern's native code view, which follows `adjust_cell_height` since 0.9.8. Since 0.9.16, Tern opens a local `.html` file as a rendered page in a browser block, from `tern open`, `bin/open`, the Files pane and the palette; the user keeps that. No plugin intercepts file opens or `file://` links. Web links other than Flow links follow Tern's `link_target` setting. Native code text still does not inherit the terminal's font weight.
 
@@ -206,7 +206,7 @@ Use Bun for dependencies, scripts, tests, and the image codec (`Bun.Image`). The
 
 From `omp/`, run `bun run update` when you intend to update both the installed omp and the SDK types. It requires an installed omp and restores the two `"latest"` specifiers after `bun update` rewrites them. `bun run check` warns and still typechecks if the installed version differs from `omp/bun.lock` or omp is missing. Both scripts use `omp/scripts/host-env.ts` to find the installed binary. A bare `omp` inside `bun run` can instead run the SDK's `node_modules/.bin/omp`, and Bun Shell ignores `.env()` PATH when resolving commands.
 
-`omp/bun.lock` keeps the SDK at 19.0.1 while omp 19.1.0 runs. The npm package `@oh-my-pi/pi-coding-agent@19.1.0` imports `../browser-relay/extension/messages`, which it does not publish, so any import of the package root fails, and `bun test` reports 13 load errors ([oh-my-pi#20058](https://github.com/can1357/oh-my-pi/issues/20058)). `tsgo --noEmit` passes against 19.1.0. Run `bun run update` again once a release fixes the import, and expect the `bun run check` version warning until then.
+`omp/bun.lock` keeps the SDK at 19.1.1, the version of the installed omp. In the SDK tests, omp 19.1 probes an unknown MCP server's protocol era over a connection of its own before the real one, so a stdio fixture server can see `initialize` twice during setup.
 
 For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching `omp --version`. Its upstream is `can1357/oh-my-pi`. If code relies on undocumented host behavior, name the version on which you verified it.
 
@@ -233,6 +233,8 @@ For changes to registration, Side questions, the English coach, tool cards, or e
 ## Shared verification and change notes
 
 Both Verify skills live in `.omp/skills/` and start isolated Tern instances through [tern-verify](.omp/skills/verify-tern-plugins/scripts/tern-verify). When a Tern update changes omp state, startup alerts, or isolation, update that launcher once for both profiles.
+
+After a Tern, omp, or ovnfs update, check every open issue with the `upstream` label (`gh issue list --label upstream`). Each one waits on a host change and lists its check. Run that check on the new version, then close the issue, or comment with the version and the result.
 
 For user-visible changes to either host, update [README.md](README.md) and add an entry to [CHANGELOG.md](CHANGELOG.md#unreleased) under `[Unreleased]` with `Added`, `Changed`, `Fixed`, or `Removed` as appropriate. Update `omp/docs/agents/` when an omp-tools subsystem's design or host workaround changes.
 
