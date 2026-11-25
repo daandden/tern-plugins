@@ -1,28 +1,13 @@
-import {
-	type Component,
-	type DescribeContext,
-	getKeybindings,
-	kbd,
-	type NativeNode,
-	type NativeUiEvent,
-	node,
-	span,
-	text,
-	truncateToWidth,
-	type TUI,
-	visibleWidth,
-	wrapTextWithAnsi,
-} from "@oh-my-pi/pi-tui";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { type ExtensionUiHost, formatKeyHint } from "@oh-my-pi/pi-coding-agent";
+import { nativeRendering, type UiNode } from "@oh-my-pi/pi-tui";
+import { type Block, defineRolePainter } from "@oh-my-pi/pi-tui/term/paint";
+import { truncate, visibleWidth } from "@oh-my-pi/pi-tui/text/width";
+import type { TspPropNode, TspSpan } from "@oh-my-pi/pi-wire";
 import type { CoachCorrection, CoachMistake, CoachSegment } from "./english-coach-diff";
-import { keyLabel, scrollBox } from "./panel-layout";
-import { sheetMessage } from "./tern-theme";
+import { el, interruptKeys, keycaps, scrollBox } from "./panel-layout";
+import { sendSheet } from "./tern-theme";
 
 const PANEL_HEIGHT_RATIO = 0.4;
-
-// pi-wire is not a direct dependency; take its types from the builders.
-type TspSpan = ReturnType<typeof span>;
-type TspPropNode = NonNullable<NonNullable<Parameters<typeof node<"text">>[1]>["hovercard"]>;
 
 // Removed and added words sit on soft tinted chips so their edges show; a
 // change that explains itself on hover shows a help cursor and brightens.
@@ -49,6 +34,20 @@ const SHEET_CSS = `
 [data-role='omp-tools.english-coach.close.diff'] { bottom: 0.875em; transform: translateY(50%); }
 .sf-col.sf-col[data-role='omp.overlay.btw']:has([data-role='omp-tools.english-coach.frame']) { padding-bottom: 13px; }`;
 
+const FRAME_ROLE = "omp-tools.english-coach.frame";
+
+// omp's terminal would stack the close row under the body; like the Tern keycap, the key ends the body's last line.
+defineRolePainter("col", FRAME_ROLE, (node, cx): Block => {
+	const [body, close] = node.children();
+	const rows = body ? [...cx.paint(body, cx.width).rows] : [];
+	const keys = (close?.children()[0]?.props() as { keys?: readonly string[] } | undefined)?.keys ?? [];
+	if (keys.length === 0 || rows.length === 0) return { rows };
+	const label = keys.join("+");
+	const last = truncate(rows.pop()!, Math.max(0, cx.width - visibleWidth(label) - 1), "", true);
+	rows.push(`${last} ${cx.theme.style("dim", label)}`);
+	return { rows };
+});
+
 /** What the panel shows: a running check, a clean prompt, a one-line note, or a marked-up correction. */
 export type CoachView =
 	| { kind: "checking" }
@@ -68,30 +67,21 @@ function notice(view: Exclude<CoachView, { kind: "correction" }>): string {
 	}
 }
 
-/** Tern: that line, after a spinner while the check runs. */
-function ternNotice(view: Exclude<CoachView, { kind: "correction" }>): NativeNode {
-	const line = text([span(notice(view), "muted")], { wrap: "word" });
-	return view.kind === "checking" ? node("row", { gap: "sm", align: "center" }, [node("spinner", {}), line]) : line;
-}
-
-/** The key that closes the panel: the first `app.interrupt` binding, else Escape. */
-function closeKey(): string {
-	return getKeybindings().getKeys("app.interrupt")[0] ?? "escape";
+function noticeNode(view: Exclude<CoachView, { kind: "correction" }>): UiNode {
+	const line = el("text", { spans: [{ t: notice(view), s: "muted" }], wrap: "word" });
+	return view.kind === "checking"
+		? el("row", { gap: "sm", align: "center", children: [el("spinner", {}), line] })
+		: line;
 }
 
 /** One mistake as a line: original → corrected (pattern). */
 function mistakeSpans(mistake: CoachMistake): TspSpan[] {
 	return [
-		span(mistake.original, "muted"),
-		span(" → ", "dim"),
-		span(mistake.corrected, "strong"),
-		span(` (${mistake.pattern})`, "muted"),
+		{ t: mistake.original, s: "muted" },
+		{ t: " → ", s: "dim" },
+		{ t: mistake.corrected, s: "strong" },
+		{ t: ` (${mistake.pattern})`, s: "muted" },
 	];
-}
-
-/** Classic has no pointer, so it lists each mistake below the prompt. */
-function classicMistake(mistake: CoachMistake): string {
-	return `${theme.fg("muted", `- ${mistake.original}`)}${theme.fg("dim", " → ")}${mistake.corrected}${theme.fg("muted", ` (${mistake.pattern})`)}`;
 }
 
 /** One change as the hover shows it: what it removed and what it added. */
@@ -109,15 +99,15 @@ function changeText({ removed, added }: Change): string {
 
 /** The card a change shows on hover: that change alone, then why, in the coach's language (one line per reported mistake it fixes). */
 function hovercard({ removed, added }: Change, patterns: readonly string[]): TspPropNode {
-	const fix = removed && added
-		? [span(removed, "del"), span(" → ", "dim"), span(added, "ins")]
-		: added ? [span("+ ", "dim"), span(added, "ins")] : [span(removed, "del")];
+	const fix: TspSpan[] = removed && added
+		? [{ t: removed, s: "del" }, { t: " → ", s: "dim" }, { t: added, s: "ins" }]
+		: added ? [{ t: "+ ", s: "dim" }, { t: added, s: "ins" }] : [{ t: removed, s: "del" }];
 	return {
 		k: "col",
 		p: { gap: "xs" },
 		c: [
 			{ k: "text", p: { spans: fix, wrap: "word" } },
-			...patterns.map((pattern): TspPropNode => ({ k: "text", p: { spans: [span(pattern)], wrap: "word" } })),
+			...patterns.map((pattern): TspPropNode => ({ k: "text", p: { spans: [{ t: pattern }], wrap: "word" } })),
 		],
 	};
 }
@@ -137,7 +127,7 @@ function keepEdges(spans: TspSpan[]): TspSpan[] {
  * each explained change one piece. Spaces end the piece before them, so no
  * wrapped line starts with one.
  */
-function ternLine(line: readonly CoachSegment[], mistakes: readonly CoachMistake[], key: string): NativeNode {
+function correctionLine(line: readonly CoachSegment[], mistakes: readonly CoachMistake[], key: string): UiNode {
 	const pieces: { spans: TspSpan[]; note?: { change: Change; patterns: string[] } }[] = [];
 	for (let index = 0; index < line.length;) {
 		const segment = line[index]!;
@@ -157,35 +147,50 @@ function ternLine(line: readonly CoachSegment[], mistakes: readonly CoachMistake
 		}
 		index++;
 	}
-	return node("row", { wrap: true, gap: "none", align: "baseline" }, pieces.map(({ spans, note }, index) =>
-		node("text", {
-			spans: keepEdges(spans),
-			wrap: "word",
-			...(note
-				? {
-					role: "omp-tools.english-coach.change",
-					title: `${changeText(note.change)}: ${note.patterns.join("; ")}`,
-					hovercard: hovercard(note.change, note.patterns),
-				}
-				: {}),
-		}, undefined, String(index))), key);
+	// omp's terminal row painter does not wrap, and a terminal has no hover, so it gets one wrapping text.
+	if (!nativeRendering()) return el("text", { key, spans: pieces.flatMap(piece => piece.spans), wrap: "word" });
+	return el("row", {
+		key,
+		wrap: true,
+		gap: "none",
+		align: "baseline",
+		children: pieces.map(({ spans, note }, index) =>
+			el("text", {
+				key: String(index),
+				spans: keepEdges(spans),
+				wrap: "word",
+				...(note
+					? {
+						role: "omp-tools.english-coach.change",
+						title: `${changeText(note.change)}: ${note.patterns.join("; ")}`,
+						hovercard: hovercard(note.change, note.patterns),
+					}
+					: {}),
+			})),
+	});
 }
 
-/** Mistakes no change carries; Tern lists them under the prompt. */
 function unplacedMistakes(correction: CoachCorrection): CoachMistake[] {
 	const placed = new Set(correction.lines.flat().flatMap(segment => segment.mistakes ?? []));
 	return correction.mistakes.filter((_, index) => !placed.has(index));
 }
 
-/** Tern: the prompt with hover explanations, then any mistake no change carries. */
-function ternCorrection(correction: CoachCorrection): NativeNode[] {
-	const unplaced = unplacedMistakes(correction);
+function mistakesOutsideHovers(correction: CoachCorrection): CoachMistake[] {
+	return nativeRendering() ? unplacedMistakes(correction) : correction.mistakes;
+}
+
+function correctionNodes(correction: CoachCorrection): UiNode[] {
+	const listed = mistakesOutsideHovers(correction);
 	return [
-		node("col", { role: "omp-tools.english-coach.diff" }, correction.lines.map((line, index) =>
-			ternLine(line, correction.mistakes, `line:${index}`))),
-		...(unplaced.length > 0
-			? [node("col", { role: "omp-tools.english-coach.unplaced" }, unplaced.map(mistake =>
-				text(mistakeSpans(mistake), { wrap: "word" })))]
+		el("col", {
+			role: "omp-tools.english-coach.diff",
+			children: correction.lines.map((line, index) => correctionLine(line, correction.mistakes, `line:${index}`)),
+		}),
+		...(listed.length > 0
+			? [el("col", {
+				role: "omp-tools.english-coach.unplaced",
+				children: listed.map(mistake => el("text", { spans: mistakeSpans(mistake), wrap: "word" })),
+			})]
 			: []),
 	];
 }
@@ -198,88 +203,49 @@ const SPAN_TOKENS: Record<CoachSegment["kind"], string | undefined> = {
 	protected: "dim",
 };
 
-function classicSegment(segment: CoachSegment): string {
-	switch (segment.kind) {
-		case "same":
-			return segment.text;
-		case "del":
-			return theme.fg("toolDiffRemoved", theme.strikethrough(segment.text));
-		case "ins":
-		case "punct":
-			return theme.fg("toolDiffAdded", segment.text);
-		case "protected":
-			return theme.fg("dim", segment.text);
-	}
+function span(t: string, s: string | undefined): TspSpan {
+	return s ? { t, s } : { t };
 }
 
-export class EnglishCoachPanel implements Component {
-	constructor(
-		readonly tui: TUI,
-		readonly view: () => CoachView,
-		readonly close: () => void,
-	) {}
-
-	invalidate(): void {}
-
-	render(width: number): string[] {
-		const inner = Math.max(1, width);
-		const view = this.view();
-		const body = view.kind === "correction"
-			? [
-				...view.correction.lines.flatMap(line => wrapTextWithAnsi(line.map(classicSegment).join(""), inner)),
-				...view.correction.mistakes.flatMap(mistake => wrapTextWithAnsi(classicMistake(mistake), inner)),
-			]
-			: wrapTextWithAnsi(theme.fg("muted", notice(view)), inner);
-		const maxLines = this.#maxLines();
-		const lines = body.length <= maxLines ? body : [
-			...body.slice(0, maxLines - 1),
-			theme.fg("dim", truncateToWidth(`… ${body.length - maxLines + 1} more lines`, inner)),
-		];
-		// The close key overlays the right end of the last line, cutting off any text there.
-		const close = keyLabel(closeKey());
-		const room = inner - visibleWidth(close) - 1;
-		const last = room >= 0
-			? `${truncateToWidth(lines.at(-1) ?? "", room, "", true)} ${theme.fg("dim", close)}`
-			: theme.fg("dim", truncateToWidth(close, inner));
-		return [...lines.slice(0, -1), last];
-	}
-
-	describe(cx: DescribeContext): NativeNode {
-		if (cx.feature("styles")) this.tui.terminal.write(sheetMessage("omp-tools-english-coach", SHEET_CSS));
-		const view = this.view();
-		const body = view.kind === "correction" ? ternCorrection(view.correction) : [ternNotice(view)];
-		const endsInDiff = view.kind === "correction" && unplacedMistakes(view.correction).length === 0;
-		// Native /btw's role and no width of its own, so the panel spans the composer's measure as /btw does.
-		// The sheet floats the close key over the frame's bottom-right corner; unstyled, it follows the body.
-		return node("col", { role: "omp.overlay.btw" }, [
-			node("col", { role: "omp-tools.english-coach.frame" }, [
-				scrollBox(
-					node("col", { role: "omp-tools.english-coach.body" }, body),
-					this.#maxLines(),
-					"english-coach-body",
-				),
-				node(
-					"row",
-					{
-						role: endsInDiff ? "omp-tools.english-coach.close.diff" : "omp-tools.english-coach.close",
-						align: "center",
-						actions: { click: "close" },
-						title: "Close",
+/** The coach panel; `view` must be reactive (a signal or a function of one). */
+export function englishCoachPanel(ui: ExtensionUiHost, view: () => CoachView, close: () => void): UiNode {
+	const maxLines = () => Math.max(1, Math.floor(ui.size().rows * PANEL_HEIGHT_RATIO));
+	const endsInDiff = () => {
+		const current = view();
+		return current.kind === "correction" && mistakesOutsideHovers(current.correction).length === 0;
+	};
+	const body = el("col", {
+		role: "omp-tools.english-coach.body",
+		children: () => {
+			sendSheet("omp-tools-english-coach", SHEET_CSS);
+			const current = view();
+			return current.kind === "correction" ? correctionNodes(current.correction) : [noticeNode(current)];
+		},
+	});
+	return el("col", {
+		// omp's terminal painter for this role draws a titled /btw sheet from a head, body and footer, which this panel lacks.
+		role: () => (nativeRendering() ? "omp.overlay.btw" : undefined),
+		children: el("col", {
+			role: FRAME_ROLE,
+			children: [
+				scrollBox(body, maxLines, "english-coach-body"),
+				el("row", {
+					key: "close",
+					role: () => (endsInDiff() ? "omp-tools.english-coach.close.diff" : "omp-tools.english-coach.close"),
+					align: "center",
+					actions: { click: "close" },
+					title: "Close",
+					onAction: act => {
+						if (act === "close") close();
 					},
-					[kbd(closeKey())],
-					"close",
-				),
-			]),
-		]);
-	}
-
-	handleNativeEvent(event: NativeUiEvent): void {
-		if (event.type === "action" && event.act === "close") this.close();
-	}
-
-	/** The panel's share of the terminal rows. */
-	#maxLines(): number {
-		const rows = this.tui.terminal?.rows ?? process.stdout.rows ?? 40;
-		return Math.max(1, Math.floor(rows * PANEL_HEIGHT_RATIO));
-	}
+					children: () => {
+						const key = interruptKeys()[0];
+						if (!key) return [];
+						// A terminal's kbd painter joins raw key names, so it gets omp's own key hint instead.
+						return el("kbd", { keys: nativeRendering() ? keycaps(key) : [formatKeyHint(key)] });
+					},
+				}),
+			],
+		}),
+	});
 }

@@ -5,12 +5,15 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	argumentNames,
+	callCard,
+	cardFacts,
 	codexToken,
 	encodePng,
 	fakeContext,
 	loadSession,
 	loadTool,
 	outputPathsOf,
+	resultCard,
 	writePluginSettings,
 } from "./support";
 
@@ -203,15 +206,11 @@ describe("arguments against the chosen mode", () => {
 });
 
 describe("cards name the mode each call used", () => {
-	type View = { tool: { meta?: string[] } } | undefined;
-	const meta = (view: unknown) => (view as View)?.tool.meta ?? [];
-	const done = { expanded: false, isPartial: false };
-
 	test("the call card names the call's mode, or the default when mode is omitted", async () => {
 		const tool = await loadTool({ defaultImageGenerationMode: "codex" });
 
-		expect(meta(tool.describeCall?.({ prompt: "a logo", mode: "openai", output_format: "svg" }, done))).toEqual(["OpenAI mode", "svg"]);
-		expect(meta(tool.describeCall?.({ prompt: "a fox" }, done))).toEqual(["Codex mode"]);
+		expect(cardFacts(callCard(tool, { prompt: "a logo", mode: "openai", output_format: "svg" }))).toEqual(["OpenAI mode", "svg"]);
+		expect(cardFacts(callCard(tool, { prompt: "a fox" }))).toEqual(["Codex mode"]);
 	});
 
 	test("a result card names the mode from the result, previews and errors included", async () => {
@@ -220,14 +219,14 @@ describe("cards name the mode each call used", () => {
 		const result = await tool.execute("c", args, undefined, undefined, context());
 		savedFiles.push(...outputPathsOf(result));
 
-		expect(meta(tool.describeResult?.(result, done, args))[0]).toBe("Codex mode");
+		expect(cardFacts(resultCard(tool, result, args))[0]).toBe("Codex mode");
 		const preview = { content: [], details: { stage: "preview", mode: "codex", previews: 1 } };
-		expect(meta(tool.describeResult?.(preview as never, { expanded: false, isPartial: true }, args))).toEqual(["Codex mode"]);
+		expect(cardFacts(resultCard(tool, preview, args, true))).toEqual(["Codex mode"]);
 		// OMP stores a thrown error as a result with empty details.
 		for (const details of [undefined, {}]) {
 			const error = () => ({ content: [{ type: "text" as const, text: "failed" }], details: structuredClone(details), isError: true });
-			expect(meta(tool.describeResult?.(error() as never, done, args))).toEqual(["Codex mode"]);
-			expect(meta(tool.describeResult?.(error() as never, done, { prompt: "a fox" }))).toEqual(["OpenAI mode"]);
+			expect(cardFacts(resultCard(tool, error(), args))).toEqual(["Codex mode"]);
+			expect(cardFacts(resultCard(tool, error(), { prompt: "a fox" }))).toEqual(["OpenAI mode"]);
 		}
 	});
 
@@ -239,20 +238,20 @@ describe("cards name the mode each call used", () => {
 			details: { mode: "codex", outputs: [{ path: saved, mimeType: "image/webp", size: "1254x1254" }], quotaWarning: "Codex usage limit is 85% used." },
 		};
 
-		const view = tool.describeResult?.(result as never, done, { prompt: "a fox" });
+		const card = resultCard(tool, result, { prompt: "a fox" });
 
-		expect(meta(view)).toEqual(["Codex mode", "1254x1254"]);
-		expect(JSON.stringify(view)).toContain("Codex usage limit is 85% used.");
+		expect(cardFacts(card)).toEqual(["Codex mode", "1254x1254"]);
+		expect(JSON.stringify(card)).toContain("Codex usage limit is 85% used.");
 	});
 
 	test.each(["openai", "codex"])("a Codex result saved before modes renders as Codex mode with the default %s", async mode => {
 		const tool = await loadTool({ defaultImageGenerationMode: mode });
 		const legacy = { path: path.join(os.tmpdir(), "omp-image-legacy.webp"), size: "1254x1254", quality: "low", quotaWarning: "Image generation limit 85% used." };
 
-		const view = tool.describeResult?.({ content: [], details: legacy } as never, done, { prompt: "a fox" });
+		const card = resultCard(tool, { content: [], details: legacy }, { prompt: "a fox" });
 
-		expect(meta(view)).toEqual(["Codex mode", "1254x1254", "quality low"]);
-		expect(JSON.stringify(view)).toContain(legacy.quotaWarning);
+		expect(cardFacts(card)).toEqual(["Codex mode", "1254x1254", "quality low"]);
+		expect(JSON.stringify(card)).toContain(legacy.quotaWarning);
 	});
 
 	test.each([
@@ -266,21 +265,21 @@ describe("cards name the mode each call used", () => {
 		const tagged = { mode: "codex", outputs: [{ path: saved, mimeType: "image/webp", size: "1254x1254" }] };
 
 		for (const details of [legacy, tagged]) {
-			const view = tool.describeResult?.({ content: [], details } as never, done, { prompt: "a fox" });
+			const card = resultCard(tool, { content: [], details }, { prompt: "a fox" });
 
-			expect(JSON.stringify(view) ?? "").toContain(`"href":"${pathToFileURL(saved).href}"`);
-			expect(meta(view)).toEqual(["Codex mode", "1254x1254"]);
+			expect(JSON.stringify(card)).toContain(`"href":"${pathToFileURL(saved).href}"`);
+			expect(cardFacts(card)).toEqual(["Codex mode", "1254x1254"]);
 		}
-		expect(meta(tool.describeCall?.(args, done))).toEqual(["Codex mode", "transparent"]);
+		expect(cardFacts(callCard(tool, args))).toEqual(["Codex mode", "transparent"]);
 		const preview = { content: [], details: { stage: "preview", mode: "openai", previews: 1 } };
-		const previewView = tool.describeResult?.(preview as never, { ...done, isPartial: true }, { prompt: "a fox", background: "transparent" });
-		expect(meta(previewView)).toEqual(["OpenAI mode", "transparent"]);
-		expect(JSON.stringify(previewView)).toContain("Preview 1, in progress");
+		const previewCard = resultCard(tool, preview, { prompt: "a fox", background: "transparent" }, true);
+		expect(cardFacts(previewCard)).toEqual(["OpenAI mode", "transparent"]);
+		expect(JSON.stringify(previewCard)).toContain("Preview 1, in progress");
 		const error = { content: [{ type: "text" as const, text: "Past call failed." }], details: {}, isError: true };
-		const errorView = tool.describeResult?.(error as never, done, args);
-		expect(meta(errorView)).toEqual(["Codex mode", "transparent"]);
-		expect(errorView).toHaveProperty("tone", "error");
-		expect(JSON.stringify(errorView)).toContain("Past call failed.");
+		const errorCard = resultCard(tool, error, args);
+		expect(cardFacts(errorCard)).toEqual(["Codex mode", "transparent"]);
+		expect(errorCard[0]?.p.tone).toBe("error");
+		expect(JSON.stringify(errorCard)).toContain("Past call failed.");
 		expect(requests).toHaveLength(0);
 	});
 });

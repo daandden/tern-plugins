@@ -1,9 +1,9 @@
 import type { ImageContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import type { TUI } from "@oh-my-pi/pi-tui";
-import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
-import { BtwPanel } from "./btw-panel";
+import { type KeyEvent, signal, untrack } from "@oh-my-pi/pi-tui";
+import { btwPanel } from "./btw-panel";
 import { forwardCoachInput } from "./english-coach-input";
+import { panelInterrupt, trackHostDialogs } from "./panel-layout";
 import { LazySideQuestionThread, sideQuestionsAvailable } from "./side-question";
 import { answerInto, hasToolCalls, newTurn, type SideQuestionTurn } from "./side-question-view";
 
@@ -23,15 +23,18 @@ class BtwCycle {
 	#followUpsEnded = false;
 	#abort: AbortController | undefined;
 	#toolsOpen = false;
-	#revision = 0;
+	readonly #revision = signal(0);
 	#shown = false;
-	#tui: TUI | undefined;
+	readonly #dialogOpen: () => boolean;
 	readonly #stopKeys: () => void;
+	readonly #stopToolsKey: () => void;
 
-	constructor(ctx: ExtensionContext) {
+	constructor(ctx: ExtensionContext, dialogOpen: () => boolean) {
 		this.#ctx = ctx;
+		this.#dialogOpen = dialogOpen;
 		this.#thread = new LazySideQuestionThread(ctx);
-		this.#stopKeys = ctx.ui.onTerminalInput(data => this.#handleKey(data));
+		this.#stopKeys = ctx.ui.onTerminalInput(data => this.#handleInterrupt(data));
+		this.#stopToolsKey = ctx.ui.composer?.addKeyHandler(key => this.#toggleTools(key)) ?? (() => {});
 	}
 
 	ask(question: string, images?: ImageContent[]): void {
@@ -70,6 +73,7 @@ class BtwCycle {
 		this.#endThread();
 		this.#hide();
 		this.#stopKeys();
+		this.#stopToolsKey();
 	}
 
 	#running(): SideQuestionTurn | undefined {
@@ -92,24 +96,19 @@ class BtwCycle {
 		this.#toolsOpen = false;
 	}
 
-	#handleKey(data: string): { consume: boolean } | undefined {
-		if (!this.#shown) return undefined;
-		const focused = this.#tui?.getFocused();
-		// omp 19.1.0 installs this hook on the main composer to return focus to native ask.
-		if (!focused || !("onUpFromTop" in focused) || typeof focused.onUpFromTop !== "function" || this.#ctx.ui.getEditorText().trim()) {
-			return undefined;
-		}
-		if (matchesAppInterrupt(data)) {
-			if (this.#running()) this.#cancel();
-			else this.#hide();
-			return { consume: true };
-		}
-		if (data === "t" && this.#turns.some(hasToolCalls)) {
-			this.#toolsOpen = !this.#toolsOpen;
-			this.#render();
-			return { consume: true };
-		}
-		return undefined;
+	#handleInterrupt(data: string): { consume: boolean } | undefined {
+		if (!this.#shown || !panelInterrupt(this.#ctx, this.#dialogOpen, data)) return undefined;
+		if (this.#running()) this.#cancel();
+		else this.#hide();
+		return { consume: true };
+	}
+
+	#toggleTools(key: KeyEvent): boolean {
+		if (!this.#shown || key.id !== "t" || key.kind === "release" || this.#ctx.ui.getEditorText().trim()) return false;
+		if (!this.#turns.some(hasToolCalls)) return false;
+		this.#toolsOpen = !this.#toolsOpen;
+		this.#render();
+		return true;
 	}
 
 	#show(): void {
@@ -120,14 +119,12 @@ class BtwCycle {
 		this.#shown = true;
 		this.#ctx.ui.setWidget(
 			WIDGET_KEY,
-			tui => {
-				this.#tui = tui;
-				return new BtwPanel(tui, () => ({
+			ui =>
+				btwPanel(ui, () => ({
 					turns: this.#turns,
 					toolsOpen: this.#toolsOpen,
-					revision: this.#revision,
-				}));
-			},
+					revision: this.#revision(),
+				})),
 			{ placement: "aboveEditor" },
 		);
 	}
@@ -135,18 +132,17 @@ class BtwCycle {
 	#hide(): void {
 		if (!this.#shown) return;
 		this.#shown = false;
-		this.#tui = undefined;
 		this.#ctx.ui.setWidget(WIDGET_KEY, undefined);
 	}
 
 	#render(): void {
-		this.#revision++;
-		this.#tui?.requestRender();
+		this.#revision.set(untrack(this.#revision) + 1);
 	}
 }
 
 export default function btw(pi: ExtensionAPI) {
 	let cycle: BtwCycle | undefined;
+	const dialogOpen = trackHostDialogs(pi);
 	const end = () => {
 		cycle?.dispose();
 		cycle = undefined;
@@ -157,7 +153,7 @@ export default function btw(pi: ExtensionAPI) {
 		const question = parseBtwQuestion(event.text);
 		if (question === undefined || !sideQuestionsAvailable(ctx)) return undefined;
 		forwardCoachInput(event, ctx);
-		cycle ??= new BtwCycle(ctx);
+		cycle ??= new BtwCycle(ctx, dialogOpen);
 		cycle.ask(question, event.images);
 		return { handled: true };
 	});

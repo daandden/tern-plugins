@@ -1,15 +1,14 @@
 import { beforeAll, expect, test } from "bun:test";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { Settings, type ExtensionAPI, type ExtensionContext, type InputEvent } from "@oh-my-pi/pi-coding-agent";
-import type { Component, TUI } from "@oh-my-pi/pi-tui";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { type ExtensionAPI, type ExtensionContext, type ExtensionUiHost, initTheme, type InputEvent, Settings } from "@oh-my-pi/pi-coding-agent";
+import type { UiNode } from "@oh-my-pi/pi-tui";
 import btw from "../extensions/btw";
 import { sideQuestionFixture } from "./helpers/side-question-session";
-import { encodePng } from "./support";
+import { encodePng, nodeTree } from "./support";
 
 beforeAll(async () => {
 	await Settings.init({ inMemory: true });
-	await initTheme();
+	initTheme();
 });
 
 test("registered /btw input sends images to the model and keeps them for follow-ups without accepting overlap", async () => {
@@ -37,14 +36,9 @@ test("registered /btw input sends images to the model and keeps them for follow-
 	});
 	const handlers = new Map<string, (event: any, ctx: ExtensionContext) => unknown>();
 	btw({ on(event: string, handler: (event: any, ctx: ExtensionContext) => unknown) { handlers.set(event, handler); } } as ExtensionAPI);
-	let panel: Component | undefined;
+	let panel: UiNode | undefined;
 	const warnings: string[] = [];
-	const composer = { render: () => [], invalidate() {} };
-	const tui = {
-		terminal: { rows: 100, columns: 160, write() {} },
-		getFocused: () => composer,
-		requestRender() {},
-	} as unknown as TUI;
+	const ui: ExtensionUiHost = { requestRender() {}, size: () => ({ rows: 100, columns: 160 }), suspend: run => run() };
 	const ctx = {
 		...fixture.ctx,
 		mode: "tui", hasUI: true,
@@ -52,18 +46,19 @@ test("registered /btw input sends images to the model and keeps them for follow-
 			onTerminalInput: () => () => {},
 			getEditorText: () => "",
 			notify: (message: string) => warnings.push(message),
-			setWidget: (_key: string, factory: ((tui: TUI) => Component) | undefined) => { panel = factory?.(tui); },
+			setWidget: (_key: string, factory: ((ui: ExtensionUiHost, theme: never) => UiNode) | undefined) => { panel = factory?.(ui, {} as never); },
 		},
 	} as unknown as ExtensionContext;
 	const input = (text: string, images?: ImageContent[], source: InputEvent["source"] = "interactive") =>
 		handlers.get("input")!({ type: "input", text, images, source }, ctx);
+	const shown = () => (panel ? JSON.stringify(nodeTree(panel)) : "");
 	const answer = async () => {
 		for (let attempt = 0; attempt < 250; attempt++) {
-			const rendered = panel?.render(160).join("\n") ?? "";
+			const rendered = shown();
 			if (rendered.includes("to close")) return rendered;
 			await Bun.sleep(20);
 		}
-		throw new Error(`Side question did not finish: ${panel?.render(160).join("\n")}`);
+		throw new Error(`Side question did not finish: ${shown()}`);
 	};
 	try {
 		expect(input("/btw", [first])).toBeUndefined();

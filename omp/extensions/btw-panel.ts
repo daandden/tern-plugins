@@ -1,9 +1,8 @@
-import { type Component, type DescribeContext, getKeybindings, type NativeNode, node, span, type TUI, text, truncateToWidth } from "@oh-my-pi/pi-tui";
-import { hintsRow, type NativeHint } from "@oh-my-pi/pi-tui/native/overlay";
-import { theme } from "@oh-my-pi/pi-tui/theme";
-import { hintText, scrollBox } from "./panel-layout";
-import { sheetMessage } from "./tern-theme";
-import { hasToolCalls, type SideQuestionTurn, SideQuestionTurnView } from "./side-question-view";
+import type { ExtensionUiHost } from "@oh-my-pi/pi-coding-agent";
+import type { UiNode } from "@oh-my-pi/pi-tui";
+import { el, hintsRow, interruptKeys, type KeyHint, scrollBox } from "./panel-layout";
+import { hasToolCalls, type SideQuestionTurn, turnNode } from "./side-question-view";
+import { sendSheet } from "./tern-theme";
 
 const PANEL_HEIGHT_RATIO = 0.4;
 
@@ -14,91 +13,50 @@ export interface BtwPanelState {
 	readonly revision: number;
 }
 
-function panelHints(state: BtwPanelState): NativeHint[] {
-	const esc = getKeybindings().getKeys("app.interrupt")[0] ?? "escape";
-	if (state.turns.at(-1)?.status === "running") return [{ keys: [esc], label: "to cancel" }];
-	const tools: NativeHint[] = state.turns.some(hasToolCalls)
-		? [{ keys: ["t"], label: state.toolsOpen ? "to fold tool calls" : "to show tool calls" }]
+function panelHints(state: BtwPanelState): KeyHint[] {
+	const esc = interruptKeys()[0];
+	const tools: KeyHint[] = state.turns.some(hasToolCalls)
+		? [{ key: "t", label: state.toolsOpen ? "to fold tool calls" : "to show tool calls" }]
 		: [];
-	return [...tools, { keys: [esc], label: "to close" }];
+	if (!esc) return state.turns.at(-1)?.status === "running" ? [] : tools;
+	if (state.turns.at(-1)?.status === "running") return [{ key: esc, label: "to cancel" }];
+	return [...tools, { key: esc, label: "to close" }];
 }
 
-export class BtwPanel implements Component {
-	readonly #tui: TUI;
-	readonly #state: () => BtwPanelState;
-	readonly #turns = new SideQuestionTurnView();
-
-	constructor(tui: TUI, state: () => BtwPanelState) {
-		this.#tui = tui;
-		this.#state = state;
-	}
-
-	invalidate(): void {
-		this.#turns.invalidate();
-	}
-
-	render(width: number): string[] {
-		const state = this.#state();
-		const inner = Math.max(1, width - 2);
-		const lines: string[] = [];
-		let lastTurnStart = 0;
-		for (const turn of state.turns) {
-			if (lines.length > 0) lines.push("");
-			lastTurnStart = lines.length;
-			lines.push(...this.#turns.lines(turn, inner, state.toolsOpen));
-		}
-		const maxBody = Math.max(3, Math.floor(this.#rows() * PANEL_HEIGHT_RATIO) - 2);
-		// The text panel cannot scroll: it shows the thread's end, or, with the
-		// tool calls open, the last turn from its question so the calls show. The
-		// marker line then takes the place of the blank line before that turn.
-		const lastTurn = Math.max(0, lastTurnStart - 1);
-		const start = state.toolsOpen ? Math.min(lastTurn, Math.max(0, lines.length - maxBody)) : lines.length - maxBody;
-		const body = lines.length <= maxBody ? lines : this.#window(lines, Math.max(0, start), maxBody);
-		const rule = theme.fg("dim", `─ /btw ${"─".repeat(Math.max(0, width - 7))}`.slice(0, Math.max(0, width)));
-		const hints = theme.fg("dim", truncateToWidth(` ${hintText(panelHints(state))}`, width));
-		return [rule, ...body.map(line => ` ${line}`), hints];
-	}
-
-	describe(cx: DescribeContext): NativeNode {
-		if (cx.feature("styles")) this.#tui.terminal.write(sheetMessage("omp-tools-btw"));
-		const state = this.#state();
-		const content: NativeNode = {
-			...node(
-				"col",
-				{ gap: "sm" },
-				state.turns.map((turn, index) => this.#turns.describe(turn, index, state.toolsOpen)),
-			),
-			reveal: { at: "end", n: state.revision },
-		};
-		const running = state.turns.at(-1)?.status === "running";
-		// Inline in the dock with native /btw's role, so Tern styles it as that sheet.
-		return node("col", { role: "omp.overlay.btw", gap: "sm" }, [
-			node("row", { role: "omp.sheet.head", gap: "sm", align: "center" }, [
-				...(running ? [node("spinner", {})] : []),
-				text([span("/btw", "accent"), span(" side question · only you see the answers", "muted")], {
-					truncate: "end",
-					lines: 1,
-				}),
-			]),
-			scrollBox(content, Math.max(3, Math.floor(this.#rows() * PANEL_HEIGHT_RATIO) - 2), "btw-thread"),
-			hintsRow(panelHints(state)),
-		]);
-	}
-
-	#rows(): number {
-		return this.#tui.terminal?.rows ?? process.stdout.rows ?? 40;
-	}
-
-	/** `size` lines from `start`, with a marker line for each hidden end. */
-	#window(lines: readonly string[], start: number, size: number): string[] {
-		const above = start > 0;
-		const below = start + size < lines.length;
-		const first = above ? start + 1 : start;
-		const last = below ? start + size - 1 : start + size;
-		return [
-			...(above ? [theme.fg("dim", `↑ ${first} more lines`)] : []),
-			...lines.slice(first, last),
-			...(below ? [theme.fg("dim", `↓ ${lines.length - last} more lines`)] : []),
-		];
-	}
+/** The `/btw` thread panel; `state` must read a signal that changes on every thread update. */
+export function btwPanel(ui: ExtensionUiHost, state: () => BtwPanelState): UiNode {
+	const running = () => state().turns.at(-1)?.status === "running";
+	const rows = () => Math.max(3, Math.floor(ui.size().rows * PANEL_HEIGHT_RATIO) - 2);
+	const thread = el("col", {
+		gap: "sm",
+		reveal: () => ({ at: "end", n: state().revision }),
+		children: () => {
+			const current = state();
+			sendSheet("omp-tools-btw");
+			return current.turns.map((turn, index) => turnNode(turn, index, current.toolsOpen));
+		},
+	});
+	// omp's terminal painter for native /btw's role skips the head row and titles its box with `term.title`.
+	return el("col", {
+		role: "omp.overlay.btw",
+		gap: "sm",
+		term: { title: "/btw side question" },
+		children: [
+			el("row", {
+				role: "omp.sheet.head",
+				gap: "sm",
+				align: "center",
+				children: [
+					() => running() && el("spinner", {}),
+					el("text", {
+						spans: [{ t: "/btw", s: "accent" }, { t: " side question · only you see the answers", s: "muted" }],
+						truncate: "end",
+						lines: 1,
+					}),
+				],
+			}),
+			scrollBox(thread, rows, "btw-thread", () => (state().toolsOpen ? "lastItem" : "end")),
+			() => hintsRow(panelHints(state())),
+		],
+	});
 }

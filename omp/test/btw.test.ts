@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Settings, type ExtensionAPI, type ExtensionContext, type ExtensionEvent } from "@oh-my-pi/pi-coding-agent";
-import type { Component, TUI } from "@oh-my-pi/pi-tui";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { type ExtensionAPI, type ExtensionContext, type ExtensionEvent, type ExtensionUiHost, getKeybindings, initTheme, KeybindingsManager, setKeybindings, Settings } from "@oh-my-pi/pi-coding-agent";
+import type { KeyEvent, UiNode } from "@oh-my-pi/pi-tui";
 import btw, { parseBtwQuestion } from "../extensions/btw";
 import { sideQuestionFixture } from "./helpers/side-question-session";
+import { allNodes, nodeTree } from "./support";
 
 beforeAll(async () => {
 	await Settings.init({ inMemory: true });
-	await initTheme();
+	initTheme();
 });
 
 describe("parseBtwQuestion", () => {
@@ -38,7 +38,7 @@ describe("parseBtwQuestion", () => {
 	});
 });
 
-test.each(["before", "after"] as const)("the /btw panel leaves form keys alone when focus returns %s widget creation", async timing => {
+test("the /btw panel leaves Escape to omp's ask dialog and folds tool calls on t from the empty composer", async () => {
 	const fixture = await sideQuestionFixture({
 		toolCalls: body => body.messages.at(-1)?.role === "user"
 			? [["call_read", "read", { path: "fold-fixture.txt" }]]
@@ -46,31 +46,29 @@ test.each(["before", "after"] as const)("the /btw panel leaves form keys alone w
 	});
 	const handlers = new Map<string, (event: ExtensionEvent, ctx: ExtensionContext) => unknown>();
 	btw({ on(event: string, handler: (event: ExtensionEvent, ctx: ExtensionContext) => unknown) { handlers.set(event, handler); } } as ExtensionAPI);
-	const composer = { render: () => [], invalidate() {}, onUpFromTop: () => false };
-	const form = { render: () => [], invalidate() {} };
-	let focused: Component = composer;
 	let draft = "";
-	let panel: Component | undefined;
+	let panel: UiNode | undefined;
 	let terminalInput: Parameters<ExtensionContext["ui"]["onTerminalInput"]>[0] | undefined;
-	const tui = {
-		terminal: { rows: 100, columns: 160, write() {} },
-		getFocused: () => focused,
-		requestRender() {},
-	} as unknown as TUI;
+	let composerKey: ((key: KeyEvent) => boolean) | undefined;
+	const ui: ExtensionUiHost = { requestRender() {}, size: () => ({ rows: 100, columns: 160 }), suspend: run => run() };
 	const ctx = {
 		...fixture.ctx,
 		mode: "tui", hasUI: true,
 		ui: {
 			onTerminalInput: (listener: typeof terminalInput) => { terminalInput = listener; return () => {}; },
+			composer: { addKeyHandler: (handler: (key: KeyEvent) => boolean) => { composerKey = handler; return () => {}; } },
 			getEditorText: () => draft,
-			setWidget: (_key: string, factory: ((tui: TUI) => Component) | undefined) => {
-				if (factory && timing === "before") focused = form;
-				panel = factory?.(tui);
+			setWidget: (_key: string, factory: ((ui: ExtensionUiHost, theme: never) => UiNode) | undefined) => {
+				panel = factory?.(ui, {} as never);
 			},
 		},
 	} as unknown as ExtensionContext;
 	const key = (data: string) => terminalInput!(data);
-	const render = () => panel?.render(160).join("\n");
+	const t = () => composerKey!({ id: "t", kind: "press", raw: "t", text: "t" });
+	const ask = (type: "tool_execution_start" | "tool_execution_end") =>
+		handlers.get(type)!({ type, toolCallId: "ask-1", toolName: "ask", args: {}, result: undefined, isError: false } as ExtensionEvent, ctx);
+	const render = () => (panel ? JSON.stringify(nodeTree(panel)) : undefined);
+	const toolsFolded = () => allNodes(nodeTree(panel!)).find(node => node.k === "section")?.p.collapsed;
 	try {
 		await Bun.write(`${fixture.ctx.cwd}/fold-fixture.txt`, "file contents for the read call");
 		expect(handlers.get("input")!({ type: "input", text: "/btw read the fixture", source: "interactive" }, ctx))
@@ -79,26 +77,47 @@ test.each(["before", "after"] as const)("the /btw panel leaves form keys alone w
 		while (!render()?.includes("to close") && Date.now() < deadline) await Bun.sleep(20);
 		expect(render()).toContain("1 tool call");
 		expect(render()).toContain("to show tool calls");
-		expect(render()).not.toContain("fold-fixture.txt");
+		expect(toolsFolded()).toBe(true);
 
-		if (timing === "after") focused = form;
-		expect(key("t")).toBeUndefined();
+		ask("tool_execution_start");
 		expect(key("\x1b")).toBeUndefined();
-		expect(render()).toContain("to show tool calls");
-		focused = composer;
+		ask("tool_execution_end");
 		draft = "unsent composer text";
-		expect(key("t")).toBeUndefined();
+		expect(t()).toBe(false);
 		expect(key("\x1b")).toBeUndefined();
-		expect(render()).toContain("to show tool calls");
+		expect(toolsFolded()).toBe(true);
 
 		draft = "";
-		expect(key("t")).toEqual({ consume: true });
-		expect(render()).toContain("fold-fixture.txt");
+		expect(t()).toBe(true);
+		expect(toolsFolded()).toBe(false);
 		expect(render()).toContain("to fold tool calls");
-		expect(key("t")).toEqual({ consume: true });
-		expect(render()).not.toContain("fold-fixture.txt");
+		expect(t()).toBe(true);
+		expect(toolsFolded()).toBe(true);
 		expect(key("\x1b")).toEqual({ consume: true });
 		expect(render()).toBeUndefined();
+
+		const keymap = getKeybindings();
+		const reopen = async () => {
+			handlers.get("input")!({ type: "input", text: "/btw read the fixture again", source: "interactive" }, ctx);
+			const until = Date.now() + 5_000;
+			while (!render()?.includes("to close") && Date.now() < until) await Bun.sleep(20);
+		};
+		try {
+			setKeybindings(KeybindingsManager.inMemory({ "app.interrupt": ["ctrl+c", "ctrl+x"] }));
+			await reopen();
+			expect(key("\x1b")).toBeUndefined();
+			expect(key("\x03")).toBeUndefined();
+			expect(render()).toContain("to close");
+			expect(key("\x18")).toEqual({ consume: true });
+			expect(render()).toBeUndefined();
+
+			setKeybindings(KeybindingsManager.inMemory({ "app.interrupt": [] }));
+			await reopen();
+			expect(key("\x1b")).toEqual({ consume: true });
+			expect(render()).toBeUndefined();
+		} finally {
+			setKeybindings(keymap);
+		}
 	} finally {
 		handlers.get("session_shutdown")?.({ type: "session_shutdown" }, ctx);
 		await fixture.dispose();

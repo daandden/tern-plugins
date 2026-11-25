@@ -1,18 +1,8 @@
-import {
-	card,
-	Markdown,
-	md,
-	type NativeChild,
-	type NativeNode,
-	node,
-	replaceTabs,
-	span,
-	text,
-	truncateToWidth,
-	wrapTextWithAnsi,
-} from "@oh-my-pi/pi-tui";
-import { getMarkdownTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import type { UiNode } from "@oh-my-pi/pi-tui";
+import { replaceTabs } from "@oh-my-pi/pi-tui/text/width";
+import { currentTheme } from "@oh-my-pi/pi-tui/theme/runtime";
 import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { el } from "./panel-layout";
 import type { SideQuestionCallbacks, SideQuestionToolCall } from "./side-question";
 
 export type SideQuestionPart =
@@ -157,8 +147,8 @@ function errorText(turn: SideQuestionTurn): string {
 
 /** OMP's cache-miss marker label, `⊘ cache miss · 214.4k tokens`. */
 function cacheMissLabel(tokens: number): string {
-	const icon = theme.icon.cacheMiss;
-	return `${icon ? `${icon} ` : ""}cache miss ${theme.sep.dot.trim()} ${formatNumber(tokens)} tokens`;
+	const icon = currentTheme().symbols.symbol("icon.cacheMiss");
+	return `${icon ? `${icon} ` : ""}cache miss · ${formatNumber(tokens)} tokens`;
 }
 
 function runningLabel(turn: SideQuestionTurn): string {
@@ -167,106 +157,43 @@ function runningLabel(turn: SideQuestionTurn): string {
 	return `Retrying (${retry.attempt}/${retry.maxAttempts}) in ${formatDuration(Math.max(0, retry.retryAt - Date.now()))}…`;
 }
 
-/** Draws Side question turns in both renderers. */
-export class SideQuestionTurnView {
-	#markdown = new WeakMap<SideQuestionPart, { source: string; markdown: Markdown }>();
-	#questions = new WeakMap<SideQuestionTurn, Markdown>();
-
-	invalidate(): void {
-		this.#markdown = new WeakMap();
-		this.#questions = new WeakMap();
-	}
-
-	/** Classic lines for one turn: the question, its text and tool-call folds in order, and its status. */
-	lines(turn: SideQuestionTurn, width: number, toolsOpen: boolean): string[] {
-		const lines = [...this.#questionMarkdown(turn).render(width)];
-		for (const part of turn.parts) {
-			if (part.type === "text") {
-				if (part.text.trim()) lines.push(...this.#partMarkdown(part).render(width));
-				continue;
+export function turnNode(turn: SideQuestionTurn, index: number, toolsOpen: boolean): UiNode {
+	const children: UiNode[] = [
+		el("card", { role: "omp.user", tone: "user", children: el("md", { text: replaceTabs(turn.question).trim() }) }),
+	];
+	const lastPart = turn.parts.length - 1;
+	turn.parts.forEach((part, partIndex) => {
+		if (part.type === "text") {
+			if (part.text.trim()) {
+				children.push(el("md", { text: part.text, stream: turn.status === "running" && partIndex === lastPart }));
 			}
-			if (part.type === "notice") {
-				lines.push(...wrapTextWithAnsi(theme.fg("warning", part.text), width));
-				continue;
-			}
-			lines.push(theme.fg("dim", truncateToWidth(`${toolsOpen ? "▾" : "▸"} ${summary(part.calls)}`, width)));
-			if (toolsOpen) {
-				for (const call of part.calls) lines.push(theme.fg("dim", truncateToWidth(`  ${callLine(call)}`, width)));
-			}
+			return;
 		}
-		if (turn.cacheMissTokens) {
-			const label = cacheMissLabel(turn.cacheMissTokens);
-			lines.push(truncateToWidth(`${theme.fg("dim", "─".repeat(10))} ${theme.fg("muted", label)}`, width));
+		if (part.type === "notice") {
+			children.push(el("text", { spans: [{ t: part.text, s: "warning" }], wrap: "word" }));
+			return;
 		}
-		if (turn.status === "running") lines.push(theme.fg("dim", runningLabel(turn)));
-		else if (turn.status === "cancelled") lines.push(theme.fg("warning", "Cancelled"));
-		else if (turn.status === "error") lines.push(...wrapTextWithAnsi(theme.fg("error", errorText(turn)), width));
-		return lines;
+		children.push(
+			el("section", {
+				key: `tools${index}-${partIndex}`,
+				head: [{ t: summary(part.calls), s: "dim" }],
+				collapsible: true,
+				collapsed: !toolsOpen,
+				children: el("col", {
+					children: part.calls.map(call =>
+						el("text", { key: call.id, spans: [{ t: callLine(call), s: "dim" }], wrap: "word" }),
+					),
+				}),
+			}),
+		);
+	});
+	if (turn.cacheMissTokens) children.push(el("text", { spans: [{ t: cacheMissLabel(turn.cacheMissTokens), s: "muted" }] }));
+	if (turn.status === "running") {
+		children.push(el("spinner", { style: "dots", label: [{ t: runningLabel(turn), s: "dim" }] }));
+	} else if (turn.status === "cancelled") {
+		children.push(el("text", { spans: [{ t: "Cancelled", s: "warning" }] }));
+	} else if (turn.status === "error") {
+		children.push(el("text", { spans: [{ t: errorText(turn), s: "error" }], wrap: "word" }));
 	}
-
-	/** Tern node for one turn; each group of tool calls is a section the user opens by clicking its head. */
-	describe(turn: SideQuestionTurn, index: number, toolsOpen: boolean): NativeNode {
-		const children: NativeChild[] = [
-			card({ role: "omp.user", tone: "user" }, [md(replaceTabs(turn.question).trim())]),
-		];
-		const lastPart = turn.parts.length - 1;
-		turn.parts.forEach((part, partIndex) => {
-			if (part.type === "text") {
-				if (part.text.trim()) {
-					children.push(md(part.text, { stream: turn.status === "running" && partIndex === lastPart }));
-				}
-				return;
-			}
-			if (part.type === "notice") {
-				children.push(text([span(part.text, "warning")], { wrap: "word" }));
-				return;
-			}
-			children.push(
-				node(
-					"section",
-					{ collapsible: true, collapsed: !toolsOpen },
-					[
-						node("text", { spans: [span(summary(part.calls), "dim")] }, undefined, "head"),
-						node(
-							"col",
-							{},
-							part.calls.map(call =>
-								node("text", { spans: [span(callLine(call), "dim")], wrap: "word" }, undefined, call.id),
-							),
-						),
-					],
-					`tools${index}-${partIndex}`,
-				),
-			);
-		});
-		if (turn.cacheMissTokens) children.push(text([span(cacheMissLabel(turn.cacheMissTokens), "muted")]));
-		if (turn.status === "running") {
-			children.push(node("spinner", { style: "dots", label: [span(runningLabel(turn), "dim")] }));
-		} else if (turn.status === "cancelled") {
-			children.push(text([span("Cancelled", "warning")]));
-		} else if (turn.status === "error") {
-			children.push(text([span(errorText(turn), "error")], { wrap: "word" }));
-		}
-		return node("col", { gap: "xs" }, children, `turn${index}`);
-	}
-
-	#questionMarkdown(turn: SideQuestionTurn): Markdown {
-		const cached = this.#questions.get(turn);
-		if (cached) return cached;
-		const markdown = new Markdown(replaceTabs(turn.question).trim(), 1, 1, getMarkdownTheme(), {
-			bgColor: value => theme.bg("userMessageBg", value),
-			color: value => theme.fgOnBg("userMessageText", "userMessageBg", value),
-		});
-		markdown.setIgnoreTight(true);
-		this.#questions.set(turn, markdown);
-		return markdown;
-	}
-
-	#partMarkdown(part: SideQuestionPart & { type: "text" }): Markdown {
-		const cached = this.#markdown.get(part);
-		if (cached?.source === part.text) return cached.markdown;
-		const markdown = new Markdown(part.text, 0, 0, getMarkdownTheme(), { color: value => theme.fg("text", value) });
-		this.#markdown.set(part, { source: part.text, markdown });
-		return markdown;
-	}
+	return el("col", { key: `turn${index}`, gap: "xs", children });
 }

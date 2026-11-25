@@ -183,14 +183,14 @@ Source and model-facing prompts live in `omp/extensions/`. `omp/package.json` de
 
 ### SDK imports
 
-Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath can load a second SDK copy and fail. Check new value imports against the deployed binary before adding them. The compiled omp 19.1.0 registry serves:
+Runtime value imports of `@oh-my-pi/*` resolve through omp's extension specifier shim. An unserved subpath loads a second SDK copy from `omp/node_modules`, which then fails on its own imports. Check new value imports against the deployed binary before adding them: link the checkout into an isolated omp home and look for `Failed to load extension` in its log, as in [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). The compiled omp 19.2.1 registry (`packages/coding-agent/scripts/legacy-pi-virtual-module.ts`) serves:
 
-- `@oh-my-pi/pi-tui` and its subpaths, including `/chrome`, `/render`, `/theme`, `/thinking`, `/media`, `/html-form/*`, `/chat/svg-figure`, `/native/blobs`, `/native/overlay`, `/chrome/form-theme`, `/keybinding-matchers`, `/overlays/*`, and `/tools/*`. In omp 18.22.0, `/html-form/media` moved to `/media`, and `loadFormImage` became `loadMedia`.
-- `@oh-my-pi/pi-coding-agent`, `/judgment`, `/mcp`, `/modes/*`, `/tools/*`, `/utils/*`, `/session/*`, `/config/model-resolver`, `/extensibility/plugins/loader`, and `/session/settings`.
-- `@oh-my-pi/pi-utils` and flat subpaths such as `/dom`.
-- `@oh-my-pi/pi-ai` for `completeSimple` and `@oh-my-pi/pi-agent-core` for `Tokenizer`.
+- `@oh-my-pi/pi-tui` and every file under it, nested subpaths included, such as `/driver/session`, `/driver/input/decoder`, `/text/width`, and `/theme/runtime`.
+- `@oh-my-pi/pi-coding-agent` and the subpaths its `package.json` exports by name, such as `/config/*`, `/session/*`, `/tools/*`, `/utils/*`, `/mcp`, and `/extensibility/*`. It does not serve unexported files: `/thinking/levels` fails, although omp maps the old `pi-tui/thinking` there.
+- `@oh-my-pi/pi-utils`, `@oh-my-pi/pi-catalog`, and `@oh-my-pi/omptype` with their top-level files, such as `/dom`.
+- The roots of `@oh-my-pi/pi-ai` (for `completeSimple`) and `@oh-my-pi/pi-agent-core` (for `Tokenizer`).
 
-Import describe builders (`node`, `col`, `md`, `span`, `text`, `kbd`) from `@oh-my-pi/pi-tui`. Reuse native helpers such as `actionButton`, `hintsRow`, `formTheme`, and the keybinding matchers. Type-only imports such as `@oh-my-pi/pi-tui/tools/renderer` do not need a registry entry. The registry does not serve `@oh-my-pi/pi-catalog`; `omp/extensions/codex-images.ts` implements the pieces it needs.
+Since omp 19.2, renderers, `setWidget` and `custom` return pi-tui nodes. omp-tools uses no JSX transform: `el` in `omp/extensions/panel-layout.ts` builds a node with the root's `jsx`, so every pi-tui import is one the plugin writes and omp maps to its own copy. The root also exports `signal`, `effect`, `untrack` and `nativeRendering`. Take the theme from `currentTheme()` (`/theme/runtime`), and `getKeybindings`, `canonicalKeyId` and `initTheme` from the `@oh-my-pi/pi-coding-agent` root. Type-only imports, such as the TSP prop types from `@oh-my-pi/pi-wire`, do not need a registry entry.
 
 ### Development commands
 
@@ -206,7 +206,7 @@ Use Bun for dependencies, scripts, tests, and the image codec (`Bun.Image`). The
 
 From `omp/`, run `bun run update` when you intend to update both the installed omp and the SDK types. It requires an installed omp and restores the two `"latest"` specifiers after `bun update` rewrites them. `bun run check` warns and still typechecks if the installed version differs from `omp/bun.lock` or omp is missing. Both scripts use `omp/scripts/host-env.ts` to find the installed binary. A bare `omp` inside `bun run` can instead run the SDK's `node_modules/.bin/omp`, and Bun Shell ignores `.env()` PATH when resolving commands.
 
-`omp/bun.lock` keeps the SDK at 19.1.1, the version of the installed omp. In the SDK tests, omp 19.1 probes an unknown MCP server's protocol era over a connection of its own before the real one, so a stdio fixture server can see `initialize` twice during setup.
+`omp/bun.lock` keeps the SDK at 19.2.1, the version of the installed omp. In the SDK tests, omp 19.1 and later probe an unknown MCP server's protocol era over a connection of its own before the real one, so a stdio fixture server can see `initialize` twice during setup.
 
 For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching `omp --version`. Its upstream is `can1357/oh-my-pi`. If code relies on undocumented host behavior, name the version on which you verified it.
 
@@ -223,9 +223,9 @@ For host behavior, read `~/work/tries/oh-my-pi` at the `v<version>` tag matching
 Run `bun run check` and `bun test` from `omp/` after code changes. The suite uses `bun:test` and `*.test.ts` files.
 
 - `omp/test/support.ts` captures `registerTool` and `on` through `loadSession`, `loadTool`, and `fakeContext`. For `generate_image`, call `execute` with `spyOn(globalThis, "fetch")` and project settings in `.omp/plugin-overrides.json`. The Bun preload isolates the global omp home. Write global settings with `writeGlobalPluginSettings`. `loadTool` defaults to Codex mode, unlike the plugin. Avoid `mock.module` because it leaks into other test files.
-- Before building fake TUI contexts, call `Settings.init({ inMemory: true })` and `initTheme()` in `beforeAll`.
+- Before building fake UI contexts, call `Settings.init({ inMemory: true })` and `initTheme()` (from `@oh-my-pi/pi-coding-agent`) in `beforeAll`. `nodeTree` and `plainNodes` in `omp/test/support.ts` read a node as plain data, and `setNativeRenderingForTest(true)` reads it as Tern would.
 - Use `omp/test/helpers/side-question-session.ts` for a real SDK mirror session against local SSE. It records requests, warnings, and recovery events for retries, fallbacks, and `/btw` follow-ups. The `toolCalls` and `tools` options run a real main turn whose tools return text or wait for `release()`.
-- Use `omp/test/helpers/english-coach-session.ts` for the `input` handlers with a fake TUI context, local SSE, and the real model registry. Assert widget lines, provider requests, and ledger entries, not prompt wording or private helpers. Tests cover both `/btw` entry-point orders, but not terminal layout, deferred startup ordering, or correction quality with a real `@tiny` model.
+- Use `omp/test/helpers/english-coach-session.ts` for the `input` handlers with a fake UI context, local SSE, and the real model registry. Assert panel lines, Tern spans and hovers, provider requests, and ledger entries, not prompt wording or private helpers. Tests cover both `/btw` entry-point orders, but not terminal layout, deferred startup ordering, or correction quality with a real `@tiny` model.
 - The [OpenAI live test](omp/test/generate-image-openai.live.test.ts) sends three paid requests: a still image with complexity, an SVG, and a GIF. It checks API results, not tool cards. With approval for paid requests and `OPENAI_API_KEY`, opt in with `OMP_TOOLS_LIVE_IMAGES=1 bun test live`.
 
 For changes to registration, Side questions, the English coach, tool cards, or event handling, run a fresh-session smoke through [verify-omp-tools](.omp/skills/verify-omp-tools/SKILL.md). Use `PI_TUI_NATIVE=0` for the classic text renderer or RPC for checks without a screen. Prove panel rendering and keys in a fresh session. Record each smoke in [the live proof log](omp/docs/agents/live-proof.md).

@@ -41,12 +41,15 @@ rendered with the Default image generation mode.
   argument both modes take with `.or()`, so it accepts what either mode
   accepts, and labels mode-only arguments `OpenAI mode only.` or
   `Codex mode only.`.
-- **Cards and approval.** The card head's first fact is the mode label: the
-  call's mode for the call card and error cards (OMP 18.22.2 stores a thrown
-  error with `details: {}`), `details.mode` for results and previews, and
-  Codex mode for results saved before modes (no `mode`). With invalid
-  settings, a call that omits `mode` has no mode label on its call or error
-  card because there is no valid default.
+- **Cards and approval.** Since omp 19.2, `renderCall` and `renderResult`
+  return pi-tui nodes, which omp shows under its generic card head (the tool
+  and its arguments). The card body starts with a muted facts line
+  (`omp-tools.image.facts`) whose first fact is the mode label: the call's
+  mode for the call card and error cards (OMP 18.22.2 stores a thrown error
+  with `details: {}`), `details.mode` for results and previews, and Codex
+  mode for results saved before modes (no `mode`). With invalid settings, a
+  call that omits `mode` has no mode label on its call or error card because
+  there is no valid default.
   For direct calls, OMP 18.22.0 shows the arguments in the approval
   prompt only through the tool's own `formatApprovalDetails`, which the
   extension `ToolDefinition` type omits; the plugin attaches it like
@@ -61,11 +64,11 @@ rendered with the Default image generation mode.
   argument key order and truncates the formatted arguments at 2,000
   characters. The tool description and prompting skill tell the agent to put
   `mode` first so a long `prompt` cannot hide it.
-  In Tern, the header follows the mode with the prompt's first line, the
-  reference count, mode settings, size, and quality. Below it are the saved
-  path links, any Codex near-limit warning, the folded long prompt, and the
-  images. A stream shows the latest preview as in progress. An error shows
-  its message in the error color.
+  After the mode, the facts line holds the reference count, mode settings
+  such as `transparent`, and each image's size and quality (or the image
+  count). Below it are the saved path links, any Codex near-limit warning,
+  and the folded long prompt. A stream shows the latest preview as in
+  progress. An error shows its message in the error color.
 - **Results.** Raster images go in `content` only, never `details.images`
   (the TUI would show them twice). SVG returns a saved path and an instruction
   to read it, without image content. `details.outputs` lists each path, MIME

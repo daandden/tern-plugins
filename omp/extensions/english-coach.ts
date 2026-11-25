@@ -3,13 +3,13 @@ import { Tokenizer } from "@oh-my-pi/pi-agent-core";
 import { AgentRegistry, AgentSession, discoverSlashCommands, type ExtensionAPI, type ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { resolveConfiguredModelPatterns } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
 import { getPluginSettings } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
-import type { Component, TUI } from "@oh-my-pi/pi-tui";
-import { matchesAppInterrupt } from "@oh-my-pi/pi-tui/keybinding-matchers";
+import { signal } from "@oh-my-pi/pi-tui";
 import instructions from "./english-coach.md" with { type: "text" };
 import { type CoachMistake, coachCorrection } from "./english-coach-diff";
-import { type CoachView, EnglishCoachPanel } from "./english-coach-panel";
+import { type CoachView, englishCoachPanel } from "./english-coach-panel";
 import { checkCoachPlaceholders, prepareCoachPrompt, type PreparedCoachPrompt } from "./english-coach-prompt";
 import { forwardCoachInput, observeCoachInput } from "./english-coach-input";
+import { panelInterrupt, trackHostDialogs } from "./panel-layout";
 
 const WIDGET_KEY = "omp-tools.english-coach";
 
@@ -53,14 +53,18 @@ export default function englishCoach(pi: ExtensionAPI) {
 	let promptCommandNames: ReadonlySet<string> = new Set();
 	let stopForwarding: (() => void) | undefined;
 	let stopKeys: (() => void) | undefined;
-	const configure = async (_event: unknown, ctx: ExtensionContext) => {
-		clear(ctx);
-		stopForwarding?.();
-		stopForwarding = observeCoachInput(ctx, observe);
+	// omp 19.2.1 drops every extension's terminal input listener before a new session, branch, or fork.
+	const listenForInterrupt = (_event: unknown, ctx: ExtensionContext) => {
 		stopKeys?.();
 		stopKeys = ctx.mode === "tui" && ctx.hasUI && ctx.agent.kind === "main"
 			? ctx.ui.onTerminalInput(data => closeOnInterrupt(ctx, data))
 			: undefined;
+	};
+	const configure = async (event: unknown, ctx: ExtensionContext) => {
+		clear(ctx);
+		stopForwarding?.();
+		stopForwarding = observeCoachInput(ctx, observe);
+		listenForInterrupt(event, ctx);
 		promptCommandNames = new Set();
 		const settings = await getPluginSettings("omp-tools", ctx.cwd);
 		enabled = settings.englishCoach !== false;
@@ -94,26 +98,20 @@ export default function englishCoach(pi: ExtensionAPI) {
 	};
 	pi.on("session_start", configure);
 	pi.on("session_switch", configure);
-	let view: CoachView = { kind: "checking" };
-	let tui: TUI | undefined;
-	// The component focused when the panel opened: the main editor, since a submission or session start opens it.
-	let editorFocus: Component | null = null;
+	pi.on("session_branch", listenForInterrupt);
+	const view = signal<CoachView>({ kind: "checking" });
+	const dialogOpen = trackHostDialogs(pi);
 	let shown = false;
 	const note = (text: string): CoachView => ({ kind: "note", text: plainText(text) });
 	const show = (ctx: ExtensionContext, next: CoachView) => {
-		view = next;
-		if (shown) tui?.requestRender();
-		else {
-			ctx.ui.setWidget(WIDGET_KEY, host => {
-				tui = host;
-				editorFocus = host.getFocused();
-				return new EnglishCoachPanel(host, () => view, () => clear(ctx));
-			}, { placement: "aboveEditor" });
+		view.set(next);
+		if (!shown) {
+			ctx.ui.setWidget(WIDGET_KEY, ui => englishCoachPanel(ui, view, () => clear(ctx)), { placement: "aboveEditor" });
 			shown = true;
 		}
 	};
 	const closeOnInterrupt = (ctx: ExtensionContext, data: string) => {
-		if (!shown || !matchesAppInterrupt(data) || ctx.ui.getEditorText().trim() || tui?.getFocused() !== editorFocus) return undefined;
+		if (!shown || !panelInterrupt(ctx, dialogOpen, data)) return undefined;
 		clear(ctx);
 		return { consume: true };
 	};
@@ -129,8 +127,6 @@ export default function englishCoach(pi: ExtensionAPI) {
 	const clear = (ctx: ExtensionContext) => {
 		pending?.abort();
 		pending = undefined;
-		view = { kind: "checking" };
-		tui = undefined;
 		if (shown) {
 			shown = false;
 			ctx.ui.setWidget(WIDGET_KEY, undefined);

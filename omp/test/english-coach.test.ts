@@ -1,14 +1,15 @@
 import { afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent";
+import { initTheme, Settings } from "@oh-my-pi/pi-coding-agent";
 import * as host from "@oh-my-pi/pi-coding-agent";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { CHECKING, CLEAN, closed, englishCoachFixture, plainLines, until } from "./helpers/english-coach-session";
-import { writePluginSettings } from "./support";
+import type { UiNode } from "@oh-my-pi/pi-tui";
+import { currentTheme } from "@oh-my-pi/pi-tui/theme/runtime";
+import { CHECKING, CLEAN, englishCoachFixture, panelTree, until } from "./helpers/english-coach-session";
+import { allNodes, writePluginSettings } from "./support";
 
 const cleanups: (() => Promise<void>)[] = [];
 beforeAll(async () => {
 	await Settings.init({ inMemory: true });
-	await initTheme();
+	initTheme();
 });
 afterEach(async () => {
 	await Promise.all(cleanups.splice(0).map(cleanup => cleanup()));
@@ -19,7 +20,7 @@ async function fixture(options: Parameters<typeof englishCoachFixture>[0] = {}) 
 	return value;
 }
 
-test("a plain prompt reaches the main agent immediately and its private correction draws in both renderers", async () => {
+test("a plain prompt reaches the main agent immediately and its private correction draws in both backends", async () => {
 	const answer = Promise.withResolvers<string>();
 	const coach = await fixture({ reply: () => answer.promise });
 	const original = "it not work";
@@ -38,7 +39,7 @@ test("a plain prompt reaches the main agent immediately and its private correcti
 	expect(coach.requests[0]!.reasoning_effort).toBe("low");
 	answer.resolve("Better: It doesn't work.\nit not work → It doesn't work (Missing auxiliary verb)");
 	await until(() => !coach.lines().includes(CHECKING));
-	expect(coach.lines()).toEqual(closed(["it not doesn't work.", "- it not work → It doesn't work (Missing auxiliary verb)"]));
+	expect(coach.lines()).toEqual(["it not doesn't work.", "it not work → It doesn't work (Missing auxiliary verb)"]);
 	expect(coach.nativeText()).toEqual(["it not doesn't work."]);
 	expect(coach.nativeHovers()).toEqual([
 		{ text: "not doesn't", title: "not → doesn't: Missing auxiliary verb" },
@@ -47,7 +48,6 @@ test("a plain prompt reaches the main agent immediately and its private correcti
 		{ t: "it " }, { t: "not", s: "del" }, { t: " " }, { t: "doesn't", s: "ins" }, { t: " work" }, { t: ".", s: "ins" },
 	]);
 	expect([...coach.placements.entries()]).toEqual([["omp-tools.english-coach", { placement: "aboveEditor" }]]);
-	expect(coach.focus()).toBe(true);
 	expect(coach.main.messages).toEqual(messages);
 	const usage = coach.main.sessionManager.getEntries().filter(entry => entry.type === "model_usage");
 	expect(usage).toMatchObject([{ purpose: "english-coach", model: "small", usage: { input: 100, output: 10 } }]);
@@ -55,26 +55,25 @@ test("a plain prompt reaches the main agent immediately and its private correcti
 
 test.each([
 	["No mistakes", [CLEAN], "No mistakes"],
-	["Not English", closed(["Not checked: no English text"]), "Not checked: no English text"],
-	["Here is some advice.", closed(["Check failed: unreadable reply"]), "Check failed: unreadable reply"],
-	["Better: This works.", closed(["Check failed: unreadable reply"]), "Check failed: unreadable reply"],
-	["Better: This works. 😀\nthis work → This works (Agreement)", closed(["Check failed: unreadable reply"]), "Check failed: unreadable reply"],
+	["Not English", ["Not checked: no English text"], "Not checked: no English text"],
+	["Here is some advice.", ["Check failed: unreadable reply"], "Check failed: unreadable reply"],
+	["Better: This works.", ["Check failed: unreadable reply"], "Check failed: unreadable reply"],
+	["Better: This works. 😀\nthis work → This works (Agreement)", ["Check failed: unreadable reply"], "Check failed: unreadable reply"],
 ])("the model outcome %j becomes a plain-text panel", async (reply, expected, native) => {
 	const coach = await fixture({ reply: () => reply });
 	await coach.input("this work");
 	await until(() => !coach.lines().includes(CHECKING));
 	expect(coach.lines()).toEqual(expected);
 	expect(coach.nativeText()).toContain(native);
-	expect(coach.focus()).toBe(true);
 });
 
-test("each change explains its own mistake: listed in classic, on hover in Tern", async () => {
+test("each change explains its own mistake: listed in a plain terminal, on hover in Tern", async () => {
 	const coach = await fixture({ reply: () => "Better: A user enters the wrong password.\nuser → A user (Missing article)\ninput → enters (Word choice)" });
 	await coach.input("user input wrong password");
 	await until(() => !coach.lines().includes(CHECKING));
-	expect(coach.lines()).toEqual(closed(["A user input enters the wrong password.",
-		"- user → A user (Missing article)",
-		"- input → enters (Word choice)"]));
+	expect(coach.lines()).toEqual(["A user input enters the wrong password.",
+		"user → A user (Missing article)",
+		"input → enters (Word choice)"]);
 	expect(coach.nativeText()).toEqual(["A user input enters the wrong password."]);
 	expect(coach.nativeHovers()).toEqual([
 		{ text: "A", title: "+ A: Missing article" },
@@ -137,7 +136,7 @@ test("a missing tiny selector is refreshed once, warned once, and never uses the
 	coach.settings.setModelRole("tiny", `${provider}/absent`);
 	await coach.input("this work");
 	await until(() => coach.lines().some(line => line.includes("has no model")));
-	expect(coach.lines().join(" ")).toMatch(new RegExp(`^${RegExp.escape(`@tiny has no model (${provider}/absent). Coaching is off for this session.`)} +esc$`));
+	expect(coach.lines()).toEqual([`@tiny has no model (${provider}/absent). Coaching is off for this session.`]);
 	expect(discoveries).toBe(1);
 	const renders = coach.renders();
 	await coach.input("another sentence");
@@ -146,7 +145,6 @@ test("a missing tiny selector is refreshed once, warned once, and never uses the
 	expect(coach.renders()).toBe(renders);
 	expect(coach.requests).toEqual([]);
 	expect(coach.lines()).toEqual([]);
-	expect(coach.focus()).toBe(true);
 });
 
 test("a provider refresh can find the tiny model without using the main model", async () => {
@@ -173,7 +171,7 @@ test("credentials lost after tiny resolution warn once and never send a request"
 	try {
 		await coach.input("this work");
 		await until(() => coach.lines().some(line => line.includes("no credential")));
-		expect(coach.lines().join(" ")).toMatch(new RegExp(`^${RegExp.escape(`@tiny has no credential (${model.provider}/${model.id}). Coaching is off for this session.`)} +esc$`));
+		expect(coach.lines()).toEqual([`@tiny has no credential (${model.provider}/${model.id}). Coaching is off for this session.`]);
 		await coach.input("another sentence");
 		expect(coach.lines()).toEqual([]);
 		await Bun.sleep(25);
@@ -186,7 +184,7 @@ test("credentials lost after tiny resolution warn once and never send a request"
 test("a 301-token prompt is not sent, while a 300-token prompt is checked", async () => {
 	const coach = await fixture();
 	await coach.input(`${"a ".repeat(300)}a`);
-	await until(() => coach.lines().includes(closed(["Not checked: over 300 tokens"])[0]!));
+	await until(() => coach.lines().includes("Not checked: over 300 tokens"));
 	expect(coach.requests).toEqual([]);
 	await coach.input(`${"a ".repeat(299)}a`);
 	await until(() => coach.lines().includes(CLEAN));
@@ -254,7 +252,7 @@ test("credential service errors stay in the panel, without emoji or an input rej
 	try {
 		expect(await coach.input("This works.")).toEqual([undefined]);
 		await until(() => coach.lines().some(line => line.startsWith("Check failed:")));
-		expect(coach.lines()).toEqual(closed(["Check failed: credential service unavailable "]));
+		expect(coach.lines()).toEqual(["Check failed: credential service unavailable "]);
 		expect(coach.requests).toEqual([]);
 	} finally {
 		credential.mockRestore();
@@ -265,7 +263,7 @@ test("a one-character rewrite is a valid correction", async () => {
 	const coach = await fixture({ reply: () => "Better: a\nan → a (Article)" });
 	await coach.input("an");
 	await until(() => !coach.lines().includes(CHECKING));
-	expect(coach.lines()).toEqual(closed(["an a", "- an → a (Article)"]));
+	expect(coach.lines()).toEqual(["an a", "an → a (Article)"]);
 	expect(coach.nativeSpans()[0]).toEqual([{ t: "an", s: "del" }, { t: " " }, { t: "a", s: "ins" }]);
 });
 
@@ -285,7 +283,7 @@ test("a project's token limit skips longer prompts and caps replies for prompts 
 	const coach = await fixture({ settings: { englishCoachMaxTokens: 4 } });
 	await coach.input("a a a a a");
 	await until(() => !coach.lines().includes(CHECKING));
-	expect(coach.lines()).toEqual(closed(["Not checked: over 4 tokens"]));
+	expect(coach.lines()).toEqual(["Not checked: over 4 tokens"]);
 	expect(coach.requests).toEqual([]);
 	await coach.input("a a a a");
 	await until(() => coach.lines().includes(CLEAN));
@@ -306,7 +304,7 @@ test("a session switch reloads the token limit from the new project's plugin ove
 	await coach.emit("session_switch", {}, context);
 	await coach.input("a a a a a a a", {}, context);
 	await until(() => !coach.lines().includes(CHECKING));
-	expect(coach.lines()).toEqual(closed(["Not checked: over 6 tokens"]));
+	expect(coach.lines()).toEqual(["Not checked: over 6 tokens"]);
 	expect(coach.requests).toHaveLength(1);
 	await coach.input("a a a a a a", {}, context);
 	await until(() => coach.lines().includes(CLEAN));
@@ -316,7 +314,7 @@ test("a session switch reloads the token limit from the new project's plugin ove
 
 test.each([0, -1, "4", null, true])("an invalid token limit %j warns once and disables coaching for the session", async limit => {
 	const coach = await fixture({ settings: { englishCoachMaxTokens: limit } });
-	expect(coach.lines()).toEqual(closed(["englishCoachMaxTokens must be a positive number. Coaching is off for this session."]));
+	expect(coach.lines()).toEqual(["englishCoachMaxTokens must be a positive number. Coaching is off for this session."]);
 	expect(coach.requests).toEqual([]);
 	await coach.input("This works.");
 	expect(coach.lines()).toEqual([]);
@@ -342,7 +340,7 @@ test.each([
 
 test.each(["", "  ", 3])("an invalid englishCoachLanguage %j warns once and disables coaching for the session", async setting => {
 	const coach = await fixture({ settings: { englishCoachLanguage: setting } });
-	expect(coach.lines()).toEqual(closed(["englishCoachLanguage must name a language. Coaching is off for this session."]));
+	expect(coach.lines()).toEqual(["englishCoachLanguage must name a language. Coaching is off for this session."]);
 	await coach.input("This works.");
 	await Bun.sleep(25);
 	expect(coach.requests).toEqual([]);
@@ -443,7 +441,7 @@ describe("English coach submission cancellation", () => {
 		});
 		try {
 			expect(await coach.input("This works.")).toEqual([undefined]);
-			expect(coach.lines()).toEqual(closed(["Check failed: panel unavailable"]));
+			expect(coach.lines()).toEqual(["Check failed: panel unavailable"]);
 			expect(coach.requests).toEqual([]);
 		} finally {
 			widget.mockRestore();
@@ -479,7 +477,7 @@ describe("English coach submission cancellation", () => {
 		});
 		try {
 			expect(await coach.input("/model sonnet")).toEqual([undefined]);
-			expect(coach.lines()).toEqual(closed(["Check failed: panel cleanup failed"]));
+			expect(coach.lines()).toEqual(["Check failed: panel cleanup failed"]);
 			expect(coach.requests).toHaveLength(1);
 		} finally {
 			widget.mockRestore();
@@ -553,45 +551,21 @@ describe("bounded English coach panel", () => {
 		Array.from({ length: 24 }, (_, index) => `word${index} → correction${index} (Word choice)`).join("\n")
 	}`;
 
-	test("a long classic correction keeps its first lines within forty percent of the terminal", async () => {
+	test("a long correction keeps every line and caps its scroll body at forty percent of the terminal", async () => {
 		const coach = await fixture({ reply: () => reply });
 		await coach.input(input);
 		await until(() => !coach.lines().includes(CHECKING));
-		expect(coach.lines()).toHaveLength(16);
-		expect(coach.lines().slice(0, 2)).toEqual(["fix word0 correction0", "fix word1 correction1"]);
-		expect(coach.lines().at(-1)).toBe(closed(["… 33 more lines"])[0]);
-		expect(coach.focus()).toBe(true);
+		const lines = coach.lines();
+		expect(lines.slice(0, 2)).toEqual(["fix word0 correction0", "fix word1 correction1"]);
+		expect(lines).toContain("fix word23 correction23");
+		expect(lines.at(-1)).toBe("word23 → correction23 (Word choice)");
+		const body = () => allNodes(panelTree([...coach.widgets.values()][0]!)).find(node => node.p.role === "omp-tools.panel-body");
+		expect(body()?.p.max).toEqual({ lines: 11 });
+		coach.resize(4);
+		expect(body()?.p.max).toEqual({ lines: 1 });
 	});
 
-	test("classic wraps a long rewrite before counting the hidden lines and reflows on resize", async () => {
-		const prompt = Array(20).fill("please fix this sentence.").join(" ");
-		const coach = await fixture({ reply: () => `Better: ${prompt.replaceAll("please", "kindly")}\nplease → kindly (Word choice)` });
-		await coach.input(prompt);
-		await until(() => !coach.lines().includes(CHECKING));
-		const panel = [...coach.widgets.values()][0]!;
-		const narrow = plainLines(panel, 30);
-		expect(narrow).toHaveLength(16);
-		expect(narrow.slice(0, 2)).toEqual(["please kindly fix this", "sentence. please kindly fix"]);
-		expect(narrow.at(-1)).toBe(closed(["… 12 more lines"], 30)[0]);
-		expect(narrow.every(line => Bun.stringWidth(line) <= 30)).toBe(true);
-		expect(plainLines(panel, 1000)).toEqual(closed([Array(20).fill("please kindly fix this sentence.").join(" "), "- please → kindly (Word choice)"], 1000));
-	});
-
-	test("a tiny terminal keeps the classic panel to its one-line share", async () => {
-		const coach = await fixture({ reply: () => reply });
-		await coach.input(input);
-		await until(() => !coach.lines().includes(CHECKING));
-		const panel = [...coach.widgets.values()][0]!;
-		(panel as unknown as { tui: { terminal: { rows: number } } }).tui.terminal.rows = 4;
-		for (const width of [3, 6, 30]) {
-			const lines = plainLines(panel, width);
-			expect(lines).toHaveLength(1);
-			expect(lines[0]!.endsWith("esc")).toBe(true);
-			expect(Bun.stringWidth(lines[0]!)).toBeLessThanOrEqual(width);
-		}
-	});
-
-	test("Tern retains the full correction text when classic truncates it", async () => {
+	test("Tern keeps the full correction text and explains each change on hover", async () => {
 		const coach = await fixture({ reply: () => reply });
 		await coach.input(input);
 		await until(() => !coach.lines().includes(CHECKING));
@@ -599,8 +573,6 @@ describe("bounded English coach panel", () => {
 		expect(native).toContain("fix word0 correction0");
 		expect(native).toContain("fix word23 correction23");
 		expect(coach.nativeHovers().at(-1)?.title).toBe("word23 → correction23: Word choice");
-		expect(native.some(line => line.includes("more lines"))).toBe(false);
-		expect(coach.focus()).toBe(true);
 	});
 });
 
@@ -618,23 +590,72 @@ describe("closing the English coach panel", () => {
 		expect(coach.key("\x1b")).toBe(false);
 	});
 
-	test("Esc keeps the panel while the editor has text or another component has focus", async () => {
+	test("Esc keeps the panel while the editor has text, omp's ask dialog is open, or a tool approval waits", async () => {
 		const coach = await fixture();
 		await coach.input("this work");
 		await until(() => coach.lines().includes(CLEAN));
 		coach.type("draft");
 		expect(coach.key("\x1b")).toBe(false);
 		coach.type("");
-		coach.focusElsewhere();
+		await coach.ask("tool_execution_start");
 		expect(coach.key("\x1b")).toBe(false);
 		expect(coach.lines()).toEqual([CLEAN]);
+		await coach.ask("tool_execution_end");
+		await coach.emit("tool_approval_requested", { toolCallId: "approve-1", toolName: "generate_image" });
+		expect(coach.key("\x1b")).toBe(false);
+		await coach.emit("tool_approval_resolved", { toolCallId: "approve-1", toolName: "generate_image", approved: false });
+		expect(coach.key("\x1b")).toBe(true);
+		expect(coach.widgets.size).toBe(0);
+	});
+
+	test("Esc still closes the panel after a branch drops omp's terminal input listeners", async () => {
+		const coach = await fixture();
+		coach.dropTerminalInput();
+		await coach.emit("session_branch");
+		await coach.input("this work");
+		await until(() => coach.lines().includes(CLEAN));
+		expect(coach.key("\x1b")).toBe(true);
+		expect(coach.widgets.size).toBe(0);
+	});
+
+	test("the panel closes on a remapped interrupt key, on Escape only while the interrupt has no key, and never on Ctrl+C", async () => {
+		const keymap = host.getKeybindings();
+		try {
+			host.setKeybindings(host.KeybindingsManager.inMemory({ "app.interrupt": "ctrl+x" }));
+			const coach = await fixture();
+			await coach.input("this work");
+			await until(() => coach.lines().includes(CLEAN));
+			expect(coach.key("\x1b")).toBe(false);
+			expect(coach.key("\x03")).toBe(false);
+			expect(coach.lines()).toEqual([CLEAN]);
+			expect(coach.key("\x18")).toBe(true);
+			expect(coach.widgets.size).toBe(0);
+
+			host.setKeybindings(host.KeybindingsManager.inMemory({ "app.interrupt": [] }));
+			await coach.input("this work");
+			await until(() => coach.lines().includes(CLEAN));
+			expect(coach.key("\x1b")).toBe(true);
+			expect(coach.widgets.size).toBe(0);
+
+			host.setKeybindings(host.KeybindingsManager.inMemory({ "app.interrupt": ["ctrl+c", "ctrl+x"] }));
+			await coach.input("this work");
+			await until(() => coach.lines().includes(CLEAN));
+			expect(coach.key("\x03")).toBe(false);
+			expect(coach.key("\x1b")).toBe(false);
+			expect(coach.lines()).toEqual([CLEAN]);
+			expect(coach.key("\x18")).toBe(true);
+		} finally {
+			host.setKeybindings(keymap);
+		}
 	});
 
 	test("clicking the Tern esc hint closes the panel", async () => {
 		const coach = await fixture();
 		await coach.input("this work");
 		await until(() => coach.lines().includes(CLEAN));
-		[...coach.widgets.values()][0]!.handleNativeEvent!({ type: "action", key: "close", act: "close", mods: [] });
+		const walk = (node: UiNode): UiNode[] => [node, ...node.children().flatMap(walk)];
+		const close = walk([...coach.widgets.values()][0]!).find(node => node.props().actions?.click === "close");
+		close!.handlers.onAction!("close", { type: "action", key: "close", act: "close", mods: [] } as never);
 		expect(coach.widgets.size).toBe(0);
 	});
 });
@@ -644,14 +665,15 @@ test("Tern paints the panel with the active omp theme, scoped to omp-tools panel
 	await coach.input("it not work");
 	await until(() => coach.lines()[0] === "it not doesn't work.");
 	coach.nativeText();
-	const sheet = coach.writes.findLast(data => data.startsWith("\x1b_tsp;s;"))!;
+	const sheet = coach.sheets.findLast(data => data.startsWith("\x1b_tsp;s;"))!;
 	const { name, css } = JSON.parse(sheet.slice("\x1b_tsp;s;".length, -2)) as { name: string; css: string };
+	const theme = currentTheme();
 	expect(name).toBe("omp-tools-english-coach");
 	expect(css).toContain(":has([data-role^='omp-tools.'])");
-	expect(css).toContain(`background: ${theme.getBgHex("selectedBg")};`);
-	expect(css).toContain(`--sf-c-ins: ${theme.getColorHex("toolDiffAdded")};`);
-	expect(css).toContain(`--sf-c-del: ${theme.getColorHex("toolDiffRemoved")};`);
-	expect(css).toContain(`--sf-c-accent: ${theme.getColorHex("accent")};`);
+	expect(css).toContain(`background: ${theme.hex("selectedBg")};`);
+	expect(css).toContain(`--sf-c-ins: ${theme.hex("toolDiffAdded")};`);
+	expect(css).toContain(`--sf-c-del: ${theme.hex("toolDiffRemoved")};`);
+	expect(css).toContain(`--sf-c-accent: ${theme.hex("accent")};`);
 });
 
 describe("protected code and links", () => {
@@ -661,7 +683,7 @@ describe("protected code and links", () => {
 		});
 		expect(await coach.input("it fail in src/private.ts")).toEqual([undefined]);
 		await until(() => !coach.lines().includes(CHECKING));
-		expect(coach.lines()).toEqual(closed(["Check failed: unreadable reply"]));
+		expect(coach.lines()).toEqual(["Check failed: unreadable reply"]);
 		expect(coach.requests).toHaveLength(1);
 		expect(coach.main.sessionManager.getEntries().filter(entry => entry.type === "model_usage")).toMatchObject([
 			{ purpose: "english-coach", model: "small", usage: { input: 100, output: 10 } },
@@ -676,7 +698,7 @@ describe("protected code and links", () => {
 		const coach = await fixture({ reply: () => reply });
 		await coach.input("it fail in src/private.ts");
 		await until(() => !coach.lines().includes(CHECKING));
-		expect(coach.lines()).toEqual(closed(["Check failed: unreadable reply"]));
+		expect(coach.lines()).toEqual(["Check failed: unreadable reply"]);
 		expect(coach.requests).toHaveLength(1);
 	});
 
@@ -686,7 +708,7 @@ describe("protected code and links", () => {
 		});
 		await coach.input("it fail from src/first.ts to src/second.ts");
 		await until(() => !coach.lines().includes(CHECKING));
-		expect(coach.lines()).toEqual(closed(["Check failed: unreadable reply"]));
+		expect(coach.lines()).toEqual(["Check failed: unreadable reply"]);
 		expect(coach.requests).toHaveLength(1);
 	});
 
@@ -707,11 +729,7 @@ describe("protected code and links", () => {
 		}
 		const fixed = "It fails with `secretCall()` in src/private.ts at https://private.example/token";
 		const corrected = "it fail fails with `secretCall()` in src/private.ts at https://private.example/token";
-		const panel = [...coach.widgets.values()][0]!;
-		expect(plainLines(panel, 1000)).toEqual(closed([corrected, `- ${input} → ${fixed} (Agreement)`], 1000));
-		const narrow = plainLines(panel, 30);
-		expect(narrow.every(line => Bun.stringWidth(line) <= 30)).toBe(true);
-		expect(narrow.length).toBeLessThanOrEqual(16);
+		expect(coach.lines()).toEqual([corrected, `${input} → ${fixed} (Agreement)`]);
 		expect(coach.nativeText()).toContain(corrected);
 		expect(coach.nativeSpans()[0]!.filter(span => span.s === "dim").map(span => span.t)).toEqual([
 			"`secretCall()`", "src/private.ts", "https://private.example/token",
@@ -731,7 +749,7 @@ describe("protected code and links", () => {
 		expect(coach.requests).toHaveLength(1);
 		expect(JSON.stringify(coach.requests)).not.toContain("privateSecret");
 		expect(JSON.stringify(coach.requests)).not.toContain("typescript");
-		expect(coach.lines()).toEqual(closed(["it fail fails", "[code block, 1000 lines]", "- it fail → It fails (Agreement)"]));
+		expect(coach.lines()).toEqual(["it fail fails", "[code block, 1000 lines]", "it fail → It fails (Agreement)"]);
 		expect(coach.nativeText()).toEqual(["it fail fails", "[code block, 1000 lines]"]);
 		expect(coach.nativeHovers().map(hover => hover.title)).toEqual(["fail → fails: Agreement"]);
 	});
@@ -746,7 +764,7 @@ describe("protected code and links", () => {
 		await coach.input(input);
 		await until(() => !coach.lines().includes(CHECKING));
 		expect(coach.requests).toEqual([]);
-		expect(coach.lines()).toEqual(closed(["Not checked: no English text"]));
+		expect(coach.lines()).toEqual(["Not checked: no English text"]);
 	});
 
 	test("protected-only input cancels an unfinished check without showing its late correction", async () => {
@@ -757,11 +775,11 @@ describe("protected code and links", () => {
 			await until(() => coach.requests.length === 1);
 			expect(await coach.input("```ts\nprivateSecret();\n```")).toEqual([undefined]);
 			await until(() => coach.abortedRequests.length === 1);
-			expect(coach.lines()).toEqual(closed(["Not checked: no English text"]));
+			expect(coach.lines()).toEqual(["Not checked: no English text"]);
 			answer.resolve("Better: Pending prompt.\npending → Pending (Capitalization)");
 			await Bun.sleep(30);
 			expect(coach.requests).toHaveLength(1);
-			expect(coach.lines()).toEqual(closed(["Not checked: no English text"]));
+			expect(coach.lines()).toEqual(["Not checked: no English text"]);
 		} finally {
 			answer.resolve("No mistakes");
 		}
@@ -772,7 +790,7 @@ describe("protected code and links", () => {
 		await coach.input("This is the complete expanded prose from a large paste.\n".repeat(500));
 		await until(() => !coach.lines().includes(CHECKING));
 		expect(coach.requests).toEqual([]);
-		expect(coach.lines()).toEqual(closed(["Not checked: over 300 tokens"]));
+		expect(coach.lines()).toEqual(["Not checked: over 300 tokens"]);
 	});
 
 	test("protected text and its placeholder tokens do not consume the English budget", async () => {
@@ -798,7 +816,7 @@ describe("protected code and links", () => {
 		await coach.input(`it fail ${protectedText}`);
 		await until(() => !coach.lines().includes(CHECKING));
 		expect(JSON.stringify(coach.requests)).not.toContain(secret);
-		expect(coach.lines()).toEqual(closed([...`it fail fails ${protectedText}`.split("\n"), "- it fail → It fails (Agreement)"]));
+		expect(coach.lines()).toEqual([...`it fail fails ${protectedText}`.split("\n"), "it fail → It fails (Agreement)"]);
 	});
 
 	test.each([
@@ -818,7 +836,7 @@ describe("protected code and links", () => {
 		await until(() => !coach.lines().includes(CHECKING));
 		expect(coach.requests).toHaveLength(1);
 		expect(JSON.stringify(coach.requests)).not.toContain("privateSecret");
-		expect(coach.lines()).toEqual(closed(["it fail fails", `[code block, ${count} lines]`, "- it fail → It fails (Agreement)"]));
+		expect(coach.lines()).toEqual(["it fail fails", `[code block, ${count} lines]`, "it fail → It fails (Agreement)"]);
 	});
 
 	test("literal placeholder-like text and code containing it restore without replacing either twice", async () => {
@@ -830,7 +848,7 @@ describe("protected code and links", () => {
 		});
 		await coach.input("it fail [[COACH_1]] with `[[COACH__2]]`");
 		await until(() => !coach.lines().includes(CHECKING));
-		expect(coach.lines()).toEqual(closed(["it fail fails [[COACH_1]] with `[[COACH__2]]`", "- it fail → It fails (Agreement)"]));
+		expect(coach.lines()).toEqual(["it fail fails [[COACH_1]] with `[[COACH__2]]`", "it fail → It fails (Agreement)"]);
 	});
 });
 
@@ -850,7 +868,7 @@ describe("English coach command allow list", () => {
 		expect(coach.requests[0]!.messages.filter((message: any) => message.role === "user")).toEqual([
 			{ role: "user", content: "it fail" },
 		]);
-		expect(coach.lines()).toEqual(closed(["it fail fails.", "- it fail → It fails (Agreement)"]));
+		expect(coach.lines()).toEqual(["it fail fails.", "it fail → It fails (Agreement)"]);
 	});
 
 	test.each(["coach-file", "team:coach-file"])("a discovered prompt-file command /%s sends only its unexpanded argument", async name => {
@@ -938,7 +956,7 @@ describe("English coach command allow list", () => {
 	test("an allowed command with only code names the no-English reason", async () => {
 		const coach = await fixture();
 		await coach.input("/btw `privateCode()`");
-		expect(coach.lines()).toEqual(closed(["Not checked: no English text"]));
+		expect(coach.lines()).toEqual(["Not checked: no English text"]);
 		expect(coach.requests).toEqual([]);
 	});
 });

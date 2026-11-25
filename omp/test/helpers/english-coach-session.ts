@@ -1,36 +1,21 @@
+import { spyOn } from "bun:test";
 import { resolveModelOverride } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
-import type { ExtensionAPI, ExtensionContext, InputEvent } from "@oh-my-pi/pi-coding-agent";
-import type { Component, DescribeContext, NativeNode, TUI } from "@oh-my-pi/pi-tui";
+import type { ExtensionAPI, ExtensionContext, ExtensionUiFactory, ExtensionUiHost, InputEvent } from "@oh-my-pi/pi-coding-agent";
+import { createRoot, effect, type KeyEvent, setNativeRenderingForTest, signal, type UiNode } from "@oh-my-pi/pi-tui";
 import manifest from "../../package.json";
-import { writePluginSettings } from "../support";
+import { nodeTree, type PlainNode, plainNodes, writePluginSettings } from "../support";
 import { sideQuestionFixture } from "./side-question-session";
 
 type Handler = (event: any, ctx: ExtensionContext) => unknown;
 
-/** Classic panel lines at `width`: the close key overlays the right end of the last line. */
-export function closed(lines: string[], width = 100): string[] {
-	const last = lines.at(-1) ?? "";
-	const room = width - 4;
-	const kept = Bun.stringWidth(last) <= room ? last : last.slice(0, room);
-	return [...lines.slice(0, -1), `${kept}${" ".repeat(room - Bun.stringWidth(kept))} esc`];
-}
-
-/** The classic panel while a check runs. */
-export const CHECKING = closed(["Checking…"])[0]!;
-/** The classic panel for a prompt with no mistakes. */
-export const CLEAN = closed(["No mistakes"])[0]!;
-
-/** A widget's classic lines at `width`, without colour. */
-export function plainLines(widget: Component, width = 100): string[] {
-	return widget.render(width).map(line => Bun.stripANSI(line));
-}
+export const CHECKING = "Checking…";
+export const CLEAN = "No mistakes";
 
 /** Each text node's spans (a plain text as one unstyled span), in tree order; a wrapping row is one line, like spans are. */
-function nodeSpans(node: NativeNode): { t: string; s?: string }[][] {
-	const props = node.p as { text?: string; spans?: { t: string; s?: string }[]; wrap?: unknown } | undefined;
-	if (node.k === "text") return [props?.spans ?? [{ t: props?.text ?? "" }]];
-	const children = (node.c ?? []).flatMap(child => (typeof child === "object" && child !== null && "k" in child ? nodeSpans(child as NativeNode) : []));
-	if (node.k !== "row" || props?.wrap !== true) return children;
+function nodeSpans(node: PlainNode): { t: string; s?: string }[][] {
+	if (node.k === "text") return [node.p.spans ?? [{ t: node.p.text ?? "" }]];
+	const children = node.c.flatMap(nodeSpans);
+	if (node.k !== "row" || node.p.wrap !== true) return children;
 	// Pieces keep their edge spaces as no-break spaces; they read as spaces.
 	const line: { t: string; s?: string }[] = [];
 	for (const span of children.flat()) {
@@ -42,18 +27,34 @@ function nodeSpans(node: NativeNode): { t: string; s?: string }[][] {
 	return [line];
 }
 
-/** Each hoverable change in a native tree: its text and its tooltip. */
-export function nodeHovers(node: NativeNode): { text: string; title: string }[] {
-	const props = node.p as { spans?: { t: string }[]; title?: string; hovercard?: unknown } | undefined;
-	const own = node.k === "text" && props?.hovercard !== undefined
-		? [{ text: (props.spans ?? []).map(span => span.t).join("").replaceAll("\u00a0", " ").trim(), title: props.title ?? "" }]
+function nodeHovers(node: PlainNode): { text: string; title: string }[] {
+	const own = node.k === "text" && node.p.hovercard !== undefined
+		? [{ text: (node.p.spans ?? []).map((span: { t: string }) => span.t).join("").replaceAll("\u00a0", " ").trim(), title: node.p.title ?? "" }]
 		: [];
-	return [...own, ...(node.c ?? []).flatMap(child => (typeof child === "object" && child !== null && "k" in child ? nodeHovers(child as NativeNode) : []))];
+	return [...own, ...node.c.flatMap(nodeHovers)];
 }
 
 /** Each text node's visible text, spans joined, in tree order. */
-function nodeTexts(node: NativeNode): string[] {
+function nodeTexts(node: PlainNode): string[] {
 	return nodeSpans(node).map(spans => spans.map(span => span.t).join(""));
+}
+
+export function panelTree(panel: UiNode, native = false, sheets: string[] = []): PlainNode[] {
+	const write = spyOn(process.stdout, "write").mockImplementation(data => {
+		sheets.push(String(data));
+		return true;
+	});
+	setNativeRenderingForTest(native);
+	try {
+		return nodeTree(panel);
+	} finally {
+		setNativeRenderingForTest(false);
+		write.mockRestore();
+	}
+}
+
+export function panelLines(panel: UiNode): string[] {
+	return panelTree(panel).flatMap(nodeTexts);
 }
 
 export async function until(predicate: () => boolean): Promise<void> {
@@ -74,20 +75,24 @@ export async function englishCoachFixture(options: {
 } = {}) {
 	const base = await sideQuestionFixture({ reply: options.reply ?? (() => "No mistakes"), fail: options.fail, finishReason: options.finishReason });
 	const handlers = new Map<string, Handler[]>();
-	const widgets = new Map<string, Component>();
+	const widgets = new Map<string, UiNode>();
+	const watchers = new Map<string, () => void>();
 	const placements = new Map<string, unknown>();
-	const writes: string[] = [];
-	const editor = {};
-	let focused: unknown = editor;
+	const sheets: string[] = [];
 	let editorText = "";
 	let renders = 0;
-	const keyHandlers: ((data: string) => { consume?: boolean } | undefined)[] = [];
-	const tui = {
-		terminal: { rows: 40, columns: 100, write: (data: string) => writes.push(data) },
-		requestRender() { renders++; },
-		setFocus(component: unknown) { focused = component; },
-		getFocused: () => focused,
-	} as unknown as TUI;
+	const rows = signal(40);
+	const ui: ExtensionUiHost = {
+		requestRender() {},
+		size: () => ({ rows: rows(), columns: 100 }),
+		suspend: run => run(),
+	};
+	const terminalInput: ((data: string) => { consume?: boolean } | undefined)[] = [];
+	const composerKeys: ((key: KeyEvent) => boolean)[] = [];
+	const unwatch = (key: string) => {
+		watchers.get(key)?.();
+		watchers.delete(key);
+	};
 	const ctx = {
 		...base.ctx,
 		mode: "tui",
@@ -100,16 +105,35 @@ export async function englishCoachFixture(options: {
 		ui: {
 			...base.ctx.ui,
 			onTerminalInput(handler: (data: string) => { consume?: boolean } | undefined) {
-				keyHandlers.push(handler);
-				return () => keyHandlers.splice(keyHandlers.indexOf(handler), 1);
+				terminalInput.push(handler);
+				return () => {
+					const index = terminalInput.indexOf(handler);
+					if (index >= 0) terminalInput.splice(index, 1);
+				};
+			},
+			composer: {
+				addKeyHandler(handler: (key: KeyEvent) => boolean) {
+					composerKeys.push(handler);
+					return () => composerKeys.splice(composerKeys.indexOf(handler), 1);
+				},
 			},
 			getEditorText: () => editorText,
-			setWidget(key: string, factory: ((tui: TUI) => Component) | undefined, placement?: unknown) {
-				if (!factory) widgets.delete(key);
-				else {
-					widgets.set(key, factory(tui));
-					placements.set(key, placement);
+			setWidget(key: string, factory: ExtensionUiFactory | undefined, placement?: unknown) {
+				unwatch(key);
+				if (!factory) {
+					widgets.delete(key);
+					return;
 				}
+				const panel = factory(ui, {} as never) as UiNode;
+				widgets.set(key, panel);
+				placements.set(key, placement);
+				createRoot(dispose => {
+					watchers.set(key, dispose);
+					effect(() => {
+						plainNodes(panel);
+						renders++;
+					});
+				});
 			},
 		},
 	} as unknown as ExtensionContext;
@@ -144,32 +168,35 @@ export async function englishCoachFixture(options: {
 		await base.dispose();
 		throw error;
 	}
+	const trees = (native: boolean) => [...widgets.values()].flatMap(panel => panelTree(panel, native, sheets));
 	return {
 		...base,
-		ctx, emit, widgets, placements, writes,
+		ctx, emit, widgets, placements, sheets,
 		input: (text: string, event: Partial<InputEvent> = {}, context = ctx) => emit("input", { source: "interactive", text, ...event }, context),
-		lines: () => [...widgets.values()].flatMap(widget => plainLines(widget)),
-		native: () => [...widgets.values()].map(widget => widget.describe?.({ feature: () => true } as unknown as DescribeContext)),
-		nativeSpans: () => [...widgets.values()].flatMap(widget => {
-			const native = widget.describe?.({ feature: () => true } as unknown as DescribeContext);
-			return native ? nodeSpans(native) : [];
-		}),
-		nativeText: () => [...widgets.values()].flatMap(widget => {
-			const native = widget.describe?.({ feature: () => true } as unknown as DescribeContext);
-			return native ? nodeTexts(native) : [];
-		}),
-		nativeHovers: () => [...widgets.values()].flatMap(widget => {
-			const native = widget.describe?.({ feature: () => true } as unknown as DescribeContext);
-			return native ? nodeHovers(native) : [];
-		}),
-		/** Sends terminal input through the registered handlers in order; true when one consumed it. */
-		key: (data: string) => keyHandlers.some(handler => handler(data)?.consume === true),
+		/** Drops every terminal input listener, as omp 19.2.1 does before a new session, branch, or fork. */
+		dropTerminalInput: () => terminalInput.splice(0),
+		lines: () => trees(false).flatMap(nodeTexts),
+		widgetText: (key: string) => {
+			const panel = widgets.get(key);
+			return panel ? JSON.stringify(nodeTree(panel)) : "";
+		},
+		widgetLines: (key: string) => {
+			const panel = widgets.get(key);
+			return panel ? panelLines(panel) : [];
+		},
+		nativeSpans: () => trees(true).flatMap(nodeSpans),
+		nativeText: () => trees(true).flatMap(nodeTexts),
+		nativeHovers: () => trees(true).flatMap(nodeHovers),
+		key: (data: string) => terminalInput.toReversed().some(handler => handler(data)?.consume === true),
+		composerKey: (id: string) => composerKeys.some(handler => handler({ id, kind: "press", raw: id, text: id })),
 		/** Puts text in the main editor, as typing would. */
 		type: (text: string) => { editorText = text; },
-		focusElsewhere: () => { focused = {}; },
-		focus: () => focused === editor,
+		ask: (event: "tool_execution_start" | "tool_execution_end", toolCallId = "ask-1") =>
+			emit(event, { toolCallId, toolName: "ask", args: {}, result: undefined, isError: false }),
+		resize: (count: number) => rows.set(count),
 		renders: () => renders,
 		dispose: async () => {
+			for (const key of [...watchers.keys()]) unwatch(key);
 			await emit("session_shutdown");
 			await base.dispose();
 		},
