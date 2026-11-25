@@ -1,7 +1,8 @@
 # Tern views
 
-Rules shared by the `/btw` and English coach panels in Tern. In terminals that
-speak the Tern Surface Protocol, OMP calls `describe(cx)` instead of `render()`.
+Rules shared by the `/btw` and English coach panels in Tern. Since omp 19.2,
+a panel is one tree of pi-tui nodes: Tern gets them as Tern Surface Protocol
+nodes, and a plain terminal gets the same tree drawn as text rows.
 
 - A scrolling region is a `scrollBox` (`panel-layout.ts`). It emits a capped
   `list` with the role `omp-tools.panel-body`, because a `col` with `max.h`
@@ -12,12 +13,16 @@ speak the Tern Surface Protocol, OMP calls `describe(cx)` instead of `render()`.
   ([oh-my-pi#19767](https://github.com/can1357/oh-my-pi/issues/19767)). The
   panels need no spacing of their own for it: the coach's 13px bottom padding
   balances its text's descent.
-- When `cx.feature("styles")` is true, each panel sends its sheet with every
-  `describe`: `omp-tools-btw` or `omp-tools-english-coach`. A sheet belongs
-  to one surface, and pi-tui opens a new inline surface on `gone` with the
-  same describe context, so a once-only send is lost.
-- Every sheet goes out through `sheetMessage` (`tern-theme.ts`), which leads
-  it with the omp theme rules. The selector matches an `omp.overlay.btw`
+- While `nativeRendering()` is true, each panel sends its sheet each time its
+  content draws: `omp-tools-btw` or `omp-tools-english-coach`. A sheet
+  belongs to one surface, so a once-only send is lost when omp opens a new
+  one. omp 19.2.1 reopens a surface after Tern's `gone` without redrawing
+  unchanged content or telling extensions, so the panel stays unstyled until
+  it changes ([#46](https://github.com/daandden/tern-plugins/issues/46)). A
+  plain terminal gets no sheet.
+- Every sheet goes out through `sendSheet` (`tern-theme.ts`), which writes it
+  with pi-tui's `writeTerminalSequence` and leads it with the omp theme
+  rules. The selector matches an `omp.overlay.btw`
   column holding an `omp-tools.*` role. It leaves the composer and native
   `/btw` alone and sets the plugin panel's palette variables (`--t*`,
   `--l*`, `--accent`, `--sf-*`, `--sf-c-*`) and the background from the active

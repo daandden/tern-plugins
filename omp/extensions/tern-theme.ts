@@ -1,4 +1,7 @@
-import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+import { nativeRendering } from "@oh-my-pi/pi-tui";
+import { writeTerminalSequence } from "@oh-my-pi/pi-tui/driver/session";
+import type { Theme } from "@oh-my-pi/pi-tui/theme/contract";
+import { currentTheme } from "@oh-my-pi/pi-tui/theme/runtime";
 import { PANEL_BODY_ROLE } from "./panel-layout";
 
 // The doubled class outranks Tern 0.9.26's Reader overlay rule.
@@ -20,12 +23,12 @@ let themeCss: { theme: Theme; css: string } | undefined;
  * variables, so its built-in parts (keycaps, spinners, `ins`/`del` spans)
  * follow too.
  */
-function ompThemeCss(): string {
+function ompThemeCss(theme: Theme): string {
 	if (themeCss?.theme === theme) return themeCss.css;
-	const fg = (token: Parameters<Theme["getColorHex"]>[0]) => theme.getColorHex(token);
-	const panel = theme.getBgHex("selectedBg");
+	const fg = (token: string) => theme.hex(token);
+	const panel = theme.hex("selectedBg");
 	// An empty `text` token means the terminal's own foreground, which Tern's --t1 already is.
-	const text = theme.hasColor("text") ? `--t1: ${fg("text")};\n\t--tv-fg: ${fg("text")};` : "";
+	const text = theme.has("text") ? `--t1: ${fg("text")};\n\t--tv-fg: ${fg("text")};` : "";
 	const css = `
 ${ROOTS} {
 	--raise: ${panel};
@@ -68,15 +71,16 @@ ${ROOTS} {
 
 const messages = new Map<string, { theme: Theme; css: string; message: string }>();
 
-/**
- * The stylesheet message (`ESC _ tsp;s;{name,css} ESC \`) for one omp-tools
- * sheet, with the shared theme and Markdown list marker gutter. Panels send
- * it on every describe so the next frame picks up theme changes.
- */
-export function sheetMessage(name: string, css = ""): string {
+function sheetMessage(name: string, css: string): string {
+	const theme = currentTheme();
 	const last = messages.get(name);
 	if (last?.theme === theme && last.css === css) return last.message;
-	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${ompThemeCss()}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
+	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${ompThemeCss(theme)}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
 	messages.set(name, { theme, css, message });
 	return message;
+}
+
+// Sent on every draw: a sheet belongs to one Tern surface, and omp can open a new one.
+export function sendSheet(name: string, css = ""): void {
+	if (nativeRendering()) writeTerminalSequence(sheetMessage(name, css));
 }

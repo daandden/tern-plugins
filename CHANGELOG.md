@@ -16,6 +16,14 @@
 - Removed the `toast-above-browser` Tern plugin. Since Tern 0.9.33, browser pages no
   longer cover toasts, so toasts stay at the bottom. Run `tern plugin unlink toast-above-browser`.
 
+### Fixed
+
+- omp-tools loads again on omp 19.2, which replaced pi-tui's component API. `generate_image`,
+  `/btw`, and the English coach failed to load there. Their cards and panels now draw with
+  omp 19.2's reactive pi-tui nodes. Esc in a `/btw` or English coach panel now leaves a
+  native `ask` form and tool approval prompts alone, and never counts Ctrl+C. The
+  generate_image facts line sits under omp's own card head.
+
 ### Changed
 
 - Checked the plugins against Tern 0.9.34 and omp 19.1.1. In Reader, the composer bar's

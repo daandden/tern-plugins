@@ -134,15 +134,24 @@ A Side question is a full agent run in a mirror session built the way OMP's
   Send `/btw <question>` or `? <question>` there and press Shift+Tab to
   return to the form. The handled `input` event sends no main prompt.
 - The panel is a widget above the composer (`setWidget`,
-  `placement: "aboveEditor"`). The terminal input listener requires an empty,
-  focused main composer. omp 19.1.0 attaches `onUpFromTop` to the main composer
-  to return to the native ask. `/btw` checks for that hook on the focused
-  component instead of assuming the composer has focus when the widget opens.
-  `app.interrupt` cancels or closes, and `t` folds tool calls.
-- In Tern the panel describes a `col` with native `/btw`'s role
-  `omp.overlay.btw` (a plain `col` let the composer's meter row overlap the
-  hints), an `omp-tools.panel-body` scroll box capped at 40% of the rows with
-  `reveal` at the end, and the tool calls as a collapsible `section`. Its sheet
-  (`omp-tools-btw`) includes the shared Markdown list marker gutter.
-- Match the main chat's user messages: a user bubble in Tern and a Markdown
-  block on the user message background in the classic terminal.
+  `placement: "aboveEditor"`) whose factory returns `btwPanel`'s nodes.
+  omp 19.2 tells extensions nothing about focus, and the main composer's
+  key handler takes `app.interrupt` before any handler an extension adds
+  there. So `app.interrupt` comes from `ctx.ui.onTerminalInput`, which sees
+  raw input before omp routes it, and the panel takes it only while the main
+  composer is empty and no omp `ask` form or tool approval prompt waits
+  (`trackHostDialogs` in `panel-layout.ts`). `t` comes from
+  `ctx.ui.composer.addKeyHandler` and folds tool calls only while the
+  composer is empty. `app.interrupt` cancels or closes. The keys follow the
+  user's `app.interrupt` binding, never Ctrl+C.
+- The panel is a `col` with native `/btw`'s role `omp.overlay.btw` (a plain
+  `col` let the composer's meter row overlap the hints), an
+  `omp-tools.panel-body` scroll box capped at 40% of the rows with `reveal`
+  at the end, and the tool calls as a collapsible `section`. In Tern its
+  sheet (`omp-tools-btw`) includes the shared Markdown list marker gutter.
+  In a plain terminal, omp's painter for that role draws a box titled with
+  `term.title`, skips the head row, and turns the hints row into the footer.
+  A capped thread shows its end, or with tool calls open its last turn from
+  the question, with `… N earlier lines` and `… N more lines` markers.
+- Match the main chat's user messages: each question is a card with the
+  `user` tone.

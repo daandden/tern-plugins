@@ -110,7 +110,7 @@ With the Go to picker open, run `"$V" ctl "$RUN" plugins run plugin.goto-agent-s
    Start `bun "$H/english-coach-provider.ts" "$COACH"` as an owned process. Wait for `ready:`. In a fresh tab, launch:
 
    ```sh
-   "$V" type "$RUN" "cd '$COACH/data/project' && exec '$H/isolated-omp' '$COACH' '$OMP_BIN' --no-extensions -e '$COACH/provider.ts' -e '$CHECKOUT/omp/extensions/english-coach.ts' --no-skills --no-rules --no-context-files --no-lsp --offline --no-tools --thinking off --model coach-smoke/main --config '$COACH/smoke-config.yml' --session-dir '$COACH/data/sessions'"
+   "$V" type "$RUN" "cd '$COACH/data/project' && exec '$H/isolated-omp' '$COACH' '$OMP_BIN' --no-extensions -e '$COACH/provider.ts' -e '$CHECKOUT/omp/extensions/english-coach.ts' --no-skills --no-rules --no-context-files --no-lsp --offline --thinking off --model coach-smoke/main --config '$COACH/smoke-config.yml' --session-dir '$COACH/data/sessions'"
    ```
 
    Submit `it not work`. Wait for the main answer and for `tree "[data-role='omp-tools.english-coach.change']"` to show the correction. Capture the panel. Focus A, clear the inbox, and press F1. Require `idle` in the probe's list and a row titled `Idle` under `Sessions`. The pane has no needs-input mark and does not join `Waiting on you`.

@@ -73,17 +73,33 @@
   The helper can retry stalled attempts. Each attempt records `model_usage`
   with purpose `english-coach` on the initiating live session, guarded
   against a changed session. No correction becomes a conversation message.
-- The widget has its own key above the editor. Its wrapped body has a 40%
-  terminal-row cap, with a final `… N more lines` in classic and a wheel
-  scroll box in Tern. Tern uses the native overlay role, without a width of
-  its own, so the panel spans the composer like `/btw`. The body column has
-  the role `omp-tools.english-coach.body` in every state, so the theme sheet
+- The widget has its own key above the editor, and its factory returns
+  `englishCoachPanel`'s nodes. Its wrapped body is an
+  `omp-tools.panel-body` scroll box with a 40% terminal-row cap. In a plain
+  terminal, omp's list painter would bullet the body and cap it by items, so
+  `panel-layout.ts` registers a terminal painter for that role: it shows the
+  lines that fit and a final `… N more lines` (the `/btw` thread keeps its
+  end, or its last turn from the question while tool calls are open). A
+  terminal painter for the coach's frame puts the close key at the end of
+  the body's last line, as Tern's keycap sits. In Tern the panel uses the native
+  overlay role, without a width of its own, so it spans the composer like
+  `/btw`. In a plain terminal that role would draw a titled `/btw` box from
+  the panel's children, so the coach drops it there. The body column has the
+  role `omp-tools.english-coach.body` in every state, so the theme sheet
   finds the panel.
-- `app.interrupt` (Esc) closes the panel only while the empty main editor
-  has focus. The coach records the focused component with `tui.getFocused()`
-  when it creates the widget. A focused form or selector keeps its Esc.
-  In Tern the bottom-right `esc` keycap also closes the panel. Closing aborts
-  an unfinished check.
+- `app.interrupt` (Esc) closes the panel only while the main editor is
+  empty and no omp `ask` form or tool approval prompt waits. omp 19.2 tells
+  extensions nothing about focus, and its composer takes `app.interrupt`
+  first, so the coach reads raw input through `ctx.ui.onTerminalInput` and
+  watches the `ask` tool's execution events and the tool approval events
+  (`trackHostDialogs` in `panel-layout.ts`). Ctrl+C never counts. omp 19.2.1
+  drops every extension's terminal input listener before a new session,
+  branch, or fork, so the coach listens again on `session_branch` as well as
+  on start and switch. An `ask` that `/tree` re-opens runs without tool
+  events, so there the first Esc can close the panel instead of reaching the
+  form. In Tern the bottom-right keycap, which shows the user's
+  `app.interrupt` key, also closes the panel. Closing aborts an unfinished
+  check.
 - Every interactive submission clears the previous outcome and aborts an
   unfinished check. Session switch, branch, tree, and shutdown do the same.
   Failures stay in the panel and never reject input dispatch.

@@ -7,13 +7,13 @@ import { pathToFileURL } from "node:url";
 import type { AgentToolResult, ExtensionAPI, ToolDefinition } from "@oh-my-pi/pi-coding-agent";
 import { getPluginSettings } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
 import { formatApprovalArguments } from "@oh-my-pi/pi-coding-agent/tools/approval";
-import { type NativeChild, node, span, text } from "@oh-my-pi/pi-tui";
-import type { NativeToolHead, NativeToolView } from "@oh-my-pi/pi-tui/tools/renderer";
+import type { UiNode } from "@oh-my-pi/pi-tui";
 import { prompt } from "@oh-my-pi/pi-utils";
 import description from "./generate-image.md" with { type: "text" };
 import { saveImages, savedImagesText } from "./image-artifacts";
 import { codexMode, type ImageMode, type ImageModeId, type PreviewDetails, type Schema } from "./image-modes";
 import { openaiMode } from "./openai-mode";
+import { el } from "./panel-layout";
 
 interface OutputDetails {
 	path: string;
@@ -50,72 +50,82 @@ function cardContent<D>(
 	};
 }
 
-function imageHead<D>(
-	mode: ImageMode<D> | undefined,
-	args: Record<string, unknown>,
-	outputs: OutputDetails[] = [],
-): NativeToolHead {
-	const prompt = typeof args.prompt === "string" ? args.prompt.trim() : "";
-	const meta = mode ? [mode.label, ...mode.callFacts(args)] : [];
+function imageFacts<D>(mode: ImageMode<D> | undefined, args: Record<string, unknown>, outputs: OutputDetails[] = []): string[] {
+	const facts = mode ? [mode.label, ...mode.callFacts(args)] : [];
 	const [only] = outputs;
 	if (outputs.length === 1 && only) {
-		if (only.size) meta.push(only.size);
-		if (only.quality) meta.push(`quality ${only.quality}`);
+		if (only.size) facts.push(only.size);
+		if (only.quality) facts.push(`quality ${only.quality}`);
 	} else if (outputs.length > 1) {
-		meta.push(`${outputs.length} images`);
+		facts.push(`${outputs.length} images`);
 	}
-	return {
-		title: "Generate image",
-		target: prompt.split("\n", 1)[0] || undefined,
-		targetKind: "text",
-		meta: meta.length > 0 ? meta : undefined,
-	};
+	return facts;
 }
 
-function promptSection(args: Record<string, unknown>): NativeChild[] {
+function factsLine(facts: readonly string[]): UiNode[] {
+	if (facts.length === 0) return [];
+	const spans = facts.flatMap((fact, index) => [...(index > 0 ? [{ t: " · ", s: "dim" }] : []), { t: fact, s: "muted" }]);
+	return [el("text", { key: "facts", role: "omp-tools.image.facts", spans, wrap: "word" })];
+}
+
+function promptSection(args: Record<string, unknown>): UiNode[] {
 	const prompt = typeof args.prompt === "string" ? args.prompt.trim() : "";
 	if (!prompt.includes("\n") && prompt.length <= 100) return [];
-	return [node("section", { head: "Prompt", collapsible: true, collapsed: true }, [text(prompt, { wrap: "word" })], "prompt")];
+	return [
+		el("section", {
+			key: "prompt",
+			head: "Prompt",
+			collapsible: true,
+			collapsed: true,
+			children: el("text", { text: prompt, wrap: "word" }),
+		}),
+	];
 }
 
-function savedLine(output: OutputDetails, label: string, facts: boolean): NativeChild {
+function savedLine(output: OutputDetails, label: string, facts: boolean): UiNode {
 	const extra = facts ? [output.size, output.quality && `quality ${output.quality}`].filter(Boolean).join(", ") : "";
-	return text(
-		[
-			span(label, "dim"),
-			span(output.path, "path", { href: pathToFileURL(output.path).href }),
-			...(extra ? [span(` · ${extra}`, "dim")] : []),
+	return el("text", {
+		spans: [
+			{ t: label, s: "dim" },
+			{ t: output.path, s: "path", href: pathToFileURL(output.path).href },
+			...(extra ? [{ t: ` · ${extra}`, s: "dim" }] : []),
 		],
-		{ wrap: "char" },
-	);
+		wrap: "char",
+	});
 }
 
-function describeImageResult<D>(
+function imageResultNode<D>(
 	mode: ImageMode<D> | undefined,
 	result: AgentToolResult<GenerateImageDetails<D>>,
 	args: Record<string, unknown>,
-): NativeToolView {
+): UiNode {
 	const details = result.details;
 	if (details && isPreview(details)) {
 		const label = `Preview ${details.previews}, in progress (not a final image)`;
-		return { tool: imageHead(mode, args), body: [text([span(label, "dim")]), ...promptSection(args)], open: true };
+		return el("col", {
+			children: [...factsLine(imageFacts(mode, args)), el("text", { spans: [{ t: label, s: "dim" }] }), ...promptSection(args)],
+		});
 	}
 	if (result.isError || !details) {
 		const message = result.content.flatMap(block => (block.type === "text" ? [block.text] : [])).join("\n").trim();
-		return {
-			tool: imageHead(mode, args),
+		return el("col", {
 			tone: "error",
-			body: message ? [text([span(message, "error")], { wrap: "word" })] : undefined,
-		};
+			children: [
+				...factsLine(imageFacts(mode, args)),
+				...(message ? [el("text", { spans: [{ t: message, s: "error" }], wrap: "word" })] : []),
+			],
+		});
 	}
 	const { outputs, warnings } = cardContent(mode, details);
 	const many = outputs.length > 1;
-	const body: NativeChild[] = outputs.map((output, index) =>
-		savedLine(output, many ? `${index + 1}. Saved to ` : "Saved to ", many),
-	);
-	for (const warning of warnings) body.push(text([span(warning, "warning")], { wrap: "word" }));
-	body.push(...promptSection(args));
-	return { tool: imageHead(mode, args, outputs), body, open: true };
+	return el("col", {
+		children: [
+			...factsLine(imageFacts(mode, args, outputs)),
+			...outputs.map((output, index) => savedLine(output, many ? `${index + 1}. Saved to ` : "Saved to ", many)),
+			...warnings.map(warning => el("text", { spans: [{ t: warning, s: "warning" }], wrap: "word" })),
+			...promptSection(args),
+		],
+	});
 }
 
 type Modes = Record<ImageModeId, ImageMode<object>>;
@@ -173,29 +183,24 @@ function callModeId(args: Record<string, unknown> | undefined, defaultMode?: Ima
 function imageCards(
 	modes: Modes,
 	defaultMode?: ImageModeId,
-): Pick<ToolDefinition<Schema, GenerateImageDetails<object>>, "describeCall" | "describeResult"> & {
+): Pick<ToolDefinition<Schema, GenerateImageDetails<object>>, "renderCall" | "renderResult"> & {
 	mergeCallAndResult: boolean;
 } {
-	const resultViews = new WeakMap<object, NativeToolView>();
 	const modeOf = (id: ImageModeId | undefined) => (id ? modes[id] : undefined);
 	return {
 		mergeCallAndResult: true,
-		describeCall: args => ({
-			tool: imageHead(modeOf(callModeId(args, defaultMode)), args ?? {}),
-			body: promptSection(args ?? {}),
-		}),
-		describeResult: (result, _options, args) => {
+		renderCall: args =>
+			el("col", {
+				children: [...factsLine(imageFacts(modeOf(callModeId(args, defaultMode)), args ?? {})), ...promptSection(args ?? {})],
+			}),
+		renderResult: (result, _options, _theme, args) => {
 			const details = result.details;
-			const cached = details && resultViews.get(details);
-			if (cached) return cached;
 			// OMP 18.22.2 stores a thrown error with empty details, so an error card
 			// takes the call's mode. Results saved before Image generation modes are
 			// Codex results without `mode`.
 			const id =
 				result.isError || !details ? callModeId(args, defaultMode) : "mode" in details ? modeIdOf(details.mode) : "codex";
-			const view = describeImageResult(modeOf(id), result, args ?? {});
-			if (details) resultViews.set(details, view);
-			return view;
+			return imageResultNode(modeOf(id), result, args ?? {});
 		},
 	};
 }

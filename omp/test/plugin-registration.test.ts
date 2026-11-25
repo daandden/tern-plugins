@@ -1,12 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
 import { type } from "@oh-my-pi/omptype";
-import { Settings, type ExtensionAPI, type ExtensionContext, type ExtensionUIContext, type ToolDefinition } from "@oh-my-pi/pi-coding-agent";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { type ExtensionAPI, type ExtensionContext, type ExtensionUIContext, initTheme, Settings, type ToolDefinition } from "@oh-my-pi/pi-coding-agent";
 import manifest from "../package.json" with { type: "json" };
 
 beforeAll(async () => {
 	await Settings.init({ inMemory: true });
-	await initTheme();
+	initTheme();
 });
 
 test("plugin startup leaves ask and host dialogs to omp", async () => {

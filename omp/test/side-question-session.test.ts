@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AgentRegistry, type SessionManager } from "@oh-my-pi/pi-coding-agent";
-import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-coding-agent/thinking/levels";
 import { sideQuestionsAvailable } from "../extensions/side-question";
 import { keenableTools } from "./helpers/keenable-mcp";
 import { callbacks, sideQuestionFixture } from "./helpers/side-question-session";

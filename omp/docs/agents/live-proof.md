@@ -2,6 +2,24 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-26, omp-tools on omp 19.2.1 (issue #45) with Tern 0.9.35, local
+  fixtures only. An isolated omp home linked to the base checkout logged
+  three `Failed to load extension` lines; linked to the branch it loaded
+  `btw.ts`, `english-coach.ts`, `generate-image.ts` and `own-worktree.ts`
+  with none. In the Tern view and the classic terminal: the English coach
+  showed corrections, `No mistakes`, its height cap and closed on Esc (and
+  on the keycap in Tern); `/btw` answered with one tool call, `t` folded it
+  only with an empty composer, and Esc cancelled and closed; with a native
+  `ask` form open, Esc moved focus to the composer and left the form and the
+  `/btw` panel open. The first classic drive found the coach drawn as an
+  empty `/btw` box and per-word correction rows that did not wrap; after the
+  fix both drew. In Tern a `generate_image` card showed `OpenAI mode ·
+  256x256 · quality low`, a linked WebP path and the image. Not run: a real
+  image endpoint and a real `@tiny` model. Notes: `notes.md` under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/01a21423-3421-738d-8399-36e8594b1b1b/`
+  (`load-red-QoyU1X`, `load-green2-bUzuGR`) and its `verify/` runs
+  `omp-tools-Q5j5kp`, `-QK8BP2`, `-QyrXct`, `-pVLske`, `-JBtKqy`,
+  `-xr7zkC`, `-alo7Io` and `-AAz4Lg`.
 - 2026-11-25, Tern 0.9.34 and omp 19.1.1 compatibility, isolated native
   windows with local fixtures only. Smoked goto, zellij-keys, native files,
   vstack-flow and reader-terminal-text. Skipped: the goto veil cost at

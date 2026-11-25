@@ -18,7 +18,7 @@ Tern loads each plugin from `tern/<id>/`. omp loads `omp-tools` from `omp/`.
 - Tern and its `tern` command. The Tern plugins were smoke-tested on Tern 0.9.34.
 - In `/opt/homebrew/bin`: Yazi, lazygit, and btop for floating tools. Git, `gtimeout` from GNU coreutils, and omp for worktrees.
   The worktree agent tab also needs `omp-tools` linked, because its omp gets the `--own-worktree` flag.
-- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.1.1.
+- Oh My Pi and Bun for `omp-tools`. The omp documentation describes omp 19.2.1.
   [OpenAI mode](#openai-mode) and [Codex mode](#codex-mode) need different credentials.
 
 ## Install
@@ -324,7 +324,8 @@ main-session agent still running.
 
 The panel above the composer does not move focus. It shows questions like main chat messages, with
 answer text and **N tool calls** groups in order. When the main composer has focus and is empty, `t` toggles
-tool calls and Esc cancels the answer or closes the panel. In Tern, click a group to toggle it. Follow-ups
+tool calls. When the composer is empty and no native `ask` form or tool approval waits, Esc cancels the answer or closes the panel.
+Esc follows omp's `app.interrupt` keys, never Ctrl+C. In Tern, click a group to toggle it. Follow-ups
 keep their thread even after you close the panel. When the agent takes your next main prompt, even if queued,
 it ends the thread and clears the panel. A running Side answer can finish and show, but the next `/btw`
 starts a new thread.
@@ -377,7 +378,8 @@ The panel shows `Checking…`, `No mistakes`, corrections, or a reason: `Not che
 follow it. Punctuation replacements show only the new mark. Hover a change in Tern to see it with the reason.
 The classic terminal lists `original → corrected (reason)` lines.
 
-With the editor empty, press Esc or click **esc** in Tern to close the panel. Press Esc again to interrupt the
+With the editor empty and no native `ask` form or tool approval waiting, press Esc to close the panel. In Tern you can also click
+**esc** at any time. Press Esc again to interrupt the
 agent. Closing, another submission, switching sessions, branching, a tree jump, or shutting down clears the
 panel and cancels an unfinished check. Long text wraps up to 40% of the terminal rows. Scroll with the wheel in
 Tern, or look for the remaining-line count in the classic terminal.

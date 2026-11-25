@@ -11,7 +11,7 @@ Results are saved to `$TMPDIR/omp-image-<id>.<webp|png|jpg|gif|svg>`. Raster res
 
 - `img-mode` registers both modes' arguments plus `mode` under the one `generate_image` name, whatever the default.
 - `img-mode-switch` uses the new Default image generation mode after `/new`.
-- `img-mode-call` runs one call in the mode its `mode` names, and the card head names that mode.
+- `img-mode-call` runs one call in the mode its `mode` names, and the card's facts line, under omp's own card head, names that mode.
 - `img-approval` shows the call's mode and arguments before execution. On the mounted path, a long prompt leaves the first argument key, `mode`, visible.
 - `img-generate` creates an image from a prompt.
 - `img-edit` edits an image given by absolute path, or the last images in the conversation.
@@ -82,15 +82,15 @@ Per-call mode, default switch, and approval (`img-mode-call`, `img-mode-switch`,
      "$OMP_BIN" --no-extensions -e "$VERIFY_RUN_DIR/provider.ts" \
      -e "$CHECKOUT/omp/extensions/generate-image.ts" -e "$CHECKOUT/omp/extensions/english-coach.ts" \
      -e "$CHECKOUT/omp/extensions/btw.ts" \
-     --no-skills --no-rules --no-context-files --no-lsp --offline --no-tools --tools generate_image \
+     --no-skills --no-rules --no-context-files --no-lsp --offline --tools generate_image \
      --model image-smoke/main --config "$VERIFY_RUN_DIR/smoke-config.yml" --session-dir "$VERIFY_RUN_DIR/data/sessions"
    ```
 
-   Use a fresh home and agent dir without an OpenAI key or Codex login.
-3. Mode card (`img-mode-call`): with `tool-args.json` `{"prompt":"mode smoke logo","mode":"openai","output_format":"svg"}` and `--approval-mode yolo`, submit `Call generate_image`. The card head shows `Generate image`, `OpenAI mode`, and `svg`, and the error says OpenAI mode needs an OpenAI API key, that the user can ask for Codex mode or change `defaultImageGenerationMode`, and not to switch unless the user asks. The first request in `requests.jsonl` lists `mode` in the `generate_image` tool parameters, and its description names `codex` as the default.
+   Use a fresh home and agent dir without an OpenAI key or Codex login. Since omp 19.2, `--no-tools` loads no extensions and exits 2 with `-e`, so the launch limits tools with `--tools` alone.
+3. Mode card (`img-mode-call`): with `tool-args.json` `{"prompt":"mode smoke logo","mode":"openai","output_format":"svg"}` and `--approval-mode yolo`, submit `Call generate_image`. Under omp's own card head, the card's facts line shows `OpenAI mode` and `svg`, and the error says OpenAI mode needs an OpenAI API key, that the user can ask for Codex mode or change `defaultImageGenerationMode`, and not to switch unless the user asks. The first request in `requests.jsonl` lists `mode` in the `generate_image` tool parameters, and its description names `codex` as the default.
 4. Approval (`img-approval`): with `tool-args.json` `{"prompt":"approval smoke"}` and `--approval-mode always-ask`, submit `Call generate_image`. Require `Allow tool: generate_image` and `Mode: Codex mode, the Default image generation mode`. Open the details to see the arguments. Capture the approval and deny the call. Check that the result reports the denial rather than a credential error. Repeat with `{"mode":"openai","prompt":"approval smoke"}`. Require `Mode: OpenAI mode`, then deny that call too.
 5. Default switch (`img-mode-switch`): in the same `always-ask` session, write `{"prompt":"default switch smoke"}` to `tool-args.json`. Change the scratch project's `defaultImageGenerationMode` to `openai`. Run `$C type /new`, `$C key Enter`, then submit `Call generate_image`. Require `Mode: OpenAI mode, the Default image generation mode` in the approval prompt. Capture it and deny the call. Check that the tool result reports the denial.
-6. Mounted approval (`img-approval`): start the provider with `bun "$H/image-mode-provider.ts" "$VERIFY_RUN_DIR" --mounted` in a fresh run dir. The provider sets `tools.commands` on and sends a `bash` call that runs `generate_image --json '<tool-args.json>'`, the way OMP 19.1 runs a discoverable tool as a tool command. Use the launch from step 2 with `--approval-mode always-ask`, but omit `--no-tools --tools generate_image` so OMP can mount the tool. Write the fixture before submitting `Call generate_image`:
+6. Mounted approval (`img-approval`): start the provider with `bun "$H/image-mode-provider.ts" "$VERIFY_RUN_DIR" --mounted` in a fresh run dir. The provider sets `tools.commands` on and sends a `bash` call that runs `generate_image --json '<tool-args.json>'`, the way OMP 19.1 runs a discoverable tool as a tool command. Use the launch from step 2 with `--approval-mode always-ask`, but omit `--tools generate_image` so OMP can mount the tool. Write the fixture before submitting `Call generate_image`:
 
    ```sh
    bun -e 'await Bun.write(process.argv[1], JSON.stringify({mode: "openai", prompt: "A small blue circle. ".repeat(120)}))' "$VERIFY_RUN_DIR/tool-args.json"

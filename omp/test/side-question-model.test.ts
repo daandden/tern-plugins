@@ -11,7 +11,7 @@ afterEach(async () => {
 	await Promise.all(cleanups.splice(0).map(cleanup => cleanup()));
 });
 
-// Codex's bundled catalog has gpt-6.1-sol but not gpt-6.1-terra; Terra comes only from discovery.
+// omp 19.2.1's bundled Codex catalog has gpt-6.1-sol but not gpt-6.1-fixture, which only discovery returns.
 async function staleCodexSession() {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "side-question-model-test-"));
 	await Bun.write(
@@ -25,7 +25,7 @@ async function staleCodexSession() {
 			await discovery.held;
 			if (discovery.denied) return Response.json({ error: { code: "token_revoked" } }, { status: 401 });
 			return Response.json({
-				models: ["gpt-6.1-sol", "gpt-6.1-terra"].map(slug => ({
+				models: ["gpt-6.1-sol", "gpt-6.1-fixture"].map(slug => ({
 					slug,
 					visibility: "list",
 					supported_in_api: true,
@@ -38,7 +38,7 @@ async function staleCodexSession() {
 	const auth = await AuthStorage.create(":memory:");
 	auth.keys.setRuntime("openai-codex", "synthetic-key");
 	const settings = Settings.isolated({});
-	settings.setModelRole("smol", "openai-codex/gpt-6.1-terra:high");
+	settings.setModelRole("smol", "openai-codex/gpt-6.1-fixture:high");
 	const modelRegistry = new ModelRegistry(auth, path.join(dir, "models.yml"), {
 		settings,
 		ignoreLocalModelConfig: true,
@@ -61,14 +61,14 @@ test("a Side question model lost from a stale catalog is found again by refreshi
 	const { main, dir, discovery } = await staleCodexSession();
 	discovery.denied = false;
 	const selected = await sideQuestionModel(main, dir, new AbortController().signal);
-	expect(selected?.model && `${selected.model.provider}/${selected.model.id}`).toBe("openai-codex/gpt-6.1-terra");
+	expect(selected?.model && `${selected.model.provider}/${selected.model.id}`).toBe("openai-codex/gpt-6.1-fixture");
 	expect(selected).toMatchObject({ role: "smol", thinkingLevel: "high" });
 });
 
 test("a Side question model still missing after the refresh warns with the model its role names, on every thread", async () => {
 	const { main, dir, discovery } = await staleCodexSession();
 	const before = discovery.calls;
-	const warning = { warning: 'Side question model "@smol" (openai-codex/gpt-6.1-terra) is not in the model list. Using the main model.' };
+	const warning = { warning: 'Side question model "@smol" (openai-codex/gpt-6.1-fixture) is not in the model list. Using the main model.' };
 	expect(await sideQuestionModel(main, dir, new AbortController().signal)).toEqual(warning);
 	expect(await sideQuestionModel(main, dir, new AbortController().signal)).toEqual(warning);
 	expect(discovery.calls - before).toBe(2);
@@ -91,6 +91,6 @@ test("cancelling while the provider is rediscovered stops waiting at once and le
 	discovery.held = undefined;
 	while (!resolveModelOverride(["@smol"], main.modelRegistry, main.settings).model) await Bun.sleep(1);
 	const selected = await sideQuestionModel(main, dir, new AbortController().signal);
-	expect(selected?.model && `${selected.model.provider}/${selected.model.id}`).toBe("openai-codex/gpt-6.1-terra");
+	expect(selected?.model && `${selected.model.provider}/${selected.model.id}`).toBe("openai-codex/gpt-6.1-fixture");
 	expect(discovery.calls).toBe(2);
 });

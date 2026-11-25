@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import { answerInto, newTurn, SideQuestionTurnView } from "../extensions/side-question-view";
 import type { SideQuestionCallbacks } from "../extensions/side-question";
+import { answerInto, newTurn, turnNode } from "../extensions/side-question-view";
+import { nodeTree } from "./support";
 
 function pendingAnswer() {
 	const turn = newTurn("Why is this request waiting?");
@@ -13,32 +14,27 @@ function pendingAnswer() {
 	return { turn, callbacks, done, resolve };
 }
 
-const view = () => new SideQuestionTurnView();
-const lines = (turn: ReturnType<typeof newTurn>) => view().lines(turn, 120, false).map(Bun.stripANSI).join("\n");
+const shown = (turn: ReturnType<typeof newTurn>) => JSON.stringify(nodeTree(turnNode(turn, 0, false)));
 
-test("the turn view labels an answer that is still running in both renderers", () => {
-	const turn = newTurn("What changed?");
-	const renderer = new SideQuestionTurnView();
-	expect(renderer.lines(turn, 120, false).map(Bun.stripANSI)).toContain("Answering…");
-	expect(JSON.stringify(renderer.describe(turn, 0, false))).toContain("Answering…");
+test("the turn view labels an answer that is still running", () => {
+	expect(shown(newTurn("What changed?"))).toContain("Answering…");
 });
 
-test("a retry countdown is visible in both renderers and ends when the next request starts", async () => {
+test("a retry countdown is visible and ends when the next request starts", async () => {
 	const clock = spyOn(Date, "now").mockReturnValue(10_000);
 	const pending = pendingAnswer();
 	try {
 		pending.callbacks.onRecovery({
 			type: "auto_retry_start", attempt: 2, maxAttempts: 10, delayMs: 8_000, errorMessage: "overloaded",
 		});
-		expect(lines(pending.turn)).toMatch(/2\/10.*8(?:\.0)?s/);
+		expect(shown(pending.turn)).toMatch(/2\/10.*8(?:\.0)?s/);
 		clock.mockReturnValue(15_000);
-		expect(lines(pending.turn)).toMatch(/2\/10.*3(?:\.0)?s/);
-		expect(JSON.stringify(view().describe(pending.turn, 0, false))).toMatch(/2\/10.*3(?:\.0)?s/);
+		expect(shown(pending.turn)).toMatch(/2\/10.*3(?:\.0)?s/);
 		pending.callbacks.onMessageStart();
-		expect(lines(pending.turn)).not.toContain("Retrying");
+		expect(shown(pending.turn)).not.toContain("Retrying");
 		pending.resolve("Recovered.");
 		await pending.done;
-		expect(lines(pending.turn)).toContain("Recovered.");
+		expect(shown(pending.turn)).toContain("Recovered.");
 	} finally {
 		pending.resolve("");
 		await pending.done;
@@ -57,24 +53,19 @@ test("a model switch stays between the failed request and the fallback answer", 
 	pending.callbacks.onText("Recovered on backup.");
 	pending.resolve("Recovered on backup.");
 	await pending.done;
-	const classic = lines(pending.turn);
-	expect(classic.indexOf("Checking.")).toBeLessThan(classic.indexOf("provider/primary -> provider/backup"));
-	expect(classic.indexOf("provider/primary -> provider/backup")).toBeLessThan(classic.indexOf("Recovered on backup."));
-	const native = JSON.stringify(view().describe(pending.turn, 0, false));
-	expect(native).toContain("provider/primary -> provider/backup");
-	expect(native.indexOf("provider/primary -> provider/backup")).toBeLessThan(native.indexOf("Recovered on backup."));
+	const text = shown(pending.turn);
+	expect(text.indexOf("Checking.")).toBeLessThan(text.indexOf("provider/primary -> provider/backup"));
+	expect(text.indexOf("provider/primary -> provider/backup")).toBeLessThan(text.indexOf("Recovered on backup."));
 });
 
-test("exhausted recovery reports the attempt count and final failure in both renderers", async () => {
+test("exhausted recovery reports the attempt count and final failure", async () => {
 	const turn = newTurn("q");
 	await answerInto(turn, async on => {
 		on.onRecovery({ type: "auto_retry_end", success: false, attempt: 3, finalError: "quota exhausted" });
 		throw new Error("quota exhausted");
 	}, () => {});
 	expect(turn.status).toBe("error");
-	for (const rendered of [lines(turn), JSON.stringify(view().describe(turn, 0, false))]) {
-		expect(rendered).toMatch(/3 attempts.*quota exhausted/);
-	}
+	expect(shown(turn)).toMatch(/3 attempts.*quota exhausted/);
 });
 
 test("late recovery events cannot add notices to a cancelled turn", async () => {
@@ -86,5 +77,5 @@ test("late recovery events cannot add notices to a cancelled turn", async () => 
 	pending.resolve("Too late.");
 	await pending.done;
 	expect(pending.turn.parts).toEqual([]);
-	expect(lines(pending.turn)).toContain("Cancelled");
+	expect(shown(pending.turn)).toContain("Cancelled");
 });

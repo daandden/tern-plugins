@@ -1,8 +1,7 @@
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent";
-import { resolveConfiguredModelPatterns, resolveExplicitModelRole, resolveModelOverride } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
+import { extractExplicitThinkingSelector, resolveConfiguredModelPatterns, resolveExplicitModelRole, resolveModelOverride } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
 import { getPluginSettings } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
 import { cfgDefaultThinkingLevel } from "@oh-my-pi/pi-coding-agent/session/settings";
-import { AUTO_THINKING, automaticThinkingLevel, parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 
 export async function sideQuestionModel(main: AgentSession, cwd: string, signal: AbortSignal) {
 	const settings = await getPluginSettings("omp-tools", cwd);
@@ -21,17 +20,17 @@ export async function sideQuestionModel(main: AgentSession, cwd: string, signal:
 			return { warning: `Side question model ${JSON.stringify(spec)}${target} is not in the model list. Using the main model.` };
 		}
 	}
-	const defaultLevel = parseConfiguredThinkingLevel(cfgDefaultThinkingLevel.get(main.settings));
+	const defaultLevel = cfgDefaultThinkingLevel.get(main.settings);
 	return {
 		model: resolved.model,
 		role: resolveExplicitModelRole(spec, main.settings) ?? "default",
-		thinkingLevel: resolved.thinkingLevel ?? (defaultLevel === AUTO_THINKING ? AUTO_THINKING : resolved.model.thinking?.defaultLevel ?? automaticThinkingLevel(resolved.model, defaultLevel)),
+		thinkingLevel: resolved.thinkingLevel ?? (defaultLevel === "auto" ? defaultLevel : resolved.model.thinking?.defaultLevel ?? defaultLevel),
 	};
 }
 
 function withoutThinkingLevel(pattern: string) {
 	const colon = pattern.lastIndexOf(":");
-	return colon > 0 && parseConfiguredThinkingLevel(pattern.slice(colon + 1)) ? pattern.slice(0, colon) : pattern;
+	return colon > 0 && extractExplicitThinkingSelector(pattern) ? pattern.slice(0, colon) : pattern;
 }
 
 /** Stops waiting when `signal` aborts; the refresh itself goes on for other readers of the shared registry. */

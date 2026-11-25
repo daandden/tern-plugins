@@ -1,5 +1,6 @@
 import { type } from "@oh-my-pi/omptype";
 import type { AgentToolResult, ExtensionAPI, ExtensionContext, ToolDefinition } from "@oh-my-pi/pi-coding-agent";
+import { createRoot, resolveChildren, type UiNode } from "@oh-my-pi/pi-tui";
 import { getPluginsLockfile } from "@oh-my-pi/pi-utils";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -81,6 +82,49 @@ export async function loadTool(
 export function argumentNames(tool: ToolDefinition): string[] {
 	const schema = (tool.parameters as unknown as { toJsonSchema(): { properties?: object } }).toJsonSchema();
 	return Object.keys(schema.properties ?? {}).sort();
+}
+
+export interface PlainNode {
+	k: string;
+	p: Record<string, any>;
+	c: PlainNode[];
+}
+
+function plain(node: UiNode): PlainNode {
+	return { k: node.kind, p: { ...node.props() }, c: node.children().map(plain) };
+}
+
+export function plainNodes(render: unknown): PlainNode[] {
+	return resolveChildren(render)().map(plain);
+}
+
+export function nodeTree(render: unknown): PlainNode[] {
+	return createRoot(dispose => {
+		try {
+			return plainNodes(render);
+		} finally {
+			dispose();
+		}
+	});
+}
+
+export function allNodes(nodes: readonly PlainNode[]): PlainNode[] {
+	return nodes.flatMap(node => [node, ...allNodes(node.c)]);
+}
+
+const RENDER_OPTIONS = { expanded: false, isPartial: false };
+
+export function callCard(tool: ToolDefinition, args: Record<string, unknown>): PlainNode[] {
+	return nodeTree(tool.renderCall?.(args as never, RENDER_OPTIONS, {} as never));
+}
+
+export function resultCard(tool: ToolDefinition, result: unknown, args: Record<string, unknown>, isPartial = false): PlainNode[] {
+	return nodeTree(tool.renderResult?.(result as never, { ...RENDER_OPTIONS, isPartial }, {} as never, args as never));
+}
+
+export function cardFacts(card: readonly PlainNode[]): string[] {
+	const facts = allNodes(card).find(node => node.p.role === "omp-tools.image.facts");
+	return (facts?.p.spans ?? []).filter((span: { s?: string }) => span.s === "muted").map((span: { t: string }) => span.t);
 }
 
 export interface FakeContextOptions {

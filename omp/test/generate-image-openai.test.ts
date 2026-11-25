@@ -16,6 +16,7 @@ import {
 	loadSession,
 	loadTool,
 	outputPathsOf,
+	resultCard,
 	rgbaPixels,
 	savedImageFiles,
 	textOf,
@@ -601,7 +602,7 @@ describe("results saved before Image generation modes", () => {
 			const tool = await loadTool({ defaultImageGenerationMode: mode });
 			const result = { content: [{ type: "text" as const, text: "Generated image saved." }], details: structuredClone(legacy) };
 
-			const view = tool.describeResult?.(result as never, { expanded: false, isPartial: false }, { prompt: "a fox" });
+			const view = resultCard(tool, result, { prompt: "a fox" });
 
 			expect(cardLinks(view)).toEqual([legacy.path]);
 			expect(JSON.stringify(view)).toContain(legacy.quotaWarning);
@@ -644,7 +645,7 @@ describe("multiple outputs", () => {
 		const result = await tool.execute("c", args, undefined, undefined, openaiContext());
 		savedFiles.push(...outputPathsOf(result));
 
-		const view = tool.describeResult?.(result, { expanded: false, isPartial: false }, args);
+		const view = resultCard(tool, result, args);
 
 		expect(cardLinks(view)).toEqual(outputPathsOf(result));
 	});
@@ -1389,8 +1390,8 @@ describe("streaming", () => {
 		const args = { prompt: "x", stream: true, partial_images: 1 };
 		const { result, updates, tool } = await streamed(args);
 
-		const previewView = JSON.stringify(tool.describeResult?.(updates[0] as never, { expanded: false, isPartial: true }, args));
-		const finalView = JSON.stringify(tool.describeResult?.(result, { expanded: false, isPartial: false }, args));
+		const previewView = JSON.stringify(resultCard(tool, updates[0], args, true));
+		const finalView = JSON.stringify(resultCard(tool, result, args));
 
 		expect(previewView).toContain("in progress");
 		expect(previewView).not.toContain("Saved to");

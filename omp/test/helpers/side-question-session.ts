@@ -12,7 +12,7 @@ import {
 	type ExtensionContext,
 } from "@oh-my-pi/pi-coding-agent";
 import { MCPManager, type MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp";
-import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-coding-agent/thinking/levels";
 import { SideQuestionThread, type SideQuestionCallbacks } from "../../extensions/side-question";
 
 export async function sideQuestionFixture(options: {

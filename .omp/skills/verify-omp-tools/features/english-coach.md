@@ -38,7 +38,7 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
    -e "$CHECKOUT/omp/extensions/english-coach.ts" \
    -e "$CHECKOUT/omp/extensions/btw.ts" \
    --no-skills --no-rules --no-context-files --no-lsp --no-title \
-   --offline --no-tools --thinking off \
+   --offline --thinking off \
    --model coach-smoke/main --smol coach-smoke/side \
    --config "$VERIFY_RUN_DIR/smoke-config.yml" \
    --session-dir "$VERIFY_RUN_DIR/data/sessions"
@@ -69,3 +69,4 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
 - Repetitive synthetic replies can trigger `completeSimple` stall retries. The fixture uses distinct mistakes so the long-panel scenario tests layout instead of retry behavior.
 - Side question startup may make auxiliary skill-hint requests on `smol`. They remain local. Count coach requests on the `tiny` model separately from `side` requests.
 - The local provider ignores the real semantic task. It cannot prove real tiny-model correction quality. A smoke also covers only one real eager/deferred startup order; the input-handler tests cover the two explicit entry-point orders. Keep both proof gaps named in the result.
+- Since omp 19.2, `--no-tools` loads no extensions, so the launch leaves it out: with it, omp rejects the `-e` entry points.
