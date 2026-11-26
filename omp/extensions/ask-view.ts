@@ -11,6 +11,9 @@ import { formBody, formMedia } from "./ask-form-view";
 const ACTION_ROW = "actions";
 const LOOK = "omp-tools.ask-card";
 
+const NATIVE_FORM_ROWS = 0.25;
+const NATIVE_EDIT_FORM_ROWS = 0.15;
+
 function button(id: string, text: string, keys?: string[], accent = false, mark?: "pick"): UiNode {
 	return nativeSupports("button")
 		? new UiNode("button", { key: id, role: "omp.btn", text, keys, actions: { click: id }, tone: accent ? "accent" : undefined, variant: accent ? "primary" : undefined, mark })
@@ -177,7 +180,11 @@ export function askCardView(card: AskCard, cwd: string, terminalRows: () => numb
 				return progress && new UiNode("text", { role: "omp.ask.card.progress", spans: [{ s: "muted", t: progress }] });
 			},
 		] }),
-		new UiNode("col", { key: "body", role: "omp.ask.card.body", gap: "lg", children: () => formBody(card, media(), pictureRows(), reveal()) }),
+		new UiNode("list", {
+			key: "body-scroll",
+			max: () => ({ lines: Math.max(1, Math.floor(terminalRows() * (card.sideQuestion() || card.editNote() ? NATIVE_EDIT_FORM_ROWS : NATIVE_FORM_ROWS))) }),
+			children: new UiNode("col", { key: "body", role: "omp.ask.card.body", gap: "lg", children: () => formBody(card, media(), pictureRows(), reveal()) }),
+		}),
 		footer,
 	] });
 	return new UiNode("col", {

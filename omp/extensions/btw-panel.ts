@@ -84,7 +84,10 @@ export function btwPanel(ui: ExtensionUiHost, state: () => BtwPanelState, run?: 
 	const latest = () => state().turns.at(-1);
 	const running = () => latest()?.status === "running";
 	const canCopy = () => latestAnswer(state().turns) !== undefined;
-	const rows = () => Math.max(3, Math.floor(ui.size().rows * PANEL_HEIGHT_RATIO) - 2);
+	const rows = () => {
+		const ratio = state().askFocused && nativeRendering() ? 0.24 : PANEL_HEIGHT_RATIO;
+		return Math.max(3, Math.floor(ui.size().rows * ratio) - 2);
+	};
 	const thread = el("col", {
 		gap: "sm",
 		reveal: () => ({ at: "end", n: state().revision }),

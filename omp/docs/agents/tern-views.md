@@ -12,6 +12,10 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
   supplies the frame's color and border. Do not set `selectedBg` on them.
   Native `/btw` mounts in the transcript; the extension uses the same look
   without relying on omp's private transcript presenter.
+- The Ask card and Side question panel share the dock while an `ask` waits.
+  While the card has focus, Tern reserves less height for the Side answer.
+  The Ask card bounds its scrolling body separately from its action row so
+  Submit stays reachable in short panes.
 - While `nativeRendering()` is true, each panel sends its sheet each time its
   content draws: `omp-tools-btw` or `omp-tools-english-coach`. A sheet
   belongs to one surface, so a once-only send is lost when omp opens a new

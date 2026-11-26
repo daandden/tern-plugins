@@ -89,6 +89,12 @@ Run the [local Ask session](native-ask.md#local-native-ask-session) once in Tern
 3. Use Alt+/ again and send `btw Check the follow-up`. Wait for `Local Side follow-up answer.`. Both turns remain in the panel. In Tern, use the Fold control and verify it becomes a one-line note; unfold it again.
 4. Tab to Submit and press Enter. Verify `color: blue`, the saved option Note and the General note in the `ask` result. Ask a follow-up from the restored composer and verify that it still sees the same thread.
 5. In `requests.jsonl`, the in-card Side requests have a pending `ask` call and the `PrivateNote-407` and `PrivateGeneral-963` markers in the draft, not in a submitted result. Neither Side question nor answer belongs in the main transcript. A later composer Side question gets no separate Ask draft.
+6. Repeat the in-card follow-up at 340 by 620 with a long, realistic
+   question. Require the Side note and the Ask card not to overlap. At
+   320 by 620, open the General note, paste five lines, click Save, then
+   use Submit. Capture the Note editor and action row and check all five
+   lines in the result. In classic, use F8 and F9 to drive the folds while
+   Ask has focus; F7 copies the latest answer.
 
 For the native `/tree` form or a `native` baseline, the composer still sits below the form. Esc leaves its focused controls for the composer; Shift+Tab returns to the form. This route cannot read unsent native form state.
 
