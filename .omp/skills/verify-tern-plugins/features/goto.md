@@ -80,14 +80,14 @@ OMP_BIN=$(command -v omp)
 
 With the Go to picker open, run `"$V" ctl "$RUN" plugins run plugin.goto-agent-status.capture`. Save `RUN/instance/config/plugin-data/goto-agent-status/kv.json` as a separate capture for each case. Match `.agents[].pane` to the pane ID and check its `state`. This list comes directly from Tern, not from Go to.
 
-1. **Native ask.** Set `VERIFY_RUN_DIR=$RUN` and follow [Local native ask session](../../verify-omp-tools/features/native-ask.md#local-native-ask-session). After `setup` and before starting omp, enable status reports in the disposable config:
+1. **Ask card.** Set `VERIFY_RUN_DIR=$RUN` and follow [Local native ask session](../../verify-omp-tools/features/native-ask.md#local-native-ask-session) with the `session` command. After `setup` and before starting omp, enable status reports in the disposable config:
 
    ```sh
    printf '\nterminal:\n  programStatus: true\n' >>"$RUN/data/agent/config.yml"
    "$H/isolated-omp" "$RUN" "$OMP_BIN" config get terminal.programStatus
    ```
 
-   Require `true`. Open a second tab with `"$V" ctl "$RUN" tab new` and launch the session there. Submit `Call the ask tool please`. Poll `tree ".sf-main [data-role='omp.ask.card']"` for `Pick a color`. Capture the form without answering.
+   Require `true`. Open a second tab with `"$V" ctl "$RUN" tab new` and launch the session there. Submit `Call the ask tool please`. Poll `tree "[data-role='omp.ask.card']"` for `General note`. Capture the form without answering.
 
    Focus pane A with `"$V" tern "$RUN" focus <A>`, then press F1. Save the rows and the probe's list while the picker is open. Require the unfocused omp pane to report `waiting_input`. Its row under `Waiting on you` has the title `Waits for your input`, a `.sf-t-icon.sf-t-warning` mark, and a `.pk-fact` with the waiting time. Capture the picker and the corresponding `since` entry in Go to's `kv.json`. Close the picker. Answer the form, exit omp, and close the test tab before the next case.
 

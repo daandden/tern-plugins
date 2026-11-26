@@ -73,15 +73,19 @@ A tool built into the running OMP host, such as native `ask` or native `generate
 _Avoid_: stock tool, built-in tool, origin tool
 
 **Note**:
-Free text the user attaches to one option of a question in native `ask`. Only a Note on a picked option is sent with the answer.
+Free text, with line breaks and pictures, that the user attaches to one option of a question in `ask`. Only a Note on a picked option is sent with the answer.
 _Avoid_: comment, annotation
 
+**General note**:
+Free text, with line breaks and pictures, that the user attaches to a whole `ask` rather than to one option. It is sent with the answer.
+_Avoid_: Submit note, ask note
+
 **Other answer**:
-The user's own typed answer to a question of native `ask`, instead of a listed option or, in multi-select, alongside them.
+The user's own typed answer to a question of `ask`, instead of a listed option or, in multi-select, alongside them.
 _Avoid_: custom input, custom answer
 
 **Side question**:
-A question about the session that is answered aside from the main conversation, with read-only tools, and that the main agent never sees. The user asks one through **/btw**, also while a native `ask` waits.
+A question about the session that is answered aside from the main conversation, with read-only tools, and that the main agent never sees. The user asks one through **/btw**, also while an `ask` waits.
 _Avoid_: btw (unqualified), side turn, btw agent
 
 **Side question thread**:
@@ -101,8 +105,12 @@ OMP's own side-question command, which answers without tools. It still answers w
 _Avoid_: stock /btw, OMP btw
 
 **English coach**:
-The background check of English in prompts submitted to the main agent in the interactive terminal. It uses OMP's `@tiny` model role and shows private corrections above the editor without changing the prompt or adding corrections to the main conversation.
+The background check of English in prompts submitted to the main agent in the interactive terminal. It uses OMP's `@tiny` model role, shows private corrections above the editor only when a prompt needs one, and adds each mistake to **Coach memory**. It never changes the prompt or adds corrections to the main conversation.
 _Avoid_: grammar checker, English tutor, coach agent
+
+**Coach memory**:
+The **English coach**'s record of every mistake it found in the user's prompts, by grammar rule, across all sessions and projects, with how often each rule recurs.
+_Avoid_: learner profile, coach history, coach session
 
 **generate_image**:
 This plugin's image tool. It replaces native `generate_image`, which the user disables.

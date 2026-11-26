@@ -31,6 +31,6 @@ Each feature file starts with an H1 title and one paragraph of user-visible beha
 ## Features
 
 - [Side question with /btw](./side-question-btw.md): answer with read-only tools, the tool-call fold, follow-ups, cancel, the thread ending at the next main prompt, and the thread's start from the saved transcript.
-- [Native ask](./native-ask.md): load the three plugin extensions, answer a native form in both renderers, and answer the same form again from `/tree` using a local provider.
+- [Ask card and native re-answer](./native-ask.md): compare both renderers with native Ask, submit multiline Notes with pictures, and re-answer with native Ask from `/tree`.
 - [generate_image](./generate-image.md): the shared schema with per-call `mode`, generations and edits in each Image generation mode (OpenAI mode also `n`, formats, streaming, and masks), the tool card naming the mode, and the approval prompt.
-- [English coach](./english-coach.md): private corrections, clean and over-limit prompts, protected fenced pastes, `/btw` delivery, skipped commands, and the panel height cap, with an isolated local provider in both renderers.
+- [English coach](./english-coach.md): private corrections, quiet clean and skipped prompts, protected fenced pastes, `/btw` delivery, recurring-rule cues, and the memory dashboard, with an isolated local provider in both renderers.

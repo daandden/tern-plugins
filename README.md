@@ -132,7 +132,7 @@ paused, then idle if enabled. Within a status, the longest wait comes first. Exi
 Each waiting pane still appears in the tree and gets a separate jump number in the group. The highlight
 starts on the first waiting pane, if any.
 
-With omp's `terminal.programStatus` on, a pane with a waiting native `ask` gets a needs-input mark.
+With omp's `terminal.programStatus` on, a pane with a waiting Ask card or native `ask` gets a needs-input mark.
 The `/btw` and English coach panels do not count as waiting for input.
 
 Paused panes get a still, muted pause mark and no time. Resume in omp to restore the pane's other
@@ -307,6 +307,24 @@ retry before reset. Successful calls warn at 80% usage with the reset time.
 In Tern, click a saved path to open it. The tool card shows the prompt, reference count, settings, images, and
 the latest in-progress preview or error. Long prompts fold.
 
+### Ask card
+
+In the interactive TUI, omp-tools answers `ask` in a card that takes the composer until
+you submit or cancel. It uses the native form's controls. Press `n` on an option to add a Note
+(`Alt+N` in a dropdown). Choose **General note** or press `Alt+U` to add a Note for the
+whole ask. Press Enter to save, the configured newline key to start a new line, and
+Escape to keep the previous Note. Paste with the clipboard image key or paste an image
+path. On omp 19.2.1, Tern's enhanced image paste does not target extension views.
+
+Press `Alt+/` in the card to ask a Side question without submitting the form. The Side
+question uses this ask's unsent answers and Notes for that request. The main conversation
+receives only submitted answers, Notes on picked options, and the General note. A
+timed-out result is not consent.
+
+`/tree` re-answer and other omp dialogs still use native `ask`. They do not offer the
+General note or multiline Notes. The vstack Flow page card for the Ask card requires
+[the vstack dialog hook](https://github.com/daandden/vstack/issues/629).
+
 ### Side questions
 
 Type `/btw <question>` or `? <question>` in the main editor and press Enter. Bare `/btw` still opens native
@@ -322,18 +340,17 @@ through that connection, without adding tools to the main agent's roster. Otherw
 tools. It cannot ask you, run commands, or message or stop agents. `read agent://<id>` can read a
 main-session agent still running.
 
-The panel above the composer does not move focus. It shows questions like main chat messages, with
-answer text and **N tool calls** groups in order. When the main composer has focus and is empty, `t` toggles
-tool calls. When the composer is empty and no native `ask` form or tool approval waits, Esc cancels the answer or closes the panel.
-Esc follows omp's `app.interrupt` keys, never Ctrl+C. In Tern, click a group to toggle it. Follow-ups
-keep their thread even after you close the panel. When the agent takes your next main prompt, even if queued,
-it ends the thread and clears the panel. A running Side answer can finish and show, but the next `/btw`
-starts a new thread.
+In a plain terminal, the panel has the native boxed `/btw` layout. In Tern, it looks
+like the native `/btw` note and stays above the composer. The answer and folded tool
+activity appear in order. With the empty composer focused, use `t` to toggle tool
+activity. Use `c` to copy the latest answer or the Tern copy control. Fold the panel to
+one line with `f` or the Tern fold control.
 
-While a native `ask` waits, press Esc on the form to focus the composer. Send `/btw <question>` or
-`? <question>` to ask aside without submitting the form. Press Shift+Tab to return to the form with your
-answers intact. The panel leaves the form's `t` and Esc keys alone. The Side question knows the `ask` is
-still open but cannot see your unsent answers or Notes.
+Esc follows omp's `app.interrupt` keys, never Ctrl+C. It cancels a running Side question
+or closes a finished panel, unless another dialog needs the key. Closing does not end the
+thread. The next main prompt ends the thread. An answer already running finishes first.
+`/btw` inside the Ask card continues the same thread as `/btw` from the main editor.
+When a native form waits, Esc still gives the composer focus and Shift+Tab returns to it.
 
 `sideQuestionModel` applies to `/btw`. It defaults to `@smol` and uses the role's thinking level.
 Set a role such as `@smol:low` or a selector such as `provider/model:high`. An empty value uses the main model.
@@ -370,19 +387,23 @@ technical terms such as `git diff`, and attached images are not checked.
 Code, paths, and URLs stay out of the request and token count. Inline code, paths, and URLs show unchanged.
 A fenced block shows as `[code block, N lines]`. Pasted prose counts in full. Only arguments after `/btw`,
 `/skill:<name>`, and prompt-file commands get checked. Other commands, or an allowed command without an
-argument, clear the panel. Answers to native `ask` are not checked. RPC, ACP, print mode, and subagents
-never trigger the coach.
+argument, clear the panel. Answers to ask forms are not checked. RPC, ACP, print mode,
+and subagents never trigger the coach.
 
-The panel shows `Checking…`, `No mistakes`, corrections, or a reason: `Not checked: over 300 tokens`,
-`Not checked: no English text`, or `Check failed: <reason>`. Removed text is struck through and replacements
-follow it. Punctuation replacements show only the new mark. Hover a change in Tern to see it with the reason.
-The classic terminal lists `original → corrected (reason)` lines.
+The panel appears only for a correction. Removed text is struck through and followed by
+its replacement. Hover a change in Tern to see its explanation. A plain terminal lists
+all explanations below the correction. A recurring mistake can add one line linking
+the correction to your history.
 
-With the editor empty and no native `ask` form or tool approval waiting, press Esc to close the panel. In Tern you can also click
-**esc** at any time. Press Esc again to interrupt the
-agent. Closing, another submission, switching sessions, branching, a tree jump, or shutting down clears the
-panel and cancels an unfinished check. Long text wraps up to 40% of the terminal rows. Scroll with the wheel in
-Tern, or look for the remaining-line count in the classic terminal.
+Press Esc from the empty composer, or click **esc** in Tern, to close the panel. A new
+submission or a session change clears it and cancels an unfinished check.
+
+Open `/english-coach` to see your most frequent mistakes, recent changes in their
+frequency, and what to practice. You can pin a rule, practice it, or mark a recorded
+fix as not a mistake. Coach memory is private and shared across sessions and projects
+on this machine. It stores rule counts and short examples from validated edits, never
+whole prompts, code, paths, or URLs. Reset in the dashboard clears Coach memory.
+It does not delete your omp transcripts or provider records.
 
 | Setting | Default | What it controls |
 | --- | --- | --- |

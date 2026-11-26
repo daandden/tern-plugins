@@ -1,6 +1,6 @@
 ---
 name: verify-omp-tools
-description: Verify omp-tools registration, native ask, /btw Side questions, generate_image, or the English coach. Drive the Tern view, classic text TUI, or RPC in a fresh session that loads the checkout under test.
+description: Verify omp-tools registration, Ask card and native re-answer, /btw Side questions, generate_image, or the English coach. Drive the Tern view, classic text TUI, or RPC in a fresh session that loads the checkout under test.
 ---
 
 # Verify omp-tools
@@ -71,7 +71,7 @@ EOF
 	test -f "$CHECKOUT/omp/skills/generate-image/SKILL.md"
 ```
 
-Stop if setup fails. Check `candidate.json` for the four extension paths: `generate-image.ts`, `english-coach.ts`, `btw.ts`, and `own-worktree.ts`. In the TUI, type `/skill:generate-image` without submitting to check that omp discovered the shipped skill, then clear the composer. The seed skips OMP Setup, and `advisor.enabled: false` keeps advisor turns and cards out of the drive.
+Stop if setup fails. Check `candidate.json` for the five extension paths: `ask.ts`, `generate-image.ts`, `english-coach.ts`, `btw.ts`, and `own-worktree.ts`. In the TUI, type `/skill:generate-image` without submitting to check that omp discovered the shipped skill, then clear the composer. The seed skips OMP Setup, and `advisor.enabled: false` keeps advisor turns and cards out of the drive.
 
 ### Start Tern and omp
 

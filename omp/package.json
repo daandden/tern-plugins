@@ -21,7 +21,8 @@
 			"./extensions/generate-image.ts",
 			"./extensions/english-coach.ts",
 			"./extensions/btw.ts",
-			"./extensions/own-worktree.ts"
+			"./extensions/own-worktree.ts",
+			"./extensions/ask.ts"
 		],
 		"settings": {
 			"englishCoach": {

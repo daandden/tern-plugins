@@ -15,13 +15,13 @@
 - `btw-main-ends` ends the thread at the next main prompt; an answer still running finishes and shows first.
 - `btw-private` keeps Side questions out of the main transcript.
 - `btw-seed` starts a thread from the saved transcript: after compaction, after a `/tree` jump with or without a new prompt, and with a call still pending.
-- `btw-native-ask` answers from the composer while a native form waits. The form keeps the answers, and its focused controls keep their keys.
+- `btw-ask-card` answers from the Ask card with request-local draft context.
 
 ## How to get to it (user POV)
 
 - Type `/btw <question>` in the main editor and press Enter (Tern view or classic TUI).
-- While a native `ask` waits, press Esc on the form to focus the composer. Send `/btw <question>` or `? <question>`. Press Shift+Tab to return to the form.
-- Press `t` or Esc while the panel shows and the empty composer has focus.
+- While the Ask card waits, press Alt+/ and complete `/btw <question>`; the slash is already there.
+- Press `t`, `c`, `f`, or Esc while the panel shows and the empty composer has focus. In Tern, use the Copy and Fold controls when the Ask card has focus.
 - Click the "N tool calls" line (Tern view only).
 
 ## Driving it with tern ctl
@@ -30,12 +30,12 @@ Preconditions:
 
 - Baseline from `README.md`, including one answered main prompt.
 
-- Answer. Run `$C type '"/btw which extensions does omp/package.json register? read it"'` and `$C key Enter`. While it runs, `$C tree` contains `Answering…` and `to cancel`. When `$C tree` contains `to close`, run `$C shot btw-answer`. In the Tern view the heading reads `/btw` and `side question · only you see the answers` (two text nodes in `$C tree`), the question shows as a user bubble like the main chat's (a `sf-card` with an `sf-card-body` in `$C tree`), a `1 tool call` line shows, and the answer lists the extension files. In the classic TUI the question is a padded block on the user message background. The count is the number of calls the model made, so it can differ from 1.
+- Answer. Send `/btw which extensions does omp/package.json register? read it`. Wait for a folded tool-call row and the answer in the panel, and capture `$C shot btw-answer`. Tern shows the `btw` tag and the question as the title; classic shows `/btw <question>` in the heading of the box. Neither renders the question as a chat bubble.
 - Scroll body. In Tern, capture `$C tree '[data-role="omp-tools.panel-body"]'` with the Side answer visible. The list is the panel's body, below the heading and above the key hints.
 - Fold. Run `$C key t`, `$C shot btw-fold-open`. The fold shows `read <path>` under it, and the hint reads `to fold tool calls`. In Tern, `$C click '.sf-section-head'` toggles the same line.
 - Order. Run `$C type '"/btw First write one short line saying you will check omp/package.json. Then read it. Then say which test runner it uses."'` and `$C key Enter`. When the answer is done, run `$C shot btw-order`. The panel shows the short line, then the `1 tool call` line, then the answer naming `bun test`.
 - Follow-up. Run `$C key Escape` (the panel closes), then `$C type '"/btw what file did you read for my first side question? one line, no tools"'`, `$C key Enter`, `sleep 20`, `$C shot btw-follow`. The answer names `omp/package.json`, the earlier turns show in the panel, and the Side question listing in `../SKILL.md` still shows the same single new `SideQuestion-*.jsonl` with every `<btw>` prompt.
-- Cancel. Run `$C type '"/btw read README.md and summarize every section in detail"'` and `$C key Enter`. As soon as `$C tree` contains `to cancel`, run `$C key Escape` and `$C shot btw-cancel`. The turn ends with `Cancelled`. `$C key Escape` again closes the panel (`$C tree` no longer contains `only you see`).
+- Cancel. Send `/btw read README.md and summarize every section in detail`. While the answer is running, press Esc with the empty composer focused. Capture `Cancelled`. Press Esc again; the panel goes away.
 - Tools. Run the [Keenable roster probe](#keenable-roster-probe).
 - Usage. Run the same helper with `VERIFY_PROBE=usage` on an available Codex model. Set `modelRoles.smol` to that exact model in the owned smoke config; the Side question otherwise defaults to a different model. Send one main prompt of about 20k tokens (`Reply with only: ok.` followed by the text of the `omp-tools` section of the root `README.md`, `AGENTS.md`, and the files in `omp/docs/agents/`). The helper asks two threads different questions. `usage.json` holds one entry with purpose `side-question` per Side request (two here); entries with purpose `side-question:<purpose>` are the mirror's own off-transcript calls (cache warms, the `unexpected-stop` judge). The first `side-question` entry's `cacheRead` is near 0, since a thread's first request cannot reuse the main prompt cache. The second one's `cacheRead` is at least the first one's prompt (`input + cacheRead + cacheWrite`) less the first question's length (a few hundred tokens): the second thread reuses the shared conversation, not just an identical prompt. Assert on these numbers, not on the cache-miss marker, which never shows on Codex.
 - Agent. Run the same helper with `VERIFY_PROBE=agent` and send `Use the task tool to spawn exactly one subagent named Sleeper (agent: task). Its task: run bash \`sleep 120\`, then yield the word done. Do not wait for it: right after spawning, end your turn with one short line.` `agent.json` shows `read agent://Sleeper` as `done`, and the answer quotes `# Sleeper (running)`.
@@ -52,7 +52,7 @@ Preconditions:
   - Compaction. Before launch, add `compaction:` and an indented `keepRecentTokens: 1` to `$OMP_CONFIG`. Send `Run the eval please`, `Say alpha`, `Say beta`, compact the session (`/compact`), then send `/btw what do you see?`. The Side request starts with the summary and holds the kept turn and the `Eval runtime state is host-retained` reminder the next main request also holds. It contains nothing from before the summary.
   - Tree, then a prompt. Send `Run the eval please`, then a turn on another subject (`Call the small ask please` and answer it). `/tree` back to the eval answer, send `Say alpha again`, then `/btw what do you see?`. After its system prompt, the Side request holds the same messages as the main request for `Say alpha again`, then that turn's reply and the `<btw>` prompt; nothing from the abandoned turn.
   - Tree, no prompt. Do the same `/tree` jump and ask `/btw` at once. The Side request ends at the selected eval answer and its saved eval state, then the `<btw>` prompt; nothing from the abandoned turn.
-  - Pending call. The [local native ask session](native-ask.md#local-native-ask-session) can hold an `ask` while you send `/btw` from the composer. Check the Side request for the still-open `ask` result. For another tool, make the provider call `bash` with `sleep 60` and ask `/btw` while it runs. The Side result for that call reads `This call is still running in the main conversation. Its result is not known here. Do not call it again.`, and no later Side request calls `bash`.
+  - Pending call. The [local Ask session](native-ask.md#local-native-ask-session) can hold an `ask` while you ask a Side question from the card. For another tool, make the provider call `bash` with `sleep 60` and ask `/btw` from the composer. Check the Side request for the still-open result; no later Side request should call that tool again.
 
 ### Keenable roster probe
 
@@ -80,18 +80,17 @@ Send `{"id":"p1","type":"prompt","message":"Reply with only: ok"}` on stdin. Wai
 
 In `tools.json`, `threads[0].tools` contains exactly `read`, `grep`, `glob`, `find`, `mcp__keenable_search_web_pages`, and `mcp__keenable_fetch_page_content`. `calls` shows one completed `read` of `side-fixture.txt`. In `requests.jsonl`, check that the first request with a `<btw>` message offers the same six tools and that its prompt names them. This probe requires neither real Keenable nor a remote model.
 
-### During a native ask
+### During the Ask card
 
-Run the [local native ask session](native-ask.md#local-native-ask-session) once in Tern and once with `PI_TUI_NATIVE=0`. Use a fresh session for each renderer. The open `ask` turn provides the saved transcript, so skip the baseline main prompt.
+Run the [local Ask session](native-ask.md#local-native-ask-session) once in Tern and once with `PI_TUI_NATIVE=0`. Use fresh sessions. The open turn has a saved transcript, so skip the baseline prompt.
 
-1. Send `Call the ask tool for Side questions`. In **Pick a color**, move to Blue with Down and pick it with Space. Press `n`, type `PrivateNote-407`, and press Enter to save the Note.
-2. Press Tab to move to **Pick a shape**, then Down twice to reach **Other**. Type `PrivateOther-581` and press Enter. In **Label**, type `PrivateLabel-963`. Capture the form without submitting it.
-3. Press Esc to focus the composer. Send `/btw Read the local fixture`. Wait for `Local Side read answer.` and `1 tool call`. The form stays open. In classic, pause half a second after Esc before you type.
-4. Send `? Check the follow-up`. Wait for `Local Side follow-up answer.`. Verify that both questions appear in the same panel. With the empty composer focused, press `t` to show `read side-fixture.txt`, then press `t` again to fold it.
-5. Press Shift+Tab to return to **Label**. Press `t` and verify the field shows `PrivateLabel-963t` while tool calls stay folded. Press Esc and verify focus returns to the composer while the panel stays open.
-6. Press Shift+Tab, Tab, and Enter to submit. Check the main transcript for a native `ask` result with `color: blue`, `shape: PrivateOther-581`, `label: PrivateLabel-963t`, and the Note `PrivateNote-407` on Blue.
-7. In `requests.jsonl`, select the `side` requests with a `<btw>` message. Each has the pending `ask` call and the still-open result with the same call ID, no submitted `answers` or `notes` result, and none of the three private markers. Blue is present in the form's HTML, not as a submitted pick. Check that the main transcript contains neither Side question nor answer.
-8. Start a separate fresh session with the same local provider. Open the form again, press Esc, and send `Continue with the ordinary message`. Check that the native form closes and the main model replies `Local main received the ordinary message.`. Confirm the user message in the main transcript and provider log.
+1. Send `Call the ask tool for Side questions`. Move to Blue with Down and pick it with Space. Press `n`, type `PrivateNote-407`, and press Enter to save. Open **General note** with Alt+U, type `PrivateGeneral-963`, and save with Enter.
+2. Press Alt+/ and type `btw Read the local fixture` (the editor starts with `/`). Press Enter. Wait for `Local Side read answer.` and the folded tool-call row. Capture the Ask card and Side panel together.
+3. Use Alt+/ again and send `btw Check the follow-up`. Wait for `Local Side follow-up answer.`. Both turns remain in the panel. In Tern, use the Fold control and verify it becomes a one-line note; unfold it again.
+4. Tab to Submit and press Enter. Verify `color: blue`, the saved option Note and the General note in the `ask` result. Ask a follow-up from the restored composer and verify that it still sees the same thread.
+5. In `requests.jsonl`, the in-card Side requests have a pending `ask` call and the `PrivateNote-407` and `PrivateGeneral-963` markers in the draft, not in a submitted result. Neither Side question nor answer belongs in the main transcript. A later composer Side question gets no separate Ask draft.
+
+For the native `/tree` form or a `native` baseline, the composer still sits below the form. Esc leaves its focused controls for the composer; Shift+Tab returns to the form. This route cannot read unsent native form state.
 
 ## Gotchas
 
