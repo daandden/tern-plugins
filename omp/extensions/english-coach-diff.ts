@@ -1,4 +1,4 @@
-import type { PreparedCoachPrompt } from "./english-coach-prompt";
+import { coachProtectedText, type PreparedCoachPrompt } from "./english-coach-prompt";
 
 /**
  * One run of a correction line: kept text, removed or added words,
@@ -19,11 +19,17 @@ export interface CoachMistake {
 	pattern: string;
 }
 
+export interface GroundedCoachFix {
+	mistake: number;
+	example?: { before: string; after: string };
+}
+
 export interface CoachCorrection {
 	/** The prompt as the user wrote it, changed words marked in place, split at line breaks. */
 	lines: CoachSegment[][];
 	/** Each reported mistake, in reply order, with placeholders shown as their protected text. */
 	mistakes: CoachMistake[];
+	fixes: GroundedCoachFix[];
 }
 
 /** Product of the two token counts above which the changed middle shows as one removal and one addition. */
@@ -88,77 +94,109 @@ function diff(a: string[], b: string[]): Op[] {
 	return [...head, ...middle, ...tail];
 }
 
-/** Lowercase words only, for matching a changed run against a reported mistake. */
-function words(text: string): string {
-	return ` ${(text.toLowerCase().match(/[\p{L}\p{N}'’]+/gu) ?? []).join(" ")} `;
-}
-
 type Range = { start: number; end: number };
 
-/**
- * Where each mistake's original stands in the prompt, matched case-insensitively
- * with any whitespace between its words. Mistakes come in text order, so each
- * search starts after the previous match's start, then from the top.
- */
-function mistakeRanges(text: string, mistakes: readonly CoachMistake[]): (Range | undefined)[] {
-	let cursor = 0;
-	return mistakes.map(mistake => {
-		const parts = mistake.original.trim().split(/\s+/).filter(Boolean);
-		if (parts.length === 0) return undefined;
-		const pattern = new RegExp(parts.map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"), "giu");
-		pattern.lastIndex = cursor;
-		let match = pattern.exec(text);
-		if (!match) {
-			pattern.lastIndex = 0;
-			match = pattern.exec(text);
-		}
-		if (!match) return undefined;
-		cursor = match.index + 1;
-		return { start: match.index, end: match.index + match[0].length };
-	});
+type Change = { id: number; before: Range; after: Range; mistakes: number[] };
+
+function quotedRanges(text: string, quote: string): Range[] {
+	const parts = quote.trim().split(/\s+/).filter(Boolean);
+	if (parts.length === 0) return [];
+	const literal = parts.map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+");
+	const word = "[\\p{L}\\p{N}_'’]";
+	const start = /^[\p{L}\p{N}_'’]/u.test(parts[0]!) ? `(?<!${word})` : "";
+	const end = /[\p{L}\p{N}_'’]$/u.test(parts.at(-1)!) ? `(?!${word})` : "";
+	// The lookahead also finds overlapping occurrences.
+	return Array.from(text.matchAll(new RegExp(`(?=(${start}${literal}${end}))`, "giu")), match => ({
+		start: match.index!,
+		end: match.index! + match[1]!.length,
+	}));
 }
 
-/**
- * The mistakes a changed run belongs to: every mistake whose original
- * overlaps the run's place in the prompt, as when the model reports
- * overlapping fixes for one diff run. Without one, the best of a mistake only
- * whitespace away, then one whose original and corrected text contain the
- * run's words; ties go to the earlier mistake. Punctuation alone has none.
- */
-function mistakesFor(
-	text: string,
-	run: Range,
-	removed: string,
-	added: string,
+function editRange(offset: number, text: string): Range {
+	const start = offset + text.length - text.trimStart().length;
+	const end = offset + text.trimEnd().length;
+	return end <= start ? { start: offset, end: offset } : { start, end };
+}
+
+function overlaps(a: Range, b: Range): boolean {
+	return a.start < b.end && b.start < a.end;
+}
+
+function quoteAt(ranges: readonly Range[], edit: Range, text: string): Range | false | undefined {
+	let { start, end } = edit;
+	const insertion = start === end;
+	if (insertion) {
+		while (start > 0 && /\s/.test(text[start - 1]!)) start--;
+		while (end < text.length && /\s/.test(text[end]!)) end++;
+	}
+	let found: Range | undefined;
+	for (const range of ranges) {
+		if (range.start > end) break;
+		const touches = insertion ? range.start <= end && start <= range.end : overlaps(range, edit);
+		if (!touches) continue;
+		if (found) return false;
+		found = range;
+	}
+	return found;
+}
+
+function groundFixes(
+	before: string,
+	after: string,
 	mistakes: readonly CoachMistake[],
-	ranges: readonly (Range | undefined)[],
-): number[] {
-	const del = words(removed);
-	const ins = words(added);
-	if (!del.trim() && !ins.trim()) return [];
-	const inside = ranges.flatMap((range, index) =>
-		range !== undefined && (run.start === run.end
-			? range.start <= run.start && run.start <= range.end
-			: range.start < run.end && run.start < range.end)
-			? [index]
-			: []);
-	if (inside.length > 0) return inside;
-	const covers = (whole: string, part: string) => part.trim() !== "" && words(whole).includes(part);
-	const near = (a: number, b: number) => /^\s*$/.test(text.slice(Math.min(a, b), Math.max(a, b)));
-	let best: number | undefined;
-	let bestScore = 0;
-	mistakes.forEach((mistake, index) => {
-		const range = ranges[index];
-		const both = (!del.trim() || covers(mistake.original, del)) && (!ins.trim() || covers(mistake.corrected, ins));
-		const either = covers(mistake.original, del) || covers(mistake.corrected, ins);
-		const beside = range !== undefined && (near(run.end, range.start) || near(range.end, run.start));
-		const score = (beside ? 4 : 0) + (both ? 2 : either ? 1 : 0);
-		if (score > bestScore) {
-			best = index;
-			bestScore = score;
+	changes: readonly Change[],
+): GroundedCoachFix[] {
+	const protectedBefore = [...coachProtectedText(before)];
+	const protectedAfter = [...coachProtectedText(after)];
+	const fullBefore = before.trim();
+	const fullAfter = after.trim();
+	const fixes: GroundedCoachFix[] = [];
+	const seen = new Set<string>();
+	for (const [mistake, { original, corrected }] of mistakes.entries()) {
+		const originals = quotedRanges(before, original);
+		const corrections = quotedRanges(after, corrected);
+		let pair: { before: Range; after: Range } | undefined;
+		const related: Change[] = [];
+		for (const change of changes) {
+			const left = quoteAt(originals, change.before, before);
+			if (left === undefined) continue;
+			const right = quoteAt(corrections, change.after, after);
+			if (right === undefined) continue;
+			if (!left || !right || (pair && (pair.before !== left || pair.after !== right))) {
+				pair = undefined;
+				break;
+			}
+			pair ??= { before: left, after: right };
+			related.push(change);
 		}
-	});
-	return best === undefined ? [] : [best];
+		// A quote must identify one pair of spans, even if it explains more than one change.
+		if (!pair) continue;
+		const { before: a, after: b } = pair;
+		for (const change of related) change.mistakes.push(mistake);
+		const key = `${a.start}:${a.end}:${b.start}:${b.end}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		const exampleBefore = before.slice(a.start, a.end);
+		const exampleAfter = after.slice(b.start, b.end);
+		const canKeep = exampleBefore !== fullBefore && exampleAfter !== fullAfter &&
+			!protectedBefore.some(range => overlaps(a, range)) && !protectedAfter.some(range => overlaps(b, range)) &&
+			shortExample(exampleBefore, exampleAfter);
+		fixes.push({ mistake, example: canKeep ? { before: exampleBefore, after: exampleAfter } : undefined });
+	}
+	return fixes;
+}
+
+function shortExample(before: string, after: string): boolean {
+	const a = before.match(/[\p{L}\p{N}_'’]+/gu) ?? [];
+	const b = after.match(/[\p{L}\p{N}_'’]+/gu) ?? [];
+	let head = 0;
+	while (head < a.length && head < b.length && same(a[head]!, b[head]!)) head++;
+	let tail = 0;
+	while (
+		tail < a.length - head && tail < b.length - head &&
+		same(a[a.length - tail - 1]!, b[b.length - tail - 1]!)
+	) tail++;
+	return head <= 1 && tail <= 1 && before.length <= 160 && after.length <= 160;
 }
 
 /**
@@ -180,22 +218,22 @@ export function coachCorrection(prompt: PreparedCoachPrompt, rewrite: string, mi
 	const ops = before.flatMap((part, index): Op[] =>
 		index % 2 === 1 ? [{ kind: "same", a: part, b: part }] : diff(tokens(part), tokens(after[index]!)));
 	const segments: CoachSegment[] = [];
-	const push = (kind: CoachSegment["kind"], text: string, change?: { id: number; mistakes: number[] }) => {
+	const push = (kind: CoachSegment["kind"], text: string, change?: Change) => {
 		if (!text) return;
 		const last = segments.at(-1);
 		if (last?.kind === kind && last.change === change?.id) last.text += text;
 		else segments.push(change === undefined ? { kind, text } : { kind, text, change: change.id, mistakes: change.mistakes });
 	};
-	let changes = 0;
-	const ranges = mistakeRanges(prompt.text, mistakes);
-	// Offset in the prompt text: kept and removed text advance it; added text does not.
+	const changes: Change[] = [];
 	let at = 0;
+	let rewrittenAt = 0;
 	for (let index = 0; index < ops.length;) {
 		const op = ops[index]!;
 		if (op.kind === "same") {
 			if (PLACEHOLDER.test(op.a)) push("protected", shown.get(op.a) ?? op.a);
 			else push("same", op.a);
 			at += op.a.length;
+			rewrittenAt += op.b.length;
 			index++;
 			continue;
 		}
@@ -213,9 +251,10 @@ export function coachCorrection(prompt: PreparedCoachPrompt, rewrite: string, mi
 			} else break;
 		}
 		index = end;
-		const run = { start: at + removed.match(/^\s*/)![0].length, end: at + removed.trimEnd().length };
-		if (run.end < run.start) run.end = run.start;
+		const originalRange = editRange(at, removed);
+		const correctedRange = editRange(rewrittenAt, added);
 		at += removed.length;
+		rewrittenAt += added.length;
 		const del = removed.trim();
 		const ins = added.trim();
 		if (!del && !ins) {
@@ -224,7 +263,8 @@ export function coachCorrection(prompt: PreparedCoachPrompt, rewrite: string, mi
 		}
 		const outer = del ? removed : added;
 		push("same", outer.match(/^\s*/)![0]);
-		const change = { id: changes++, mistakes: mistakesFor(prompt.text, run, del, ins, mistakes, ranges) };
+		const change: Change = { id: changes.length, before: originalRange, after: correctedRange, mistakes: [] };
+		changes.push(change);
 		if (del && ins && !WORD.test(del + ins)) {
 			// Punctuation swapped for punctuation reads best as the new mark alone.
 			push("punct", ins, change);
@@ -236,6 +276,7 @@ export function coachCorrection(prompt: PreparedCoachPrompt, rewrite: string, mi
 		}
 		push("same", outer.match(/\s*$/)![0]);
 	}
+	const fixes = groundFixes(prompt.text, rewrite, mistakes, changes);
 	const lines: CoachSegment[][] = [[]];
 	for (const segment of segments) {
 		segment.text.split(/\r?\n/).forEach((part, index) => {
@@ -245,6 +286,7 @@ export function coachCorrection(prompt: PreparedCoachPrompt, rewrite: string, mi
 	}
 	return {
 		lines: lines.filter(line => line.some(part => part.text.trim())),
+		fixes,
 		mistakes: mistakes.map(mistake => ({
 			original: display(mistake.original),
 			corrected: display(mistake.corrected),

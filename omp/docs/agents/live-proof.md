@@ -2,6 +2,34 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-26, issue #48 on omp 19.2.1 and Tern 0.9.35. Both renderers
+  opened the Ask card, then saved separate two-line option and General
+  Notes with two WebP image blocks from pasted paths. `/tree` reopened
+  native Ask in both renderers and saved Red beside Blue with the same
+  parent and call IDs. Go to reported `waiting_input` and displayed the
+  waiting mark until the Ask card settled. Tern showed a Side answer and
+  its follow-up above the open Ask card, and a clean English prompt
+  without a coach panel. Classic showed the Articles cue after the third
+  correction, the ranked rule, recorded examples, and practice feedback.
+  An approved real `@tiny` request classified the synthetic correction
+  `add dashboard` to `add the dashboard` as Articles. The probe's narrower
+  span check rejected that reply. The classic fixture replayed the same
+  reply through the plugin and showed the recorded example.
+  The isolated terminal driver could not reproduce the system clipboard
+  event. omp 19.2.1's enhanced image router requires a native paste target,
+  which `ui.custom` does not expose. The clipboard image key has a test
+  with a synthetic clipboard reader; the live Notes used path paste.
+  Evidence is under
+  `/Users/vanguyen/.vstack/tmp/tern-plugins-412bb3/verify/01a215f2-368d-752f-82b4-7b74b407d0b4/`
+  in `omp-tools-ask-tern-XihwQH`, `omp-tools-ask-classic-605n7j`,
+  `omp-tools-waiting-Y2kNlt`, `omp-tools-coach-tern-I1NrSd`, and
+  `omp-tools-coach-classic-WXZdbe`.
+  The first independent verifier found overlap with a long Side question
+  in a 340 by 620 Tern pane. After the repair, both 340 and 320 px widths
+  kept the Side note separate from the Ask card. A five-line General note
+  and the Save and Submit buttons stayed usable at 320 by 620. See
+  `omp-tools-narrow-repair-okVNk1/repaired-{340,320,edit-320,submit-320}.webp`
+  and `narrow-result.jsonl` under the same evidence directory.
 - 2026-11-26, omp-tools on omp 19.2.1 (issue #45) with Tern 0.9.35, local
   fixtures only. An isolated omp home linked to the base checkout logged
   three `Failed to load extension` lines; linked to the branch it loaded

@@ -17,7 +17,7 @@ if (scenario) {
 }
 mkdirSync(`${dir}/data/agent`, { recursive: true });
 mkdirSync(`${dir}/data/project`, { recursive: true });
-const correction = "Better: It doesn't work.\nit not work → It doesn't work (Missing auxiliary verb)";
+const correction = "Better: It doesn't work.\n[verb-form] it not work → It doesn't work (Missing auxiliary verb)";
 const mistakes = [
 	["it not work in login page", "It doesn't work on the login page", "Auxiliary verb, preposition, missing article"],
 	["user input wrong password", "A user enters the wrong password", "Missing article, subject-verb agreement"],
@@ -49,6 +49,9 @@ const server = Bun.serve({
 				reply = `Better: ${mistakes.map(([, corrected]) => corrected).join(". ")}.\n${mistakes.map(([original, corrected, pattern]) => `${original} → ${corrected} (${pattern})`).join("\n")}`;
 			} else if (prompt.includes("[[COACH_")) {
 				reply = `Better: It doesn't work. ${prompt.match(/\[\[COACH_+\d+\]\]/g)?.join(" ") ?? ""}\nit not work → It doesn't work (Missing auxiliary verb)`;
+			} else if (/Please add (?:dashboard|report|button) before Monday\./.test(prompt)) {
+				const noun = prompt.match(/add (\w+) before Monday/)![1];
+				reply = `Better: Please add the ${noun} before Monday.\n[articles] add ${noun} → add the ${noun} (Mạo từ xác định)`;
 			} else reply = prompt.includes("it not work") ? correction : "No mistakes";
 		}
 		const chunk = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
@@ -71,6 +74,9 @@ await seedOmp(dir, config);
 await Bun.write(`${dir}/prompts.json`, JSON.stringify({
 	mistakes: mistakes.map(([original]) => original).join("; "),
 	correct: "This works correctly.",
+	dashboard: "Please add dashboard before Monday.",
+	report: "Please add report before Monday.",
+	button: "Please add button before Monday.",
 	over: "Please check this sentence. ".repeat(400),
 	fence: `it not work\n\`\`\`ts\n${Array.from({ length: 500 }, (_, i) => `const value${i} = ${i};`).join("\n")}\n\`\`\``,
 	btw: "/btw why it not work?",

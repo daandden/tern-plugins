@@ -31,8 +31,10 @@ test("a plain terminal shows a capped body's start, end, or last item, and count
 	expect(painted(() => body("lastItem", 3))).toEqual(["… 4 earlier lines", "b1", "… 3 more lines"]);
 });
 
+const correction = (text: string) => ({ correction: { lines: [[{ kind: "ins" as const, text }]], mistakes: [], fixes: [] } });
+
 test("in a plain terminal the coach's close key ends the last line of its capped body", () => {
-	const rows = painted(() => englishCoachPanel(ui, () => ({ kind: "note", text: "word ".repeat(400).trim() }), () => {}));
+	const rows = painted(() => englishCoachPanel(ui, () => correction("word ".repeat(400).trim()), () => {}));
 	expect(rows).toHaveLength(16);
 	expect(rows.at(-1)).toMatch(new RegExp(`^… \\d+ more lines +${formatKeyHint("escape").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
 });
@@ -45,7 +47,7 @@ beforeAll(async () => {
 const ui: ExtensionUiHost = { requestRender() {}, size: () => ({ rows: 40, columns: 100 }), suspend: run => run() };
 const panels = () => [
 	btwPanel(ui, () => ({ turns: [newTurn("What changed?")], toolsOpen: false, revision: 0 })),
-	englishCoachPanel(ui, () => ({ kind: "checking" }), () => {}),
+	englishCoachPanel(ui, () => correction("works"), () => {}),
 ];
 const sheetsOf = (calls: unknown[][]) => calls.map(([data]) => String(data)).filter(data => data.startsWith("\x1b_tsp;s;"));
 

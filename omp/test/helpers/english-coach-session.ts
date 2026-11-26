@@ -3,13 +3,10 @@ import { resolveModelOverride } from "@oh-my-pi/pi-coding-agent/config/model-res
 import type { ExtensionAPI, ExtensionContext, ExtensionUiFactory, ExtensionUiHost, InputEvent } from "@oh-my-pi/pi-coding-agent";
 import { createRoot, effect, type KeyEvent, setNativeRenderingForTest, signal, type UiNode } from "@oh-my-pi/pi-tui";
 import manifest from "../../package.json";
-import { nodeTree, type PlainNode, plainNodes, writePluginSettings } from "../support";
+import { allNodes, nodeTree, type PlainNode, plainNodes, writePluginSettings } from "../support";
 import { sideQuestionFixture } from "./side-question-session";
 
 type Handler = (event: any, ctx: ExtensionContext) => unknown;
-
-export const CHECKING = "Checking…";
-export const CLEAN = "No mistakes";
 
 /** Each text node's spans (a plain text as one unstyled span), in tree order; a wrapping row is one line, like spans are. */
 function nodeSpans(node: PlainNode): { t: string; s?: string }[][] {
@@ -79,6 +76,7 @@ export async function englishCoachFixture(options: {
 	const watchers = new Map<string, () => void>();
 	const placements = new Map<string, unknown>();
 	const sheets: string[] = [];
+	const notices: { message: string; level?: string }[] = [];
 	let editorText = "";
 	let renders = 0;
 	const rows = signal(40);
@@ -104,6 +102,7 @@ export async function englishCoachFixture(options: {
 		},
 		ui: {
 			...base.ctx.ui,
+			notify(message: string, level?: string) { notices.push({ message, level }); },
 			onTerminalInput(handler: (data: string) => { consume?: boolean } | undefined) {
 				terminalInput.push(handler);
 				return () => {
@@ -158,6 +157,7 @@ export async function englishCoachFixture(options: {
 			if (!entry) throw new Error(`${name} entry point is not registered in omp.extensions`);
 			const initialize = (await import(new URL(`../../${entry}`, import.meta.url).href)).default;
 			await initialize({
+				registerCommand() {},
 				on(name: string, handler: Handler) {
 					handlers.set(name, [...(handlers.get(name) ?? []), handler]);
 				},
@@ -169,9 +169,16 @@ export async function englishCoachFixture(options: {
 		throw error;
 	}
 	const trees = (native: boolean) => [...widgets.values()].flatMap(panel => panelTree(panel, native, sheets));
+	const nativeCoachBody = () => allNodes(trees(true)).filter(node => node.p.role === "omp-tools.english-coach.body");
 	return {
 		...base,
 		ctx, emit, widgets, placements, sheets,
+		notices,
+		checked: async (count = 1) => {
+			await until(() => base.main.sessionManager.getEntries().filter(entry =>
+				entry.type === "model_usage" && entry.purpose === "english-coach" && entry.stopReason === "stop"
+			).length >= count);
+		},
 		input: (text: string, event: Partial<InputEvent> = {}, context = ctx) => emit("input", { source: "interactive", text, ...event }, context),
 		/** Drops every terminal input listener, as omp 19.2.1 does before a new session, branch, or fork. */
 		dropTerminalInput: () => terminalInput.splice(0),
@@ -184,9 +191,9 @@ export async function englishCoachFixture(options: {
 			const panel = widgets.get(key);
 			return panel ? panelLines(panel) : [];
 		},
-		nativeSpans: () => trees(true).flatMap(nodeSpans),
-		nativeText: () => trees(true).flatMap(nodeTexts),
-		nativeHovers: () => trees(true).flatMap(nodeHovers),
+		nativeSpans: () => nativeCoachBody().flatMap(nodeSpans),
+		nativeText: () => nativeCoachBody().flatMap(nodeTexts),
+		nativeHovers: () => nativeCoachBody().flatMap(nodeHovers),
 		key: (data: string) => terminalInput.toReversed().some(handler => handler(data)?.consume === true),
 		composerKey: (id: string) => composerKeys.some(handler => handler({ id, kind: "press", raw: id, text: id })),
 		/** Puts text in the main editor, as typing would. */

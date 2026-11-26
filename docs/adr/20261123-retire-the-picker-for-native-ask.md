@@ -12,3 +12,5 @@ ADR 0004 kept the Picker because native `ask` lacked Notes, Other answers, pictu
 ## Considered options
 
 - Keep the Picker. Rejected: its remaining answer channels did not justify its upkeep or the blocked composer.
+
+ADR 20261126-omp-tools-owns-ask-again supersedes this decision for the `ask` tool: omp-tools answers `ask` with its own card again. Other host dialogs stay native.

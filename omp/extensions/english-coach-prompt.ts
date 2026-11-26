@@ -4,6 +4,24 @@ export interface PreparedCoachPrompt {
 	placeholders: { token: string; display: string }[];
 }
 
+export function* coachProtectedText(input: string) {
+	const pattern = /^ {0,3}(`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)|(`+)(?!`)[\s\S]*?(?<!`)\2(?!`)|\b[a-z][a-z\d+.-]*:\/\/[^\s<>`]+|(?:\b[A-Za-z]:[\\/]|\\\\|~?\/|\.{1,2}[\\/]|\b[\w.-]+[\\/])[^\s<>`]+|\b[\w-]+\.[a-zA-Z\d]{1,12}\b|\[\[COACH_+\d+\]\]/gim;
+	for (let match = pattern.exec(input); match; match = pattern.exec(input)) {
+		let display = match[0];
+		if (match[1]) {
+			const fence = match[1];
+			const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[\\t ]*(?=\\r?$)`, "gm");
+			closing.lastIndex = pattern.lastIndex;
+			const close = closing.exec(input);
+			const body = input.slice(pattern.lastIndex, close?.index ?? input.length);
+			const count = body ? body.replace(/\r?\n$/, "").split(/\r?\n/).length : 0;
+			display = `\n[code block, ${count} lines]\n`;
+			pattern.lastIndex = close ? closing.lastIndex : input.length;
+		}
+		yield { start: match.index, end: pattern.lastIndex, display };
+	}
+}
+
 export function prepareCoachPrompt(input: string, promptCommandNames: ReadonlySet<string>): PreparedCoachPrompt | undefined {
 	const command = /^\/(\S*)(?:\s+([\s\S]*))?$/.exec(input.trimStart());
 	if (command) {
@@ -15,27 +33,14 @@ export function prepareCoachPrompt(input: string, promptCommandNames: ReadonlySe
 	const placeholders: PreparedCoachPrompt["placeholders"] = [];
 	let prefix = "[[COACH_";
 	while (input.includes(prefix)) prefix = prefix.replace("COACH", "COACH_");
-	const protectedText = /^ {0,3}(`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)|(`+)(?!`)[\s\S]*?(?<!`)\2(?!`)|\b[a-z][a-z\d+.-]*:\/\/[^\s<>`]+|(?:\b[A-Za-z]:[\\/]|\\\\|~?\/|\.{1,2}[\\/]|\b[\w.-]+[\\/])[^\s<>`]+|\b[\w-]+\.[a-zA-Z\d]{1,12}\b|\[\[COACH_+\d+\]\]/gim;
 	let englishText = "";
 	let text = "";
 	let end = 0;
-	for (let match = protectedText.exec(input); match; match = protectedText.exec(input)) {
-		const start = match.index;
-		let display = match[0];
-		if (match[1]) {
-			const fence = match[1];
-			const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[\\t ]*(?=\\r?$)`, "gm");
-			closing.lastIndex = protectedText.lastIndex;
-			const close = closing.exec(input);
-			const body = input.slice(protectedText.lastIndex, close?.index ?? input.length);
-			const count = body ? body.replace(/\r?\n$/, "").split(/\r?\n/).length : 0;
-			display = `\n[code block, ${count} lines]\n`;
-			protectedText.lastIndex = close ? closing.lastIndex : input.length;
-		}
+	for (const { start, end: protectedEnd, display } of coachProtectedText(input)) {
 		const token = `${prefix}${placeholders.length + 1}]]`;
 		text += input.slice(end, start) + token;
 		englishText += `${input.slice(end, start)} `;
-		end = protectedText.lastIndex;
+		end = protectedEnd;
 		placeholders.push({ token, display });
 	}
 	text += input.slice(end);

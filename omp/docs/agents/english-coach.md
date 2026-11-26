@@ -32,38 +32,16 @@
   the prompt's casing stays, and `replyView` drops case-only mistakes (none
   left is `no mistakes`): the coach never corrects capitalization, and
   `english-coach.md` also tells it to leave technical terms as written.
-  Each change's parts share a `change` id
-  and carry `mistakes`: every reported mistake whose original, found in the
-  prompt in reply order, overlaps the change's place; else the best one only
-  whitespace away or with matching words. Punctuation alone has none.
-  `english-coach.md` asks for one fix per mistake line (the changed words plus
-  at most one neighbour), so each change gets its own reason.
-- The panel takes a `CoachView` (`checking`, `clean`, `note`, `correction`).
-  It has no title line: `checking` and `clean` show one muted line
-  (`Checking…` after a spinner in Tern, `No mistakes`). The close key is an
-  overlay that takes no space: in Tern the sheet positions the `kbd` keycap
-  absolutely at the bottom right of the frame on the panel's `--raise`
-  colour, over any text there, centred on the last line. A plain last line
-  is about as tall as the key (`omp-tools.english-coach.close`, `bottom: 0`);
-  when the correction ends in a diff line (no unplaced mistakes), the key is
-  `omp-tools.english-coach.close.diff`, raised to `bottom: 0.875em` (half of
-  the 1.75 line height) and moved down by half its height. Classic writes
-  `esc` over the right end of the last line, cutting the text it covers.
-  Without the styles feature, the keycap follows the body. The overlay role
-  pads 16px above and 18px below, and the last line's descent adds about 3px
-  under the glyphs, so the sheet sets the panel's `padding-bottom` to 13px
-  to show equal space above and below the text. Classic draws `del` struck
-  through in `toolDiffRemoved`, `ins` and `punct` (punctuation that replaced
-  punctuation, shown alone) in `toolDiffAdded`, protected text `dim`. Tern
-  gets `del`, `ins`, `success`, and `dim` spans; its sheet puts `del`/`ins`
-  on tinted chips. Each line is a wrapping `row` of pieces (a kept word, or
-  one explained change) because only a node, not a span, takes a
-  `hovercard`; edge spaces are no-break so a piece's trailing space does not
-  hang. A change's piece has role `omp-tools.english-coach.change`, a `title`,
-  and a `hovercard`: that change alone (`removed → added`, `+ added`, or the
-  struck removal), then one pattern line per mistake it carries. Mistakes no
-  change carries list under the prompt. Classic has no pointer and lists
-  every mistake, one per line.
+  Each change's parts share a `change` id. The panel associates the reported
+  mistakes with edits by their positions in the original prompt. Coach memory
+  uses a stricter match: the reported original and corrected spans must both
+  touch the same diff run.
+- The widget opens above the editor only when there's a correction. Tern
+  uses the shared note frame with the `coach` tag, a diff, and an optional
+  recurring-rule cue. Explanations appear only on the changed text's hover
+  card. A plain terminal strikes deletions, colors insertions, and lists
+  every reported mistake on a separate line below the diff. Both renderers
+  use the `omp-tools.panel-body` scroll box, capped at 40% of terminal rows.
 - Resolve `@tiny` through `ctx.models.resolve`, refresh its named providers
   once if unresolved, and obtain the credential from the model registry.
   Missing model or credential warns once and disables coaching. There is
@@ -73,20 +51,20 @@
   The helper can retry stalled attempts. Each attempt records `model_usage`
   with purpose `english-coach` on the initiating live session, guarded
   against a changed session. No correction becomes a conversation message.
-- The widget has its own key above the editor, and its factory returns
-  `englishCoachPanel`'s nodes. Its wrapped body is an
-  `omp-tools.panel-body` scroll box with a 40% terminal-row cap. In a plain
-  terminal, omp's list painter would bullet the body and cap it by items, so
-  `panel-layout.ts` registers a terminal painter for that role: it shows the
-  lines that fit and a final `… N more lines` (the `/btw` thread keeps its
-  end, or its last turn from the question while tool calls are open). A
-  terminal painter for the coach's frame puts the close key at the end of
-  the body's last line, as Tern's keycap sits. In Tern the panel uses the native
-  overlay role, without a width of its own, so it spans the composer like
-  `/btw`. In a plain terminal that role would draw a titled `/btw` box from
-  the panel's children, so the coach drops it there. The body column has the
-  role `omp-tools.english-coach.body` in every state, so the theme sheet
-  finds the panel.
+- The model returns a stable rule ID per reported fix. Localized explanations
+  are display text only. Missing or unknown IDs count as unclassified.
+- `coach-memory.ts` owns the SQLite store at `coach/memory.sqlite` in the
+  global omp configuration root. Checked English prompts, including clean
+  prompts, form the denominator. Rewrites, full prompts, and session or
+  project identities are not stored. An example, when safe to keep, contains
+  only the words near a validated edit. When storage fails, corrections
+  still show and the dashboard reports memory as unavailable.
+- A recurring-rule cue appears once per local day per rule, when the rule
+  occurred in at least three distinct checked prompts over seven days.
+  `/english-coach` shows the observed frequency, weekly comparisons,
+  recommended or pinned focus, rule examples, and local practice. It makes no
+  model calls. Confirming reset clears all panes' memory; generation checking
+  stops in-flight pre-reset checks from refilling it.
 - `app.interrupt` (Esc) closes the panel only while the main editor is
   empty and no omp `ask` form or tool approval prompt waits. omp 19.2 tells
   extensions nothing about focus, and its composer takes `app.interrupt`
@@ -97,9 +75,9 @@
   branch, or fork, so the coach listens again on `session_branch` as well as
   on start and switch. An `ask` that `/tree` re-opens runs without tool
   events, so there the first Esc can close the panel instead of reaching the
-  form. In Tern the bottom-right keycap, which shows the user's
-  `app.interrupt` key, also closes the panel. Closing aborts an unfinished
-  check.
-- Every interactive submission clears the previous outcome and aborts an
+  form. Clicking Close in Tern or dismissing the panel with the interrupt key
+  doesn't reject a stored fix. Mark false positives from the dashboard.
+- Every interactive submission clears the previous correction and aborts an
   unfinished check. Session switch, branch, tree, and shutdown do the same.
-  Failures stay in the panel and never reject input dispatch.
+  Failure notices are separate from the correction panel and never reject
+  input dispatch.

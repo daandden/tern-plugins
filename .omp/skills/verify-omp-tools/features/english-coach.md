@@ -1,17 +1,18 @@
 # English coach
 
-The English coach checks submitted English in the background with `@tiny`, without changing the main prompt. A private panel above the editor shows corrections, a successful check, or a reason for skipping. Long corrections scroll in Tern and end with a remaining-line count in classic.
+The English coach checks submitted English in the background with `@tiny`, without changing the main prompt. It shows a private panel only for corrections. `/english-coach` opens the dashboard for local Coach memory.
 
 ## Sub-features
 
-- `coach-correction`: `Checking…`, then the prompt with removed words struck through and replacements after them, and no title line. In Tern, `$C dump "[data-role='omp-tools.english-coach.change']"` gives each change's `rect` (`[x, y, w, h]`); `$C move` to its center shows a card with only that change (`removed → added`) and its reason. Classic lists `- original → corrected (pattern)` under the prompt. A long correction keeps the composer visible.
-- `coach-correct`: `No mistakes`.
-- `coach-theme`: in Tern, the panel's background, accent, muted text, and `del`/`ins` colors are the active omp theme's `selectedBg`, `accent`, `muted`, `toolDiffRemoved`, and `toolDiffAdded` (sample shot pixels; with `dark-catppuccin` they are `#313244`, `#fab387`, `#7f849c`, `#f38ba8`, `#a6e3a1`). The `/btw` panel shares the background; the composer keeps Tern's.
-- `coach-limit`: prose over 300 tokens shows `Not checked: over 300 tokens`, with no tiny request.
+- `coach-correction`: the coach note shows the prompt with marked changes. In Tern, use `$C dump "[data-role='omp-tools.english-coach.change']"` to locate a change and move the pointer over it. Its hover card shows the changed words and explanation. Classic lists each explanation below the prompt.
+- `coach-correct`: the editor has no coach panel while the check runs or after `No mistakes`.
+- `coach-theme`: in Tern, the correction shares the native note frame with `/btw`, including border and surface. Its tag is `coach`, and its changed words use the theme's deletion and insertion styles.
+- `coach-limit`: prose over 300 tokens stays quiet, with no tiny request.
 - `coach-fence`: a short sentence above 500 fenced code lines is checked. The coach request contains a placeholder, not the code, and the panel shows one `[code block, 500 lines]` marker.
 - `coach-btw`: one coach request for the question text, with both the correction and the Side question answer visible.
 - `coach-command`: `/model coach-smoke/main` removes the coach panel and makes no tiny request. The host's handling of the command is not the coach's contract.
-- `coach-close`: the `esc` keycap floats over the panel's bottom-right corner, with no line or column of its own; the body text spans the full width under it. With the editor empty, `$C key Escape` removes the panel. In Tern, `$C click '.sf-act[title="Close"]'` on that keycap also removes it. The panel spans the composer's width, as `/btw` does.
+- `coach-close`: with the editor empty, Escape removes the panel without altering Coach memory. Tern also has a Close control.
+- `coach-memory`: the third prompt with an article fix shows one cue; the dashboard shows Articles with three prompts and opens its examples and practice.
 
 ## How to get to it (user POV)
 
@@ -51,17 +52,19 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
 
    | Scenario | Expected panel and request evidence |
    |---|---|
-   | `mistakes` | `Checking…`, then the prompt with marked changes across the full width and `esc` over the bottom-right corner; hovering the last change shows `hear → hearing.` and its reason. One tiny request. The 1.2-second provider delay permits a checking screenshot. |
-   | `correct` | `No mistakes`; one tiny request. This also creates a saved main session before `/btw`. |
-   | `over` | `Not checked: over 300 tokens`; no tiny request. |
-   | `fence` | `it not` struck through before `It doesn't work.`, one `[code block, 500 lines]` line, and the pattern line; one tiny request with `[[COACH_1]]` and no `const value` code. |
+   | `mistakes` | No panel during the provider delay. Then the correction leaves the composer visible. Tern puts explanations on the changed words; classic lists them below. One tiny request. |
+   | `correct` | No coach panel. One tiny request and one more checked English prompt in memory. |
+   | `over` | No coach panel and no tiny request. |
+   | `fence` | The correction shows one `[code block, 500 lines]` marker. The tiny request contains `[[COACH_1]]` and no `const value` code. |
    | `btw` | The coach correction and `Local Side question answer.` coexist; exactly one tiny request for `why it not work?`. |
    | `model` | No English coach panel and no tiny request. |
+   | `dashboard`, `report`, `button` | Three corrections of the same rule. The first two have no cue. The third says how often Articles occurred, and points to `/english-coach`. |
 
    Wait for each completed outcome before sending the next scenario. Capture a shot and tree for every scenario. In classic, `$C expect '"<expected text>"'` checks grid text when the tree has no terminal contents. Pair screenshots with `requests.jsonl` and the saved session JSONL. Record request indices before and after each submission, rather than counting the entire file.
 
-7. On the long correction, check that the panel stays above the composer and within the pane width. In Tern, inspect the geometry with `$C dump '[data-role="omp-tools.panel-body"] > .sf-list-scroll'`. Hover `[data-role="omp-tools.english-coach.body"]` and run `$C wheel 0 600`. Capture the last mistake, `I look forward to hearing`, after scrolling. The capped body must not grow. In classic, the panel must end with `… N more lines` and leave the editor visible.
-8. Keep the shots, trees, requests, and session transcript. Record the feature IDs, renderer, and evidence in `notes.md`. Run `"$V" stop "$VERIFY_RUN_DIR"`, then stop the provider PID this run started.
+7. On the long correction, check that the panel stays above the composer and within the pane width. In Tern, inspect `$C dump '[data-role="omp-tools.panel-body"] > .sf-list-scroll'`. Hover the body and run `$C wheel 0 600`. The capped body must not grow. Classic ends a clipped correction with `… N more lines` and leaves the editor visible.
+8. After the three article corrections, send `/english-coach`. Capture the full-screen dashboard, select Articles and press Enter. Check the observed frequency and the before-and-after examples; run one practice exercise. Closing a correction must not change the counts. To check reset, do it only in this disposable home; confirm both the empty dashboard and absence of request traffic.
+9. Keep the shots, trees, requests, and session transcript. Record the feature IDs, renderer, and evidence in `notes.md`. Run `"$V" stop "$VERIFY_RUN_DIR"`, then stop the provider PID this run started.
 
 ## Gotchas
 

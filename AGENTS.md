@@ -171,11 +171,12 @@ goto times: rows show working time and waiting time (GLOSSARY.md) in the picker'
 
 ### Architecture and subsystem notes
 
-`omp/package.json` registers four default-exported initializers through `omp.extensions`. Each registers tools, flags, or event handlers on `ExtensionAPI` and keeps its registration state local. Before changing a part, read its notes:
+`omp/package.json` registers five default-exported initializers through `omp.extensions`. Each registers tools, flags, commands, or event handlers on `ExtensionAPI`. Before changing a part, read its notes:
 
+- [Ask card](omp/docs/agents/ask.md). Read before changing form compatibility, Note editing, images, waiting status, or the vstack dialog hook.
 - [Side questions](omp/docs/agents/side-questions.md). `/btw` uses a `LazySideQuestionThread` backed by a read-only mirror session. Read the notes before changing dispatch, streaming, or thread ownership.
 - [`generate_image`](omp/docs/agents/generate-image.md). One tool dispatches to OpenAI mode or Codex mode per call, using `defaultImageGenerationMode` when the call omits `mode`. Read the notes before changing mode selection, results, clients, or the prompting skill.
-- [English coach](omp/docs/agents/english-coach.md). The coach checks interactive prompts with `@tiny` and shows private corrections above the editor without changing the prompt. Read the notes for settings, protected text, the diff, or the widget.
+- [English coach](omp/docs/agents/english-coach.md). Read before changing prompt preparation, corrections, Coach memory, or the `/english-coach` dashboard.
 - [Worktree exit](omp/docs/agents/own-worktree.md). `--own-worktree <commit>` makes omp apply `worktree.onExit` to the worktree it starts in, through omp's own exit planning and removal. Read the notes before changing the flag, the prompt timing, or the removal.
 - [Tern views](omp/docs/agents/tern-views.md). Read before changing an omp-tools view in Tern. Covers scroll boxes, stylesheets, and theme colors.
 

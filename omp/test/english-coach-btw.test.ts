@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, expect, test } from "bun:test";
 import { initTheme, Settings } from "@oh-my-pi/pi-coding-agent";
-import { CLEAN, englishCoachFixture, until } from "./helpers/english-coach-session";
+import { englishCoachFixture, until } from "./helpers/english-coach-session";
 
 const cleanups: (() => Promise<void>)[] = [];
 beforeAll(async () => {
@@ -23,7 +23,7 @@ test.each(orders)("/btw is coached once and answered with %j loaded first", asyn
 	cleanups.push(coach.dispose);
 	const result = await coach.input("/btw why this not work");
 	expect(result.at(-1)).toEqual({ handled: true });
-	await until(() => coach.lines()[0] === "why doesn't this not work?");
+	await until(() => coach.widgetLines("omp-tools.english-coach")[0] === "why doesn't this not work?");
 	await until(() => coach.widgetText("omp-tools.btw").includes("The login handler needs a null check."));
 	expect(coach.requests.filter(body => body.model === "small")).toHaveLength(1);
 	expect(coach.requests.filter(body => body.model === "main")).toHaveLength(1);
@@ -31,7 +31,8 @@ test.each(orders)("/btw is coached once and answered with %j loaded first", asyn
 		{ role: "user", content: "why this not work" },
 	]);
 	expect(coach.widgetLines("omp-tools.english-coach")).toEqual(["why doesn't this not work?", "why this not work → Why doesn't this work (Missing auxiliary verb)"]);
-	expect([...coach.placements.values()]).toEqual([{ placement: "aboveEditor" }, { placement: "aboveEditor" }]);
+	expect(coach.placements.get("omp-tools.btw")).toEqual({ placement: "aboveEditor" });
+	expect(coach.placements.get("omp-tools.english-coach")).toEqual({ placement: "aboveEditor" });
 	expect(coach.main.messages).toEqual([]);
 	expect(coach.main.sessionManager.getEntries().filter(entry => entry.type === "model_usage").map(entry => entry.purpose).sort()).toEqual([
 		"english-coach", "side-question",
@@ -52,7 +53,7 @@ test.each(orders)("identical /btw submissions each get a check with %j loaded fi
 		await until(() => coach.main.sessionManager.getEntries().filter(entry => entry.type === "model_usage" && entry.purpose === "english-coach").length === count);
 		expect(coach.requests.filter(body => body.model === "small")).toHaveLength(count);
 		expect(coach.requests.filter(body => body.model === "main")).toHaveLength(count);
-		expect(coach.widgetLines("omp-tools.english-coach")).toEqual([CLEAN]);
+		expect(coach.widgetLines("omp-tools.english-coach")).toEqual([]);
 	}
 });
 
@@ -68,7 +69,7 @@ test.each(orders)("unavailable Side questions fall through and are coached once 
 		sessionManager: { getSessionFile: () => undefined } as unknown as typeof coach.ctx.sessionManager,
 	};
 	expect(await coach.input("/btw Why does this fail?", {}, unavailable)).toEqual([undefined, undefined]);
-	await until(() => coach.lines().includes(CLEAN));
+	await coach.checked();
 	expect(coach.requests.map(body => body.model)).toEqual(["small"]);
 	expect(coach.requests[0]!.messages.filter((message: any) => message.role === "user")).toEqual([
 		{ role: "user", content: "Why does this fail?" },
@@ -79,7 +80,7 @@ test.each(orders)("unavailable Side questions fall through and are coached once 
 	expect(coach.requests).toHaveLength(1);
 	expect((await coach.input("/btw Why does this fail?")).at(-1)).toEqual({ handled: true });
 	await until(() => coach.widgetText("omp-tools.btw").includes("The Side question is available again."));
-	await until(() => coach.lines().includes(CLEAN));
+	await coach.checked(2);
 	expect(coach.requests.filter(body => body.model === "small")).toHaveLength(2);
 	expect(coach.requests.filter(body => body.model === "main")).toHaveLength(1);
 });

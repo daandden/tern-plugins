@@ -8,11 +8,15 @@
   does to a `/wt` worktree. With `ask`, quitting that omp shows omp's "Remove worktree?"
   prompt. omp-tools adds the `--own-worktree <commit>` flag that the tab's omp gets, so
   the tab needs omp-tools linked.
+- Added the Ask card with multiline Notes, pasted pictures, and a General note.
+  Use `/btw` from the card to continue the same Side question thread. Tern's
+  enhanced image paste does not reach the Ask card on omp 19.2.1; use the
+  clipboard image key or paste an image path instead.
+- Added Coach memory and the `/english-coach` dashboard for recurring mistakes,
+  progress, and practice. The correction panel stays hidden when there is no correction.
 
 ### Removed
 
-- Removed the omp-tools Picker and its `ask` override. omp now answers all `ask`
-  calls, `/tree` re-answers, and host dialogs. Saved results are unchanged.
 - Removed the `toast-above-browser` Tern plugin. Since Tern 0.9.33, browser pages no
   longer cover toasts, so toasts stay at the bottom. Run `tern plugin unlink toast-above-browser`.
 
@@ -26,13 +30,14 @@
 
 ### Changed
 
+- `/btw` matches native `/btw` in a plain terminal. In Tern, the Side question and
+  English coach panels use the native note look.
+
 - Checked the plugins against Tern 0.9.34 and omp 19.1.1. In Reader, the composer bar's
   branch, changes, and pull request now use the terminal's text size and row height.
 - Native `ask` follows the terminal's text settings in Reader and aligns open
   and folded question labels. The card has shorter choice rows and less
   vertical padding. The native colors and button sizes stay the same.
-- Ask `/btw` from the composer while a native `ask` waits. Return to the form with Shift+Tab.
-  Panel shortcuts leave form keys alone, even if you return before the panel opens.
 - `/btw` uses the main session's Keenable MCP search and fetch tools instead
   of `web_search`. If either Keenable tool is missing when the thread starts,
   `/btw` offers only the enabled file tools.

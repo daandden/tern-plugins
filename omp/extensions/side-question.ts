@@ -501,6 +501,7 @@ export class SideQuestionThread {
 		callbacks: SideQuestionCallbacks,
 		signal: AbortSignal,
 		images?: ImageContent[],
+		draftContext?: string,
 	): Promise<string> {
 		if (this.#disposed) throw new Error("This side question thread is closed.");
 		if (signal.aborted) throw new DOMException("Side question cancelled", "AbortError");
@@ -555,6 +556,8 @@ export class SideQuestionThread {
 		});
 		const abort = () => void this.#session.abort();
 		signal.addEventListener("abort", abort, { once: true });
+		const agent = this.#session.agent;
+		const stream = agent.streamFn;
 		try {
 			const tools = this.toolNames;
 			const roster = tools.length ? `Read-only tools: ${tools.join(", ")}.` : "No tools are available.";
@@ -563,6 +566,27 @@ export class SideQuestionThread {
 				: `${roster}\nWeb search and page fetch are unavailable.`;
 			const promptText = prompt.render(btwPrompt, { question, toolInstructions });
 			const message = this.#lastCancelled ? `${CANCELLED_NOTE}\n${promptText}` : promptText;
+			const submittedAt = Date.now();
+			const draft = draftContext === undefined ? undefined : {
+				type: "text" as const,
+				text: `\n\nUnsaved Ask card answers for this Side question:\n${draftContext}`,
+			};
+			if (draft) {
+				agent.streamFn = (model, context, options) => {
+					const index = context.messages.findLastIndex(item => item.role === "user" && item.timestamp === submittedAt);
+					const user = context.messages[index];
+					if (user?.role !== "user") return stream(model, context, options);
+					const messages = context.messages.slice();
+					const content = typeof user.content === "string"
+						? [{ type: "text" as const, text: user.content }]
+						: user.content;
+					messages[index] = {
+						...user,
+						content: [...content, draft, ...(model.input.includes("image") ? images ?? [] : [])],
+					};
+					return stream(model, { ...context, messages }, options);
+				};
+			}
 			const fallback = this.#contextFallback;
 			const window = this.#session.model?.contextWindow;
 			if (fallback && window != null && window > 0) {
@@ -573,8 +597,8 @@ export class SideQuestionThread {
 					: tokenizer.countTokens(this.#session.systemPrompt);
 				const pending = tokenizer.countMessages([{
 					role: "user",
-					content: [{ type: "text", text: message }, ...(images ?? [])],
-					timestamp: Date.now(),
+					content: [{ type: "text", text: message }, ...(draft ? [draft] : []), ...(images ?? [])],
+					timestamp: submittedAt,
 				}]);
 				const tokens = overhead + tokenizer.countMessages(this.#session.agent.state.messages) + pending;
 				if (tokens >= window) {
@@ -584,7 +608,7 @@ export class SideQuestionThread {
 			}
 			this.#contextFallback = undefined;
 			if (signal.aborted) throw new DOMException("Side question cancelled", "AbortError");
-			await this.#session.prompt(message, { attribution: "user", images });
+			await this.#session.prompt(message, { attribution: "user", images: draft ? undefined : images, submittedAt });
 			await this.#session.waitForIdle();
 			const last = this.#session.getLastAssistantMessage();
 			if (signal.aborted) throw new DOMException("Side question cancelled", "AbortError");
@@ -592,6 +616,7 @@ export class SideQuestionThread {
 			if (last?.stopReason === "error") throw new Error(last.errorMessage || "The side question failed.");
 			return assistantText(last);
 		} finally {
+			agent.streamFn = stream;
 			signal.removeEventListener("abort", abort);
 			unsubscribe();
 			this.#running = false;

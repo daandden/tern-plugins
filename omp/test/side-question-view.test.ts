@@ -1,7 +1,39 @@
-import { expect, spyOn, test } from "bun:test";
+import { beforeAll, expect, spyOn, test } from "bun:test";
+import { initTheme, Settings, type ExtensionUiHost } from "@oh-my-pi/pi-coding-agent";
+import { setNativeRenderingForTest } from "@oh-my-pi/pi-tui";
+import { btwPanel } from "../extensions/btw-panel";
 import type { SideQuestionCallbacks } from "../extensions/side-question";
 import { answerInto, newTurn, turnNode } from "../extensions/side-question-view";
-import { nodeTree } from "./support";
+import { allNodes, nodeTree } from "./support";
+
+beforeAll(async () => {
+	await Settings.init({ inMemory: true });
+	initTheme();
+});
+
+test("Tern renders the first question in the native note heading with a fold control", () => {
+	setNativeRenderingForTest(true);
+	try {
+		const ui: ExtensionUiHost = { requestRender() {}, size: () => ({ rows: 100, columns: 160 }), suspend: run => run() };
+		const turns = [newTurn("What changed?\nDoes it affect my draft?")];
+		const nodes = nodeTree(btwPanel(ui, () => ({ turns, toolsOpen: false, revision: 0 })));
+		expect(nodes[0]?.p.role).toBe("omp.btw.note");
+		const heading = nodes[0]?.c.find(node => node.p.role === "omp.btw.note.head");
+		expect(heading?.c.find(node => node.p.role === "omp.btw.note.tag")?.p.spans).toEqual([{ s: "accent", t: "btw" }]);
+		expect(heading?.c.find(node => node.p.role === "omp.btw.note.question")?.p).toMatchObject({
+			lines: 1,
+			spans: [{ t: "What changed? Does it affect my draft?" }],
+		});
+		expect(allNodes(heading?.c ?? []).find(node => node.p.title === "Fold to one line")?.p.actions).toEqual({
+			click: "btw-fold",
+		});
+		expect(nodes[0]?.c.find(node => node.p.role === "omp.btw.note.status")?.p.spans).toContainEqual({
+			s: "accent", t: " Answering",
+		});
+	} finally {
+		setNativeRenderingForTest(false);
+	}
+});
 
 function pendingAnswer() {
 	const turn = newTurn("Why is this request waiting?");
@@ -17,7 +49,7 @@ function pendingAnswer() {
 const shown = (turn: ReturnType<typeof newTurn>) => JSON.stringify(nodeTree(turnNode(turn, 0, false)));
 
 test("the turn view labels an answer that is still running", () => {
-	expect(shown(newTurn("What changed?"))).toContain("Answering…");
+	expect(shown(newTurn("What changed?"))).toContain("Waiting for response…");
 });
 
 test("a retry countdown is visible and ends when the next request starts", async () => {
@@ -28,6 +60,7 @@ test("a retry countdown is visible and ends when the next request starts", async
 			type: "auto_retry_start", attempt: 2, maxAttempts: 10, delayMs: 8_000, errorMessage: "overloaded",
 		});
 		expect(shown(pending.turn)).toMatch(/2\/10.*8(?:\.0)?s/);
+		expect(allNodes(nodeTree(turnNode(pending.turn, 0, false))).find(node => node.k === "section")?.p.collapsed).toBe(true);
 		clock.mockReturnValue(15_000);
 		expect(shown(pending.turn)).toMatch(/2\/10.*3(?:\.0)?s/);
 		pending.callbacks.onMessageStart();
@@ -68,6 +101,20 @@ test("exhausted recovery reports the attempt count and final failure", async () 
 	expect(shown(turn)).toMatch(/3 attempts.*quota exhausted/);
 });
 
+test("a cache miss keeps its token label in the turn and folds its details", async () => {
+	const turn = newTurn("q");
+	await answerInto(turn, async on => {
+		on.onCacheMiss(4_096);
+		return "The answer.";
+	}, () => {});
+	const collapsed = allNodes(nodeTree(turnNode(turn, 0, false))).find(node => node.k === "section");
+	expect(collapsed?.p.collapsed).toBe(true);
+	expect(collapsed?.p.head[0].t).toContain("cache miss · 4.1K tokens");
+	const expanded = allNodes(nodeTree(turnNode(turn, 0, true))).find(node => node.k === "section");
+	expect(expanded?.p.collapsed).toBe(false);
+	expect(expanded?.c[0]?.p.spans[0].t).toContain("wrote these prompt tokens to the cache again");
+});
+
 test("late recovery events cannot add notices to a cancelled turn", async () => {
 	const pending = pendingAnswer();
 	pending.turn.status = "cancelled";
@@ -77,5 +124,5 @@ test("late recovery events cannot add notices to a cancelled turn", async () => 
 	pending.resolve("Too late.");
 	await pending.done;
 	expect(pending.turn.parts).toEqual([]);
-	expect(shown(pending.turn)).toContain("Cancelled");
+	expect(shown(pending.turn)).not.toContain("Too late.");
 });
