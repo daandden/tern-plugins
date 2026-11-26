@@ -122,13 +122,17 @@ function overlaps(a: Range, b: Range): boolean {
 	return a.start < b.end && b.start < a.end;
 }
 
-function quoteAt(ranges: readonly Range[], edit: Range): Range | false | undefined {
+function quoteAt(ranges: readonly Range[], edit: Range, text: string): Range | false | undefined {
+	let { start, end } = edit;
+	const insertion = start === end;
+	if (insertion) {
+		while (start > 0 && /\s/.test(text[start - 1]!)) start--;
+		while (end < text.length && /\s/.test(text[end]!)) end++;
+	}
 	let found: Range | undefined;
 	for (const range of ranges) {
-		if (range.start > edit.end) break;
-		const touches = edit.start === edit.end
-			? range.start <= edit.start && edit.start <= range.end
-			: overlaps(range, edit);
+		if (range.start > end) break;
+		const touches = insertion ? range.start <= end && start <= range.end : overlaps(range, edit);
 		if (!touches) continue;
 		if (found) return false;
 		found = range;
@@ -154,9 +158,9 @@ function groundFixes(
 		let pair: { before: Range; after: Range } | undefined;
 		const related: Change[] = [];
 		for (const change of changes) {
-			const left = quoteAt(originals, change.before);
+			const left = quoteAt(originals, change.before, before);
 			if (left === undefined) continue;
-			const right = quoteAt(corrections, change.after);
+			const right = quoteAt(corrections, change.after, after);
 			if (right === undefined) continue;
 			if (!left || !right || (pair && (pair.before !== left || pair.after !== right))) {
 				pair = undefined;
