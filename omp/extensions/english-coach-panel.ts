@@ -5,19 +5,10 @@ import { truncate, visibleWidth } from "@oh-my-pi/pi-tui/text/width";
 import type { TspPropNode, TspSpan } from "@oh-my-pi/pi-wire";
 import type { CoachCorrection, CoachMistake, CoachSegment } from "./english-coach-diff";
 import { el, interruptKeys, keycaps, scrollBox } from "./panel-layout";
-import { sendSheet } from "./tern-theme";
+import { sendSheet, ternNoteHeading } from "./tern-theme";
 
 const PANEL_HEIGHT_RATIO = 0.4;
 
-// Removed and added words sit on soft tinted chips so their edges show; a
-// change that explains itself on hover shows a help cursor and brightens.
-// The close key floats over the frame's bottom-right corner on the panel's
-// own colour, covering whatever text lies under it, centred on the last line:
-// a plain line is about as tall as the key, and a diff line's 1.75 line height
-// puts its middle 0.875em above the frame's bottom. The overlay role pads 16px
-// above and 18px below (Tern 0.9.26), and the last line's descent adds about
-// 3px more under the glyphs, so the panel trims its bottom padding to show the
-// same space below the text as above it.
 const SHEET_CSS = `
 [data-role='omp-tools.english-coach.body'] { min-inline-size: 0; max-inline-size: 100%; font-family: var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-role='omp-tools.english-coach.diff'] { line-height: 1.75; }
@@ -28,11 +19,7 @@ const SHEET_CSS = `
 [data-role='omp-tools.english-coach.change'] { cursor: help; }
 [data-role='omp-tools.english-coach.change']:hover .sf-t-del { background: color-mix(in oklch, var(--sf-c-del) 24%, transparent); }
 [data-role='omp-tools.english-coach.change']:hover .sf-t-ins { background: color-mix(in oklch, var(--sf-c-ins) 26%, transparent); }
-[data-role='omp-tools.english-coach.unplaced'] { margin-top: 6px; gap: 3px; }
-[data-role='omp-tools.english-coach.frame'] { position: relative; }
-[data-role^='omp-tools.english-coach.close'] { position: absolute; right: 0; bottom: 0; padding-left: 6px; background: var(--raise); }
-[data-role='omp-tools.english-coach.close.diff'] { bottom: 0.875em; transform: translateY(50%); }
-.sf-col.sf-col[data-role='omp.overlay.btw']:has([data-role='omp-tools.english-coach.frame']) { padding-bottom: 13px; }`;
+[data-role='omp-tools.english-coach.mistakes'] { margin-top: 6px; gap: 3px; }`;
 
 const FRAME_ROLE = "omp-tools.english-coach.frame";
 
@@ -48,30 +35,9 @@ defineRolePainter("col", FRAME_ROLE, (node, cx): Block => {
 	return { rows };
 });
 
-/** What the panel shows: a running check, a clean prompt, a one-line note, or a marked-up correction. */
-export type CoachView =
-	| { kind: "checking" }
-	| { kind: "clean" }
-	| { kind: "note"; text: string }
-	| { kind: "correction"; correction: CoachCorrection };
-
-/** The one line a view without a correction shows. */
-function notice(view: Exclude<CoachView, { kind: "correction" }>): string {
-	switch (view.kind) {
-		case "checking":
-			return "Checking…";
-		case "clean":
-			return "No mistakes";
-		case "note":
-			return view.text;
-	}
-}
-
-function noticeNode(view: Exclude<CoachView, { kind: "correction" }>): UiNode {
-	const line = el("text", { spans: [{ t: notice(view), s: "muted" }], wrap: "word" });
-	return view.kind === "checking"
-		? el("row", { gap: "sm", align: "center", children: [el("spinner", {}), line] })
-		: line;
+export interface CoachView {
+	correction: CoachCorrection;
+	cue?: string;
 }
 
 /** One mistake as a line: original → corrected (pattern). */
@@ -170,17 +136,8 @@ function correctionLine(line: readonly CoachSegment[], mistakes: readonly CoachM
 	});
 }
 
-function unplacedMistakes(correction: CoachCorrection): CoachMistake[] {
-	const placed = new Set(correction.lines.flat().flatMap(segment => segment.mistakes ?? []));
-	return correction.mistakes.filter((_, index) => !placed.has(index));
-}
-
-function mistakesOutsideHovers(correction: CoachCorrection): CoachMistake[] {
-	return nativeRendering() ? unplacedMistakes(correction) : correction.mistakes;
-}
-
-function correctionNodes(correction: CoachCorrection): UiNode[] {
-	const listed = mistakesOutsideHovers(correction);
+function correctionNodes({ correction, cue }: CoachView): UiNode[] {
+	const listed = nativeRendering() ? [] : correction.mistakes;
 	return [
 		el("col", {
 			role: "omp-tools.english-coach.diff",
@@ -188,10 +145,11 @@ function correctionNodes(correction: CoachCorrection): UiNode[] {
 		}),
 		...(listed.length > 0
 			? [el("col", {
-				role: "omp-tools.english-coach.unplaced",
+				role: "omp-tools.english-coach.mistakes",
 				children: listed.map(mistake => el("text", { spans: mistakeSpans(mistake), wrap: "word" })),
 			})]
 			: []),
+		...(cue ? [el("text", { text: cue, tone: "muted", wrap: "word" })] : []),
 	];
 }
 
@@ -210,42 +168,33 @@ function span(t: string, s: string | undefined): TspSpan {
 /** The coach panel; `view` must be reactive (a signal or a function of one). */
 export function englishCoachPanel(ui: ExtensionUiHost, view: () => CoachView, close: () => void): UiNode {
 	const maxLines = () => Math.max(1, Math.floor(ui.size().rows * PANEL_HEIGHT_RATIO));
-	const endsInDiff = () => {
-		const current = view();
-		return current.kind === "correction" && mistakesOutsideHovers(current.correction).length === 0;
-	};
+	const closeKey = el("row", {
+		key: "close",
+		role: "omp-tools.english-coach.close",
+		align: "center",
+		actions: { click: "close" },
+		title: "Close",
+		onAction: act => {
+			if (act === "close") close();
+		},
+		children: () => {
+			const key = interruptKeys()[0];
+			if (!key) return [];
+			return el("kbd", { keys: nativeRendering() ? keycaps(key) : [formatKeyHint(key)] });
+		},
+	});
 	const body = el("col", {
 		role: "omp-tools.english-coach.body",
 		children: () => {
 			sendSheet("omp-tools-english-coach", SHEET_CSS);
-			const current = view();
-			return current.kind === "correction" ? correctionNodes(current.correction) : [noticeNode(current)];
+			return correctionNodes(view());
 		},
 	});
+	const scroll = scrollBox(body, maxLines, "english-coach-body");
 	return el("col", {
-		// omp's terminal painter for this role draws a titled /btw sheet from a head, body and footer, which this panel lacks.
-		role: () => (nativeRendering() ? "omp.overlay.btw" : undefined),
-		children: el("col", {
-			role: FRAME_ROLE,
-			children: [
-				scrollBox(body, maxLines, "english-coach-body"),
-				el("row", {
-					key: "close",
-					role: () => (endsInDiff() ? "omp-tools.english-coach.close.diff" : "omp-tools.english-coach.close"),
-					align: "center",
-					actions: { click: "close" },
-					title: "Close",
-					onAction: act => {
-						if (act === "close") close();
-					},
-					children: () => {
-						const key = interruptKeys()[0];
-						if (!key) return [];
-						// A terminal's kbd painter joins raw key names, so it gets omp's own key hint instead.
-						return el("kbd", { keys: nativeRendering() ? keycaps(key) : [formatKeyHint(key)] });
-					},
-				}),
-			],
-		}),
+		role: () => nativeRendering() ? "omp.btw.note" : FRAME_ROLE,
+		children: () => nativeRendering()
+			? [ternNoteHeading("coach", "English correction", [closeKey]), scroll]
+			: [scroll, closeKey],
 	});
 }

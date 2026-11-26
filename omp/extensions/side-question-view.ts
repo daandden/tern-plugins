@@ -8,7 +8,8 @@ import type { SideQuestionCallbacks, SideQuestionToolCall } from "./side-questio
 export type SideQuestionPart =
 	| { type: "text"; text: string }
 	| { type: "tools"; calls: SideQuestionToolCall[] }
-	| { type: "notice"; text: string };
+	| { type: "fallback"; text: string }
+	| { type: "retry"; attempt: number; maxAttempts: number; retryAt?: number; error: string };
 
 export interface SideQuestionTurn {
 	question: string;
@@ -17,15 +18,24 @@ export interface SideQuestionTurn {
 	error?: string;
 	/** Tokens this answer's requests wrote to the cache again instead of reading them. */
 	cacheMissTokens?: number;
-	retry?: { attempt: number; maxAttempts: number; retryAt: number };
 }
 
 export function newTurn(question: string): SideQuestionTurn {
 	return { question, parts: [], status: "running" };
 }
 
-export function hasToolCalls(turn: SideQuestionTurn): boolean {
-	return turn.parts.some(part => part.type === "tools");
+export function hasTurnDetails(turn: SideQuestionTurn): boolean {
+	return !!turn.cacheMissTokens || turn.parts.some(part => part.type !== "text");
+}
+
+export function latestAnswer(turns: readonly SideQuestionTurn[]): string | undefined {
+	for (let index = turns.length - 1; index >= 0; index--) {
+		const turn = turns[index]!;
+		if (turn.status === "running") continue;
+		const answer = turn.parts.findLast(part => part.type === "text" && !!part.text.trim());
+		if (answer?.type === "text") return replaceTabs(answer.text).trim();
+	}
+	return undefined;
 }
 
 /**
@@ -38,26 +48,27 @@ export async function answerInto(
 	changed: () => void,
 ): Promise<void> {
 	// A new message's text goes in a new part, so it never replaces an earlier message's text.
-	let newMessage = true;
+	let textPart: Extract<SideQuestionPart, { type: "text" }> | undefined;
+	let retry: Extract<SideQuestionPart, { type: "retry" }> | undefined;
 	let retryTimer: ReturnType<typeof setInterval> | undefined;
 	const clearRetry = () => {
 		clearInterval(retryTimer);
 		retryTimer = undefined;
-		delete turn.retry;
+		if (retry) delete retry.retryAt;
+		retry = undefined;
 	};
 	try {
 		const answer = await run({
 			onMessageStart: () => {
-				newMessage = true;
+				if (turn.status !== "running") return;
+				textPart = undefined;
 				clearRetry();
 				changed();
 			},
 			onText: text => {
 				if (turn.status !== "running") return;
-				const last = turn.parts.at(-1);
-				if (!newMessage && last?.type === "text") last.text = text;
-				else turn.parts.push({ type: "text", text });
-				newMessage = false;
+				if (textPart) textPart.text = text;
+				else turn.parts.push(textPart = { type: "text", text });
 				changed();
 			},
 			onToolCall: call => {
@@ -76,6 +87,7 @@ export async function answerInto(
 				changed();
 			},
 			onCacheMiss: tokens => {
+				if (turn.status !== "running") return;
 				turn.cacheMissTokens = (turn.cacheMissTokens ?? 0) + tokens;
 				changed();
 			},
@@ -84,11 +96,15 @@ export async function answerInto(
 				switch (event.type) {
 					case "auto_retry_start":
 						clearRetry();
-						turn.retry = {
+						textPart = undefined;
+						retry = {
+							type: "retry",
 							attempt: event.attempt,
 							maxAttempts: event.maxAttempts,
 							retryAt: Date.now() + event.delayMs,
+							error: event.errorMessage,
 						};
+						turn.parts.push(retry);
 						retryTimer = setInterval(changed, 250);
 						retryTimer.unref();
 						break;
@@ -100,10 +116,10 @@ export async function answerInto(
 						break;
 					case "retry_fallback_applied":
 						turn.parts.push({
-							type: "notice",
+							type: "fallback",
 							text: `Fallback: ${event.from} -> ${event.to}${event.reason ? `\n${event.reason}` : ""}`,
 						});
-						newMessage = true;
+						textPart = undefined;
 						break;
 				}
 				changed();
@@ -111,8 +127,7 @@ export async function answerInto(
 		});
 		if (turn.status === "running") {
 			// The final message's text shows even when the provider streamed none of it.
-			const streamed = !newMessage && turn.parts.at(-1)?.type === "text";
-			if (answer && !streamed) turn.parts.push({ type: "text", text: answer });
+			if (answer && !textPart?.text.trim()) turn.parts.push({ type: "text", text: answer });
 			turn.status = "complete";
 		}
 	} catch (error) {
@@ -151,49 +166,79 @@ function cacheMissLabel(tokens: number): string {
 	return `${icon ? `${icon} ` : ""}cache miss · ${formatNumber(tokens)} tokens`;
 }
 
-function runningLabel(turn: SideQuestionTurn): string {
-	const retry = turn.retry;
-	if (!retry) return "Answering…";
-	return `Retrying (${retry.attempt}/${retry.maxAttempts}) in ${formatDuration(Math.max(0, retry.retryAt - Date.now()))}…`;
+function details(key: string, label: string, open: boolean, children: UiNode): UiNode {
+	return el("section", {
+		key,
+		head: [{ t: label, s: "dim" }],
+		collapsible: true,
+		collapsed: !open,
+		children,
+	});
 }
 
-export function turnNode(turn: SideQuestionTurn, index: number, toolsOpen: boolean): UiNode {
-	const children: UiNode[] = [
-		el("card", { role: "omp.user", tone: "user", children: el("md", { text: replaceTabs(turn.question).trim() }) }),
-	];
-	const lastPart = turn.parts.length - 1;
-	turn.parts.forEach((part, partIndex) => {
-		if (part.type === "text") {
-			if (part.text.trim()) {
-				children.push(el("md", { text: part.text, stream: turn.status === "running" && partIndex === lastPart }));
-			}
-			return;
-		}
-		if (part.type === "notice") {
-			children.push(el("text", { spans: [{ t: part.text, s: "warning" }], wrap: "word" }));
-			return;
-		}
-		children.push(
-			el("section", {
-				key: `tools${index}-${partIndex}`,
-				head: [{ t: summary(part.calls), s: "dim" }],
-				collapsible: true,
-				collapsed: !toolsOpen,
-				children: el("col", {
+function detailText(text: string): UiNode {
+	return el("text", { spans: [{ t: text, s: "dim" }], wrap: "word" });
+}
+
+export function ternTurnStatus(turn: SideQuestionTurn): UiNode | undefined {
+	switch (turn.status) {
+		case "running":
+			return el("text", {
+				key: "status",
+				role: "omp.btw.note.status",
+				spans: [{ s: "accent", t: "●", fx: "pulse" }, { s: "accent", t: " Answering" }],
+			});
+		case "cancelled":
+			return el("text", { key: "status", role: "omp.btw.note.status", spans: [{ s: "warning", t: "Cancelled" }] });
+		case "error":
+			return el("text", { key: "status", role: "omp.btw.note.status", spans: [{ s: "error", t: "Failed" }] });
+	}
+}
+
+export function turnNode(turn: SideQuestionTurn, index: number, detailsOpen: boolean, native = false): UiNode {
+	const children: UiNode[] = [];
+	if (index > 0) {
+		children.push(el("md", { role: "omp.btw.followup", text: replaceTabs(turn.question).trim() }));
+	}
+	const last = turn.parts.findLast(part => part.type === "text");
+	for (const [partIndex, part] of turn.parts.entries()) {
+		const key = `part-${partIndex}`;
+		switch (part.type) {
+			case "text":
+				if (part.text.trim()) {
+					children.push(el("md", { key, text: part.text, stream: turn.status === "running" && part === last }));
+				}
+				break;
+			case "tools":
+				children.push(details(key, summary(part.calls), detailsOpen, el("col", {
 					children: part.calls.map(call =>
 						el("text", { key: call.id, spans: [{ t: callLine(call), s: "dim" }], wrap: "word" }),
 					),
-				}),
-			}),
-		);
-	});
-	if (turn.cacheMissTokens) children.push(el("text", { spans: [{ t: cacheMissLabel(turn.cacheMissTokens), s: "muted" }] }));
-	if (turn.status === "running") {
-		children.push(el("spinner", { style: "dots", label: [{ t: runningLabel(turn), s: "dim" }] }));
-	} else if (turn.status === "cancelled") {
-		children.push(el("text", { spans: [{ t: "Cancelled", s: "warning" }] }));
-	} else if (turn.status === "error") {
-		children.push(el("text", { spans: [{ t: errorText(turn), s: "error" }], wrap: "word" }));
+				})));
+				break;
+			case "fallback":
+				children.push(details(key, "Model fallback", detailsOpen, detailText(part.text)));
+				break;
+			case "retry": {
+				const attempt = `${part.attempt}/${part.maxAttempts}`;
+				const label = part.retryAt !== undefined && turn.status === "running"
+					? `Retrying (${attempt}) in ${formatDuration(Math.max(0, part.retryAt - Date.now()))}…`
+					: `Retry (${attempt})`;
+				children.push(details(key, label, detailsOpen, detailText(part.error)));
+				break;
+			}
+		}
 	}
-	return el("col", { key: `turn${index}`, gap: "xs", children });
+	if (turn.cacheMissTokens) {
+		children.push(details("cache", cacheMissLabel(turn.cacheMissTokens), detailsOpen,
+			detailText("The provider wrote these prompt tokens to the cache again instead of reading them.")));
+	}
+	if (turn.status === "error") {
+		children.push(el("text", { role: "omp.btw.error", spans: [{ t: errorText(turn), s: "error" }], wrap: "word" }));
+	} else if (!last?.text.trim() && (turn.status === "running" || turn.status === "complete")) {
+		const pending = native ? "Thinking…" : `${currentTheme().symbols.symbol("status.pending")} Waiting for response…`;
+		const text = turn.status === "running" ? pending : native ? "No answer text." : "No text returned.";
+		children.push(el("text", { role: "omp.btw.pending", spans: [{ t: text, s: "dim" }] }));
+	}
+	return el("col", { key: `turn-${index}`, role: native ? "omp.btw.note.turn" : undefined, gap: native ? "sm" : "xs", children });
 }

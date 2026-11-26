@@ -7,12 +7,11 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
 - A scrolling region is a `scrollBox` (`panel-layout.ts`). It emits a capped
   `list` with the role `omp-tools.panel-body`, because a `col` with `max.h`
   only clips.
-- Since omp 19.0.1, Tern's native dock puts `aboveEditor` widgets (the `/btw`
-  and English coach panels) above the working row and the tray, not next to
-  the composer, and drops the blank spacer row that came before them
-  ([oh-my-pi#19767](https://github.com/can1357/oh-my-pi/issues/19767)). The
-  panels need no spacing of their own for it: the coach's 13px bottom padding
-  balances its text's descent.
+- The panels mount as `aboveEditor` widgets. In Tern both emit the role
+  `omp.btw.note` and the shared `ternNoteHeading`; the native Tern palette
+  supplies the frame's color and border. Do not set `selectedBg` on them.
+  Native `/btw` mounts in the transcript; the extension uses the same look
+  without relying on omp's private transcript presenter.
 - While `nativeRendering()` is true, each panel sends its sheet each time its
   content draws: `omp-tools-btw` or `omp-tools-english-coach`. A sheet
   belongs to one surface, so a once-only send is lost when omp opens a new
@@ -20,17 +19,9 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
   unchanged content or telling extensions, so the panel stays unstyled until
   it changes ([#46](https://github.com/daandden/tern-plugins/issues/46)). A
   plain terminal gets no sheet.
-- Every sheet goes out through `sendSheet` (`tern-theme.ts`), which writes it
-  with pi-tui's `writeTerminalSequence` and leads it with the omp theme
-  rules. The selector matches an `omp.overlay.btw`
-  column holding an `omp-tools.*` role. It leaves the composer and native
-  `/btw` alone and sets the plugin panel's palette variables (`--t*`,
-  `--l*`, `--accent`, `--sf-*`, `--sf-c-*`) and the background from the active
-  omp `theme`: `selectedBg` for the surface, `toolDiffAdded` and
-  `toolDiffRemoved` for `ins` and `del`. An empty `text` token leaves Tern's
-  `--t1`. The rules are rebuilt when the theme instance changes. A doubled
-  `.sf-col` outranks Tern 0.9.26's chat-reader rule that washes overlays with
-  white. A view's root therefore needs an `omp-tools.*` role in every state.
+- `sendSheet` sends the note heading and Markdown list gutter through
+  `writeTerminalSequence`. The coach adds rules for its diff spans and
+  hover cards. Use Tern's own colors, not the active omp terminal theme.
 - Tern scopes a program sheet to strict descendants of its region, so a rule
   on `.sf-region` never applies (Tern 0.9.5).
 - Tern's Markdown hangs list markers two cells left of the text, where the

@@ -67,9 +67,10 @@ A Side question is a full agent run in a mirror session built the way OMP's
   (`buildSessionContext`). The fork skips `repairInterruptedTail`, which
   repairs the file's last branch instead of the selected one and returns an
   "outcome is unknown" error that does not say to wait.
-  A native `ask` stays open while the Side question runs. The fork sees
-  the call's questions, not the user's unsent picks, Other answer, text
-  fields, or Notes.
+  A Side question from the composer sees the pending ask, not its unsent answers.
+  A Side question from the Ask card receives draft answers and Notes for that
+  request only. The mirror's context transform supplies the draft without
+  adding it to the fork's prompt history or the main conversation.
 - **Model.** `side-question-model.ts` reads `sideQuestionModel` per thread
   with `getPluginSettings`, and resolves the role and thinking level with
   `resolveModelOverride`. The fork records the selected role so shared-model
@@ -130,28 +131,15 @@ A Side question is a full agent run in a mirror session built the way OMP's
   in it. `before_agent_start` (a main prompt) ends it; while an answer runs,
   it marks the thread closed so the answer finishes and shows first. Session
   switch, branch, tree, and shutdown dispose it.
-- From a focused native `ask`, Esc hands focus to the main composer.
-  Send `/btw <question>` or `? <question>` there and press Shift+Tab to
-  return to the form. The handled `input` event sends no main prompt.
-- The panel is a widget above the composer (`setWidget`,
-  `placement: "aboveEditor"`) whose factory returns `btwPanel`'s nodes.
-  omp 19.2 tells extensions nothing about focus, and the main composer's
-  key handler takes `app.interrupt` before any handler an extension adds
-  there. So `app.interrupt` comes from `ctx.ui.onTerminalInput`, which sees
-  raw input before omp routes it, and the panel takes it only while the main
-  composer is empty and no omp `ask` form or tool approval prompt waits
-  (`trackHostDialogs` in `panel-layout.ts`). `t` comes from
-  `ctx.ui.composer.addKeyHandler` and folds tool calls only while the
-  composer is empty. `app.interrupt` cancels or closes. The keys follow the
-  user's `app.interrupt` binding, never Ctrl+C.
-- The panel is a `col` with native `/btw`'s role `omp.overlay.btw` (a plain
-  `col` let the composer's meter row overlap the hints), an
-  `omp-tools.panel-body` scroll box capped at 40% of the rows with `reveal`
-  at the end, and the tool calls as a collapsible `section`. In Tern its
-  sheet (`omp-tools-btw`) includes the shared Markdown list marker gutter.
-  In a plain terminal, omp's painter for that role draws a box titled with
-  `term.title`, skips the head row, and turns the hints row into the footer.
-  A capped thread shows its end, or with tool calls open its last turn from
-  the question, with `… N earlier lines` and `… N more lines` markers.
-- Match the main chat's user messages: each question is a card with the
-  `user` tone.
+- The Ask card uses `askBtw` to reach the same `BtwCycle` as the composer.
+  Native dialogs still hand focus to the composer on Esc and take it back
+  on Shift+Tab. A handled `/btw` sends no main prompt.
+- The widget stays above the composer. The classic terminal uses the
+  `omp.overlay.btw` painter and names the topic in the box title. Tern uses
+  `omp.btw.note` and the shared note heading. The thread stays capped at 40%
+  of the rows, with a group for tool calls and recovery details in each turn.
+- With the composer empty, `t` toggles the detail groups, `c` copies the
+  latest answer, and `f` folds or expands the panel. Tern also has controls
+  for copy and fold. The remappable `app.interrupt` closes or cancels the
+  panel without taking Esc from a waiting ask, approval, or editor draft.
+  Ctrl+Esc cancels an in-card Side question without cancelling the Ask card.
