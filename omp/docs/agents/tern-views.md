@@ -12,6 +12,9 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
   supplies the frame's color and border. Do not set `selectedBg` on them.
   Native `/btw` mounts in the transcript; the extension uses the same look
   without relying on omp's private transcript presenter.
+  The dock stacks the two notes in one `gap-none` column with no space
+  between them, so the shared sheet prefix (`NOTE_STACK_CSS`) gives every
+  note after the first a 10px top margin (Tern 0.9.36).
 - The Ask card and Side question panel share the dock while an `ask` waits.
   While the card has focus, Tern reserves less height for the Side answer.
   The Ask card bounds its scrolling body separately from its action row so

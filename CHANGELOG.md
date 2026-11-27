@@ -36,6 +36,7 @@
   14px, the question wraps to two lines, and earlier turns fold to one line each.
   The note's controls stay visible, and a footer names the keys. Press `e` (F6 while
   an Ask card waits), or the expand control, to read the whole thread in a larger view.
+  When both the `/btw` and English coach notes show, a 10px gap now separates them.
 - In Tern, `/english-coach` opens as a centered popup with stat cards, a focus card,
   ranked rule rows, a word diff of your example and large practice choices. Clicks on
   cards, rows and buttons do what their keys do. `p` on the home page practices the

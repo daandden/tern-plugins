@@ -11,6 +11,13 @@ const NOTE_HEADING_CSS = `
 }
 `;
 
+// The dock stacks the /btw and coach notes with no gap between them.
+const NOTE_STACK_CSS = `
+.sf-col[data-role='omp.btw.note'] ~ .sf-col[data-role='omp.btw.note'] {
+	margin-top: 10px;
+}
+`;
+
 const MARKDOWN_LIST_MARKER_GUTTER_CSS = `
 .sf-list[data-role='${PANEL_BODY_ROLE}'] > .sf-list-scroll {
 	margin-left: calc(-2 * var(--sf-cw));
@@ -23,7 +30,7 @@ const messages = new Map<string, { css: string; message: string }>();
 function sheetMessage(name: string, css: string): string {
 	const last = messages.get(name);
 	if (last?.css === css) return last.message;
-	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${NOTE_HEADING_CSS}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
+	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${NOTE_HEADING_CSS}${NOTE_STACK_CSS}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
 	messages.set(name, { css, message });
 	return message;
 }

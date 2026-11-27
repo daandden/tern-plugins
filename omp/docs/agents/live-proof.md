@@ -2,6 +2,11 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-27, omp 19.2.1 and headless Tern 0.9.36: with the `btw` coach
+  scenario showing the `/btw` note above the coach note, `$C dump
+  "[data-role='omp.btw.note']"` gave rects ending at y 406.25 and starting at
+  416.25, a 10px gap; before the change they touched at 411.25. Evidence:
+  `/private/tmp/coach-look-qqPD4Z/gap-before.webp` and `gap-after.webp`.
 - 2026-11-27, omp 19.2.1 and headless Tern 0.9.36 (dark, `dark-catppuccin`,
   IosevkaTerm Nerd Font Mono at 600), with the local coach provider. In the
   Tern view, `/english-coach` opened as a centered popup with the Checked,
