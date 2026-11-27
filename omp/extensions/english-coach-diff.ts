@@ -45,9 +45,10 @@ function tokens(text: string): string[] {
 }
 
 /**
- * Whitespace of any kind matches: the rewrite is one line, the prompt may not
- * be. Case never counts: the coach does not correct capitalization, so a
- * word that differs only in case is kept as the user wrote it.
+ * Whitespace of any kind matches: the rewrite may join lines the prompt
+ * breaks, or keep its breaks with blank lines dropped. Case never counts:
+ * the coach does not correct capitalization, so a word that differs only in
+ * case is kept as the user wrote it.
  */
 function same(a: string, b: string): boolean {
 	return a === b || a.toLowerCase() === b.toLowerCase() || (/^\s+$/.test(a) && /^\s+$/.test(b));

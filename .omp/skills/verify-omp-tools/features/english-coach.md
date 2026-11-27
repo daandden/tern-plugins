@@ -54,6 +54,7 @@ Use a fresh `$VERIFY_RUN_DIR` for each renderer. Read [the parent skill](../SKIL
    |---|---|
    | `mistakes` | No panel during the provider delay. Then the correction leaves the composer visible. Tern puts explanations on the changed words; classic lists them below. One tiny request. |
    | `correct` | No coach panel. One tiny request and one more checked English prompt in memory. |
+   | `paragraphs` | The reply's rewrite keeps the prompt's blank line. The correction marks both paragraphs, and no `unreadable reply` warning shows. One tiny request. |
    | `over` | No coach panel and no tiny request. |
    | `fence` | The correction shows one `[code block, 500 lines]` marker. The tiny request contains `[[COACH_1]]` and no `const value` code. |
    | `btw` | The coach correction and `Local Side question answer.` coexist; exactly one tiny request for `why it not work?`. |

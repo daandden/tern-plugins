@@ -103,6 +103,16 @@ test("Tern explains a reported punctuation replacement but not an unreported per
 	expect(coach.nativeHovers()).toEqual([{ text: ",", title: "+ ,: Use a comma" }]);
 });
 
+test("a rewrite that keeps the prompt's paragraph breaks is read as one correction", async () => {
+	const coach = await fixture({
+		reply: () => "Better: It works.\n\nIt fails too.\n\n[subject-verb-agreement] it work → It works (Agreement)\n[subject-verb-agreement] it fail → It fails (Agreement)",
+	});
+	await coach.input("it work.\n\nit fail too.");
+	await until(() => coach.lines().length > 0 || coach.notices.length > 0);
+	expect(coach.notices).toEqual([]);
+	expect(coach.nativeText()).toEqual(["it work works.", "it fail fails too."]);
+});
+
 test.each([
 	["List errors first, then list error again", "List errors first, then list errors again", "list error", "list errors"],
 	["Keep this error on screen, then fix this error today", "Keep this error on screen, then fix these errors today", "this error", "these errors"],

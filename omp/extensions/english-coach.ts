@@ -15,6 +15,7 @@ import { panelInterrupt, trackHostDialogs } from "./panel-layout";
 
 const WIDGET_KEY = "omp-tools.english-coach";
 const RULES = new Set(coachRuleIds);
+const MISTAKE = /^(?:-\s+)?(?:\[([a-z0-9-]+)\]\s+)?(.+) → (.+) \(([^)]+)\)$/;
 
 function plainText(text: string): string {
 	return text.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D\u20E3]/gu, "");
@@ -23,17 +24,20 @@ function plainText(text: string): string {
 function readReply(reply: string, prompt: PreparedCoachPrompt) {
 	if (reply === "No mistakes") return { kind: "clean" } as const;
 	if (reply === "Not English") return { kind: "not-english" } as const;
-	const [rewrite, ...lines] = reply.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-	if (plainText(reply) !== reply || !/^Better: \S/.test(rewrite ?? "") || lines.length === 0) {
+	const replyLines = reply.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+	// The model can keep the prompt's paragraph breaks in the rewrite, so it runs until the first mistake line.
+	const firstMistake = replyLines.findIndex((line, index) => index > 0 && MISTAKE.test(line));
+	if (plainText(reply) !== reply || !/^Better: \S/.test(replyLines[0] ?? "") || firstMistake === -1) {
 		throw new Error("unreadable reply");
 	}
+	const lines = replyLines.slice(firstMistake);
 	const parsed = lines.map(line => {
-		const mistake = /^(?:-\s+)?(?:\[([a-z0-9-]+)\]\s+)?(.+) → (.+) \(([^)]+)\)$/.exec(line);
+		const mistake = MISTAKE.exec(line);
 		if (!mistake) throw new Error("unreadable reply");
 		const id = mistake[1];
 		return { original: mistake[2]!, corrected: mistake[3]!, pattern: mistake[4]!, rule: id && RULES.has(id) ? id : undefined } satisfies CoachMistake & { rule?: string };
 	});
-	const better = rewrite!.slice("Better: ".length);
+	const better = replyLines.slice(0, firstMistake).join("\n").slice("Better: ".length);
 	checkCoachPlaceholders(better, lines, prompt);
 	// Capitalization is never corrected: a case-only mistake is no mistake.
 	const mistakes = parsed.filter(mistake => mistake.original.trim().toLowerCase() !== mistake.corrected.trim().toLowerCase());

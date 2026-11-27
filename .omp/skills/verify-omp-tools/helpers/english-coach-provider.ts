@@ -47,6 +47,8 @@ const server = Bun.serve({
 			await Bun.sleep(1200);
 			if (prompt.includes("login page")) {
 				reply = `Better: ${mistakes.map(([, corrected]) => corrected).join(". ")}.\n${mistakes.map(([original, corrected, pattern]) => `${original} → ${corrected} (${pattern})`).join("\n")}`;
+			} else if (prompt.includes("she have same problem")) {
+				reply = "Better: It doesn't work.\n\nShe has the same problem.\n\n[verb-form] it not work → It doesn't work (Missing auxiliary verb)\n[subject-verb-agreement] she have → She has (Subject-verb agreement)";
 			} else if (prompt.includes("[[COACH_")) {
 				reply = `Better: It doesn't work. ${prompt.match(/\[\[COACH_+\d+\]\]/g)?.join(" ") ?? ""}\nit not work → It doesn't work (Missing auxiliary verb)`;
 			} else if (/Please add (?:dashboard|report|button) before Monday\./.test(prompt)) {
@@ -74,6 +76,7 @@ await seedOmp(dir, config);
 await Bun.write(`${dir}/prompts.json`, JSON.stringify({
 	mistakes: mistakes.map(([original]) => original).join("; "),
 	correct: "This works correctly.",
+	paragraphs: "it not work.\n\nshe have same problem.",
 	dashboard: "Please add dashboard before Monday.",
 	report: "Please add report before Monday.",
 	button: "Please add button before Monday.",
