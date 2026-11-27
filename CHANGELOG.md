@@ -27,6 +27,9 @@
   omp 19.2's reactive pi-tui nodes. Esc in a `/btw` or English coach panel now leaves a
   native `ask` form and tool approval prompts alone, and never counts Ctrl+C. The
   generate_image facts line sits under omp's own card head.
+- The English coach no longer fails with "Check failed: unreadable reply" on a prompt of
+  several paragraphs. The coach model often keeps the paragraph breaks in its rewrite,
+  and the reply is now read with them.
 
 ### Changed
 

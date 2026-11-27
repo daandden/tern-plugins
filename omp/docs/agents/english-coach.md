@@ -20,6 +20,10 @@
   URLs with numbered placeholders. Only the remaining text counts toward
   the token budget. `checkCoachPlaceholders` refuses a rewrite that drops,
   repeats, reorders, or invents a placeholder.
+- `readReply` takes the rewrite from `Better: ` up to the first mistake line.
+  The instructions ask for one line, but `gpt-6.1-terra` can keep a
+  multi-paragraph prompt's breaks, and rejecting that reply showed
+  "unreadable reply".
 - `english-coach-diff.ts` splits the prepared prompt and the rewrite at
   their placeholders, which must match in order, and diffs only the prose
   between them by token (words, punctuation, whitespace of any kind

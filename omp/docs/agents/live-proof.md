@@ -2,6 +2,14 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-27, omp 19.2.1 and headless Tern 0.9.36, local coach provider, Tern
+  view: the `paragraphs` scenario (`it not work.` and `she have same
+  problem.` in two paragraphs, a reply whose rewrite keeps the blank line)
+  showed one correction marking both paragraphs and no `unreadable reply`
+  warning, with one tiny request. `correct` showed no panel and `mistakes`
+  still drew the long correction. Evidence:
+  `/tmp/coach-paragraphs-fLKdWk/coach-paragraphs.webp`, `coach-correct.webp`,
+  `coach-mistakes.webp` and `notes.md`.
 - 2026-11-27, omp 19.2.1 and headless Tern 0.9.36: with the `btw` coach
   scenario showing the `/btw` note above the coach note, `$C dump
   "[data-role='omp.btw.note']"` gave rects ending at y 406.25 and starting at
