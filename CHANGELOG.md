@@ -8,8 +8,8 @@
   does to a `/wt` worktree. With `ask`, quitting that omp shows omp's "Remove worktree?"
   prompt. omp-tools adds the `--own-worktree <commit>` flag that the tab's omp gets, so
   the tab needs omp-tools linked.
-- Added the Ask card with multiline Notes, pasted pictures, and a General note.
-  Use `/btw` from the card to continue the same Side question thread. Tern's
+- Added the Ask card with multiline Notes, pasted pictures, and a General note (`Shift+N`).
+  Press `?` in the card (`Alt+/` while typing) to ask a Side question in the same thread. Tern's
   enhanced image paste does not reach the Ask card on omp 19.2.1; use the
   clipboard image key or paste an image path instead.
 - Added Coach memory and the `/english-coach` dashboard for recurring mistakes,
@@ -32,6 +32,15 @@
 
 - `/btw` matches native `/btw` in a plain terminal. In Tern, the Side question and
   English coach panels use the native note look.
+- The `/btw` note in Tern is easier to read. The answer uses the main text color at
+  14px, the question wraps to two lines, and earlier turns fold to one line each.
+  The note's controls stay visible, and a footer names the keys. Press `e` (F6 while
+  an Ask card waits), or the expand control, to read the whole thread in a larger view.
+  When both the `/btw` and English coach notes show, a 10px gap now separates them.
+- In Tern, `/english-coach` opens as a centered popup with stat cards, a focus card,
+  ranked rule rows, a word diff of your example and large practice choices. Clicks on
+  cards, rows and buttons do what their keys do. `p` on the home page practices the
+  focus rule. A plain terminal keeps the full-screen text dashboard.
 
 - Checked the plugins against Tern 0.9.34 and omp 19.1.1. In Reader, the composer bar's
   branch, changes, and pull request now use the terminal's text size and row height.

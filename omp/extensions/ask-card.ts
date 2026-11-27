@@ -12,8 +12,10 @@ import { AskForm, isDropdown, OTHER_ROW, type FormBox } from "./ask-form";
 import { clipboardNotePaste, loadNoteImages, noteImagePaths } from "./ask-images";
 import { askBtw, cancelBtw, handleAskBtwKey, parseBtwQuestion } from "./btw";
 
-export const GENERAL_NOTE_KEY = "alt+u";
-const SIDE_QUESTION_KEY = "alt+/";
+export const GENERAL_NOTE_KEY = "shift+n";
+/** Opens the General note while a field takes typed text, where Shift+N types `N`. */
+export const TYPING_GENERAL_NOTE_KEY = "alt+u";
+export const SIDE_QUESTION_KEY = "alt+/";
 
 type NoteTarget = { kind: "option"; field: number; option: number } | { kind: "general" };
 type NoteEdit = { target: NoteTarget; label: string; editor: AskEditor };
@@ -131,7 +133,8 @@ export class AskCard extends AskForm {
 	}
 
 	#openSideQuestion(): void {
-		this.sideQuestion.set(new AskEditor("/", [], this.editorRows, this.activity));
+		this.hidden.set(false);
+		this.sideQuestion.set(new AskEditor("", [], this.editorRows, this.activity));
 	}
 
 	#closeSideQuestion(editor: AskEditor): void {
@@ -140,9 +143,10 @@ export class AskCard extends AskForm {
 	}
 
 	#sendSideQuestion(editor: AskEditor): void {
-		const question = parseBtwQuestion(editor.line.peek().text);
+		const text = editor.line.peek().text;
+		const question = parseBtwQuestion(text) ?? text.trim();
 		if (!question) {
-			this.options.ctx.ui.notify("Type /btw followed by your Side question", "warning");
+			this.options.ctx.ui.notify("Type your Side question first", "warning");
 			return;
 		}
 		const { context, images } = this.#draftContext();
@@ -179,11 +183,12 @@ export class AskCard extends AskForm {
 		return { context: JSON.stringify({ fields, generalNote }), images };
 	}
 
-	#typingInForm(): boolean {
-		const active = this.active.peek();
+	/** Whether the focused control takes typed text, so `?` types rather than opening the Side question. */
+	typingInForm(): boolean {
+		const active = this.active();
 		if (active === "submit") return false;
 		const field = this.field(active);
-		return field.kind === "text" || isDropdown(field) || this.row.peek() === OTHER_ROW;
+		return field.kind === "text" || isDropdown(field) || this.row() === OTHER_ROW;
 	}
 
 	override key(key: KeyEvent): boolean {
@@ -202,8 +207,7 @@ export class AskCard extends AskForm {
 			else side.key(key);
 			return true;
 		}
-		if (key.id === SIDE_QUESTION_KEY || (key.id === "/" && !edit && !this.#typingInForm())) {
-			this.hidden.set(false);
+		if (key.id === SIDE_QUESTION_KEY || (key.id === "?" && !edit && !this.typingInForm())) {
 			this.#openSideQuestion();
 			return true;
 		}
@@ -216,8 +220,9 @@ export class AskCard extends AskForm {
 			else edit.editor.key(key);
 			return true;
 		}
-		if (key.id === GENERAL_NOTE_KEY) this.#openNote({ kind: "general" }, "General note", this.generalNote.peek());
-		else if (key.afterPaste && (keys.matches(key, "tui.input.submit") || keys.matches(key, "tui.select.confirm"))) return true;
+		if (key.id === TYPING_GENERAL_NOTE_KEY || (key.id === GENERAL_NOTE_KEY && !this.typingInForm())) {
+			this.#openNote({ kind: "general" }, "General note", this.generalNote.peek());
+		} else if (key.afterPaste && (keys.matches(key, "tui.input.submit") || keys.matches(key, "tui.select.confirm"))) return true;
 		else if (matchesSelectCancel(key, keys) && this.dropdown.peek() === undefined) this.cancel();
 		else return super.key(key);
 		return true;

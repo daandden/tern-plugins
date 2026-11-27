@@ -4,9 +4,9 @@ import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
 import { type KeyEvent, signal, untrack } from "@oh-my-pi/pi-tui";
 import { decodeInput } from "@oh-my-pi/pi-tui/driver/input/decoder";
 import { terminalCapabilities } from "@oh-my-pi/pi-tui/driver/session";
-import { btwPanel, btwPanelKeys, type BtwPanelAction } from "./btw-panel";
+import { btwPanel, btwPanelKeys, type BtwPanelAction, type BtwPanelState, btwReader } from "./btw-panel";
 import { forwardCoachInput } from "./english-coach-input";
-import { panelInterrupt, trackHostDialogs } from "./panel-layout";
+import { holdOverlay, panelInterrupt, trackHostDialogs } from "./panel-layout";
 import { LazySideQuestionThread, sideQuestionsAvailable } from "./side-question";
 import { answerInto, hasTurnDetails, latestAnswer, newTurn, type SideQuestionTurn } from "./side-question-view";
 
@@ -77,6 +77,7 @@ class BtwCycle {
 	#fromAsk = false;
 	readonly #revision = signal(0);
 	#shown = false;
+	#closeReader: (() => void) | undefined;
 	readonly #dialogOpen: () => boolean;
 	readonly #stopKeys: () => void;
 	readonly #stopComposerKeys: () => void;
@@ -178,6 +179,7 @@ class BtwCycle {
 	handleKey(id: KeyEvent["id"], askFocused: boolean): boolean {
 		if (!this.#shown) return false;
 		const keys = btwPanelKeys(askFocused);
+		if (id === keys.read) return this.#runAction("btw-read");
 		if (id === keys.fold) return this.#runAction(this.#folded ? "btw-expand" : "btw-fold");
 		if (this.#folded) return false;
 		if (id === keys.copy) return !this.#running() && this.#runAction("btw-copy");
@@ -190,6 +192,11 @@ class BtwCycle {
 	#runAction(action: BtwPanelAction): boolean {
 		if (!this.#shown) return false;
 		if (action === "btw-stop") return this.cancel();
+		if (action === "btw-close") {
+			if (!this.cancel()) this.#hide();
+			return true;
+		}
+		if (action === "btw-read") return this.#openReader();
 		if (action === "btw-copy") {
 			const answer = latestAnswer(this.#turns);
 			if (answer === undefined) return false;
@@ -207,6 +214,34 @@ class BtwCycle {
 		return true;
 	}
 
+	#state(): BtwPanelState {
+		return {
+			turns: this.#turns,
+			toolsOpen: this.#toolsOpen,
+			folded: this.#folded,
+			copied: this.#copied,
+			fromAsk: this.#fromAsk,
+			askFocused: this.session.askFocus() > 0,
+			revision: this.#revision(),
+		};
+	}
+
+	#openReader(): boolean {
+		if (this.#turns.length === 0) return false;
+		if (this.#closeReader) return true;
+		const release = holdOverlay();
+		const abort = new AbortController();
+		this.#closeReader = () => abort.abort();
+		void this.#ctx.ui.custom<void>(
+			(ui, _theme, _keys, done) => btwReader(ui, () => this.#state(), action => this.#runAction(action), () => done()),
+			{ overlay: true, signal: abort.signal },
+		).catch(() => undefined).finally(() => {
+			release();
+			this.#closeReader = undefined;
+		});
+		return true;
+	}
+
 	#show(): void {
 		if (this.#shown) {
 			this.#render();
@@ -215,16 +250,7 @@ class BtwCycle {
 		this.#shown = true;
 		this.#ctx.ui.setWidget(
 			WIDGET_KEY,
-			ui =>
-				btwPanel(ui, () => ({
-					turns: this.#turns,
-					toolsOpen: this.#toolsOpen,
-					folded: this.#folded,
-					copied: this.#copied,
-					fromAsk: this.#fromAsk,
-					askFocused: this.session.askFocus() > 0,
-					revision: this.#revision(),
-				}), action => this.#runAction(action)),
+			ui => btwPanel(ui, () => this.#state(), action => this.#runAction(action)),
 			{ placement: "aboveEditor" },
 		);
 	}
@@ -232,6 +258,7 @@ class BtwCycle {
 	#hide(): void {
 		if (!this.#shown) return;
 		this.#shown = false;
+		this.#closeReader?.();
 		this.#ctx.ui.setWidget(WIDGET_KEY, undefined);
 	}
 

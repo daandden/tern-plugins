@@ -65,8 +65,20 @@
   recommended or pinned focus, rule examples, and local practice. It makes no
   model calls. Confirming reset clears all panes' memory; generation checking
   stops in-flight pre-reset checks from refilling it.
+- In Tern (`nativeRendering()`), `/english-coach` mounts through
+  `ctx.ui.custom(…, { overlay: true, fullscreen: false })` and returns an
+  `overlay` node (`anchor: "center"`, `size: "lg"`, `modal`). omp 19.2.1 uses
+  an `overlay` view as it is and focuses its first child, so that child holds
+  `onKey` and `onAction`. `coach-dashboard-view.ts` builds the pages from
+  Tern kinds (card, meter, badge, button) and sends the `omp-tools-coach`
+  sheet. A button's action `key:<id>` replays that key, and `rule:<index>`
+  selects a row and opens it, so clicks and keys share one handler. A plain
+  terminal keeps the full-screen text renderer in `coach-dashboard.ts`.
+- The digest has no per-day data, so the Weeks card compares the last two
+  whole weeks, each labeled by its first day.
 - `app.interrupt` (Esc) closes the panel only while the main editor is
-  empty and no omp `ask` form or tool approval prompt waits. omp 19.2 tells
+  empty, no omp `ask` form or tool approval prompt waits, and no omp-tools
+  popup is open (`holdOverlay` in `panel-layout.ts`). omp 19.2 tells
   extensions nothing about focus, and its composer takes `app.interrupt`
   first, so the coach reads raw input through `ctx.ui.onTerminalInput` and
   watches the `ask` tool's execution events and the tool approval events

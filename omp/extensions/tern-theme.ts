@@ -11,6 +11,13 @@ const NOTE_HEADING_CSS = `
 }
 `;
 
+// The dock stacks the /btw and coach notes with no gap between them.
+const NOTE_STACK_CSS = `
+.sf-col[data-role='omp.btw.note'] ~ .sf-col[data-role='omp.btw.note'] {
+	margin-top: 10px;
+}
+`;
+
 const MARKDOWN_LIST_MARKER_GUTTER_CSS = `
 .sf-list[data-role='${PANEL_BODY_ROLE}'] > .sf-list-scroll {
 	margin-left: calc(-2 * var(--sf-cw));
@@ -23,7 +30,7 @@ const messages = new Map<string, { css: string; message: string }>();
 function sheetMessage(name: string, css: string): string {
 	const last = messages.get(name);
 	if (last?.css === css) return last.message;
-	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${NOTE_HEADING_CSS}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
+	const message = `\x1b_tsp;s;${JSON.stringify({ name, css: `${NOTE_HEADING_CSS}${NOTE_STACK_CSS}${MARKDOWN_LIST_MARKER_GUTTER_CSS}${css}` })}\x1b\\`;
 	messages.set(name, { css, message });
 	return message;
 }
@@ -33,20 +40,24 @@ export function sendSheet(name: string, css = ""): void {
 	if (nativeRendering()) writeTerminalSequence(sheetMessage(name, css));
 }
 
-export function ternNoteHeading(tag: string, title: string, actions?: UiNode[]): UiNode {
+/** The shared note head: tag, title (one line unless `lines` says more), optional meta text, then the tool icons. */
+export function ternNoteHeading(tag: string, title: string, actions?: UiNode[], options: { lines?: number; meta?: UiNode } = {}): UiNode {
+	const lines = options.lines ?? 1;
 	return el("row", {
 		key: "head",
 		role: "omp.btw.note.head",
-		align: "center",
+		align: lines > 1 ? "start" : "center",
 		gap: "sm",
 		children: [
 			el("text", { role: "omp.btw.note.tag", spans: [{ s: "accent", t: tag }] }),
 			el("text", {
 				role: "omp.btw.note.question",
 				spans: [{ t: replaceTabs(title).replace(/\s+/g, " ").trim() }],
-				lines: 1,
+				lines,
 				truncate: "end",
+				...(lines > 1 ? { wrap: "word" as const } : {}),
 			}),
+			options.meta,
 			actions?.length ? el("row", { role: "omp.btw.note.tools", align: "center", gap: "xs", children: actions }) : undefined,
 		],
 	});

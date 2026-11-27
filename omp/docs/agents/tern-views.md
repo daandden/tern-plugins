@@ -12,6 +12,9 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
   supplies the frame's color and border. Do not set `selectedBg` on them.
   Native `/btw` mounts in the transcript; the extension uses the same look
   without relying on omp's private transcript presenter.
+  The dock stacks the two notes in one `gap-none` column with no space
+  between them, so the shared sheet prefix (`NOTE_STACK_CSS`) gives every
+  note after the first a 10px top margin (Tern 0.9.36).
 - The Ask card and Side question panel share the dock while an `ask` waits.
   While the card has focus, Tern reserves less height for the Side answer.
   The Ask card bounds its scrolling body separately from its action row so
@@ -35,3 +38,13 @@ nodes, and a plain terminal gets the same tree drawn as text rows.
   absolute` with `right` and `bottom` works; the logical `inset-inline-end`
   and `inset-block-end` are ignored (Tern 0.9.26). Prefer physical properties
   in sheets.
+- A popup is `ctx.ui.custom(factory, { overlay: true })` whose factory
+  returns an `overlay` node (`anchor`, `size`, `modal`, `head`). In Tern,
+  omp 19.2.1 uses it as is and focuses its first child, which must hold the
+  key handler. In a plain terminal omp draws the same call as a sheet, so
+  the factory returns a text tree there. The `/btw` reader and the
+  `/english-coach` dashboard are popups. Each calls `holdOverlay()` while it
+  is open, so the panels' interrupt handlers leave Esc to the popup.
+- A program sheet rule that starts with `:root` never matches; start at the
+  role selector and raise specificity by repeating a class
+  (`.sf-button.sf-button`) to beat Tern's own rules (Tern 0.9.36).

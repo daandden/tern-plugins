@@ -143,3 +143,19 @@ A Side question is a full agent run in a mirror session built the way OMP's
   for copy and fold. The remappable `app.interrupt` closes or cancels the
   panel without taking Esc from a waiting ask, approval, or editor draft.
   Ctrl+Esc cancels an in-card Side question without cancelling the Ask card.
+- In Tern, the note's heading wraps the first question to two lines and shows
+  the earlier-turn count and the latest turn's elapsed time (`startedAt` and
+  `endedAt` on each turn). Earlier turns are collapsible sections
+  (`omp-tools.btw.earlier`) whose head is the question and a short preview.
+  The `omp-tools-btw` sheet is scoped by `:has(> [data-role='omp-tools.btw.foot'])`
+  so it does not restyle the coach note, which also uses `omp.btw.note`. It
+  sets the answer to `var(--t1)` at 14px and keeps the tools row visible;
+  Tern's own rules draw the answer in `--t2` at 13.5px and hide the tools
+  until hover (Tern 0.9.36).
+- `e` (F6 while the Ask card has focus), or the expand control, opens the
+  reader: `btwReader` through `ctx.ui.custom(…, { overlay: true, signal })`.
+  In Tern it is a centered `overlay`; a plain terminal gets a sheet that
+  scrolls with `scrollBox`'s `offset`. `custom()` resolves only through
+  `done`, so `BtwCycle` closes the reader by aborting the signal when the
+  panel hides. While it is open, `holdOverlay` keeps the panel's
+  `app.interrupt` handler from taking Esc, so Esc closes only the reader.
