@@ -311,14 +311,16 @@ the latest in-progress preview or error. Long prompts fold.
 
 In the interactive TUI, omp-tools answers `ask` in a card that takes the composer until
 you submit or cancel. It uses the native form's controls. Press `n` on an option to add a Note
-(`Alt+N` in a dropdown). Choose **General note** or press `Alt+U` to add a Note for the
-whole ask. Press Enter to save, the configured newline key to start a new line, and
+(`Alt+N` in a dropdown). Choose **General note** or press `Shift+N` to add a Note for the
+whole ask (`Alt+U` while a text field, a dropdown, or the Other field has the keyboard, where
+`Shift+N` types `N`). Press Enter to save, the configured newline key to start a new line, and
 Escape to keep the previous Note. Paste with the clipboard image key or paste an image
 path. On omp 19.2.1, Tern's enhanced image paste does not target extension views.
 
-Press `Alt+/` in the card to ask a Side question without submitting the form. The Side
-question uses this ask's unsent answers and Notes for that request. The main conversation
-receives only submitted answers, Notes on picked options, and the General note. A
+Press `?` in the card to ask a Side question without submitting the form; type the question
+and press Enter. While a text field, the Other field, or a Note has the keyboard, use `Alt+/`
+instead. The Side question uses this ask's unsent answers and Notes for that request. The main
+conversation receives only submitted answers, Notes on picked options, and the General note. A
 timed-out result is not consent.
 
 `/tree` re-answer and other omp dialogs still use native `ask`. They do not offer the
@@ -340,11 +342,15 @@ through that connection, without adding tools to the main agent's roster. Otherw
 tools. It cannot ask you, run commands, or message or stop agents. `read agent://<id>` can read a
 main-session agent still running.
 
-In a plain terminal, the panel has the native boxed `/btw` layout. In Tern, it looks
-like the native `/btw` note and stays above the composer. The answer and folded tool
-activity appear in order. With the empty composer focused, use `t` to toggle tool
-activity. Use `c` to copy the latest answer or the Tern copy control. Fold the panel to
-one line with `f` or the Tern fold control.
+In a plain terminal, the panel has the native boxed `/btw` layout. In Tern, it is a note
+above the composer. The answer uses the main text color at reading size, and the
+question wraps to two lines. Earlier turns fold to one line each, with the latest turn
+open. With the empty composer focused, use `t` to toggle tool activity. Use `c` to copy
+the latest answer, or the copy control. Fold the panel to one line with `f`, or the fold control.
+Press `e`, or the expand control in Tern, to read the whole thread in a larger view. In Tern
+that view is a centered popup; in a plain terminal it is a sheet that scrolls with ↑↓, PgUp,
+PgDn, Home and End. Esc, `q` or `e` closes it and leaves the panel open. While an Ask card
+waits, F6 opens the view, and F7, F8 and F9 copy, fold and toggle tool activity.
 
 Esc follows omp's `app.interrupt` keys, never Ctrl+C. It cancels a running Side question
 or closes a finished panel, unless another dialog needs the key. Closing does not end the
@@ -399,11 +405,16 @@ Press Esc from the empty composer, or click **esc** in Tern, to close the panel.
 submission or a session change clears it and cancels an unfinished check.
 
 Open `/english-coach` to see your most frequent mistakes, recent changes in their
-frequency, and what to practice. You can pin a rule, practice it, or mark a recorded
-fix as not a mistake. Coach memory is private and shared across sessions and projects
-on this machine. It stores rule counts and short examples from validated edits, never
-whole prompts, code, paths, or URLs. Reset in the dashboard clears Coach memory.
-It does not delete your omp transcripts or provider records.
+frequency, and what to practice. In Tern, the dashboard is a centered popup. It shows
+stat cards (prompts checked, the clean share of the last whole week, the last two weeks,
+and the trend), your focus rule, and a ranked list of rules. The cards, rows and buttons
+do what their keys do. A rule opens its explanation and your latest example as a word
+diff. Practice shows two large choices. A plain terminal shows the same pages as
+full-screen text. From the home page, `p` practices your focus rule.
+You can pin a rule, practice it, or mark a recorded fix as not a mistake. Coach memory is
+private and shared across sessions and projects on this machine. It stores rule counts and
+short examples from validated edits, never whole prompts, code, paths, or URLs. Reset in
+the dashboard clears Coach memory. It does not delete your omp transcripts or provider records.
 
 | Setting | Default | What it controls |
 | --- | --- | --- |

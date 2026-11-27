@@ -1,5 +1,5 @@
 import type { UiNode } from "@oh-my-pi/pi-tui";
-import { replaceTabs } from "@oh-my-pi/pi-tui/text/width";
+import { replaceTabs, truncate } from "@oh-my-pi/pi-tui/text/width";
 import { currentTheme } from "@oh-my-pi/pi-tui/theme/runtime";
 import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
 import { el } from "./panel-layout";
@@ -18,10 +18,18 @@ export interface SideQuestionTurn {
 	error?: string;
 	/** Tokens this answer's requests wrote to the cache again instead of reading them. */
 	cacheMissTokens?: number;
+	/** `Date.now()` when the question was asked, and when its answer settled. */
+	startedAt: number;
+	endedAt?: number;
 }
 
 export function newTurn(question: string): SideQuestionTurn {
-	return { question, parts: [], status: "running" };
+	return { question, parts: [], status: "running", startedAt: Date.now() };
+}
+
+/** How long the turn has taken so far, or took. */
+export function turnElapsed(turn: SideQuestionTurn, now = Date.now()): number {
+	return Math.max(0, (turn.endedAt ?? now) - turn.startedAt);
 }
 
 export function hasTurnDetails(turn: SideQuestionTurn): boolean {
@@ -137,6 +145,7 @@ export async function answerInto(
 		}
 	} finally {
 		clearRetry();
+		turn.endedAt ??= Date.now();
 	}
 	changed();
 }
@@ -241,4 +250,19 @@ export function turnNode(turn: SideQuestionTurn, index: number, detailsOpen: boo
 		children.push(el("text", { role: "omp.btw.pending", spans: [{ t: text, s: "dim" }] }));
 	}
 	return el("col", { key: `turn-${index}`, role: native ? "omp.btw.note.turn" : undefined, gap: native ? "sm" : "xs", children });
+}
+
+/** A settled earlier turn folded to its question and the start of its answer; the section opens in place. */
+export function earlierTurnNode(turn: SideQuestionTurn, index: number, detailsOpen: boolean): UiNode {
+	const answer = turn.parts.findLast(part => part.type === "text" && !!part.text.trim());
+	const preview = answer?.type === "text" ? truncate(replaceTabs(answer.text).replace(/\s+/g, " ").trim(), 90, "…") : "";
+	const question = replaceTabs(turn.question).replace(/\s+/g, " ").trim();
+	return el("section", {
+		key: `earlier-${index}`,
+		role: "omp-tools.btw.earlier",
+		head: [{ t: question }, ...(preview ? [{ t: `  ${preview}`, s: "dim" }] : [])],
+		collapsible: true,
+		collapsed: true,
+		children: turnNode(turn, 0, detailsOpen, true),
+	});
 }

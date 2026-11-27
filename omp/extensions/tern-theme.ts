@@ -33,20 +33,24 @@ export function sendSheet(name: string, css = ""): void {
 	if (nativeRendering()) writeTerminalSequence(sheetMessage(name, css));
 }
 
-export function ternNoteHeading(tag: string, title: string, actions?: UiNode[]): UiNode {
+/** The shared note head: tag, title (one line unless `lines` says more), optional meta text, then the tool icons. */
+export function ternNoteHeading(tag: string, title: string, actions?: UiNode[], options: { lines?: number; meta?: UiNode } = {}): UiNode {
+	const lines = options.lines ?? 1;
 	return el("row", {
 		key: "head",
 		role: "omp.btw.note.head",
-		align: "center",
+		align: lines > 1 ? "start" : "center",
 		gap: "sm",
 		children: [
 			el("text", { role: "omp.btw.note.tag", spans: [{ s: "accent", t: tag }] }),
 			el("text", {
 				role: "omp.btw.note.question",
 				spans: [{ t: replaceTabs(title).replace(/\s+/g, " ").trim() }],
-				lines: 1,
+				lines,
 				truncate: "end",
+				...(lines > 1 ? { wrap: "word" as const } : {}),
 			}),
+			options.meta,
 			actions?.length ? el("row", { role: "omp.btw.note.tools", align: "center", gap: "xs", children: actions }) : undefined,
 		],
 	});

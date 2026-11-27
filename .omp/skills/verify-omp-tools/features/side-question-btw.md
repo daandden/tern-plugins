@@ -15,12 +15,14 @@
 - `btw-main-ends` ends the thread at the next main prompt; an answer still running finishes and shows first.
 - `btw-private` keeps Side questions out of the main transcript.
 - `btw-seed` starts a thread from the saved transcript: after compaction, after a `/tree` jump with or without a new prompt, and with a call still pending.
+- `btw-look` in Tern draws the answer in the main text color at 14px, wraps the question to two lines, folds earlier turns to one line each with the latest open, and shows the private footer with key hints.
+- `btw-reader` opens the whole thread with `e` (F6 while the Ask card has focus) or the expand control: a centered popup in Tern, a scrolling sheet in classic. Esc closes only the reader; the panel stays.
 - `btw-ask-card` answers from the Ask card with request-local draft context.
 
 ## How to get to it (user POV)
 
 - Type `/btw <question>` in the main editor and press Enter (Tern view or classic TUI).
-- While the Ask card waits, press Alt+/ and complete `/btw <question>`; the slash is already there.
+- While the Ask card waits, press `?` on an option (Alt+/ in a text field or Note), type the question, and press Enter.
 - Press `t`, `c`, `f`, or Esc while the panel shows and the empty composer has focus. In Tern, use the Copy and Fold controls when the Ask card has focus.
 - Click the "N tool calls" line (Tern view only).
 
@@ -35,6 +37,7 @@ Preconditions:
 - Fold. Run `$C key t`, `$C shot btw-fold-open`. The fold shows `read <path>` under it, and the hint reads `to fold tool calls`. In Tern, `$C click '.sf-section-head'` toggles the same line.
 - Order. Run `$C type '"/btw First write one short line saying you will check omp/package.json. Then read it. Then say which test runner it uses."'` and `$C key Enter`. When the answer is done, run `$C shot btw-order`. The panel shows the short line, then the `1 tool call` line, then the answer naming `bun test`.
 - Follow-up. Run `$C key Escape` (the panel closes), then `$C type '"/btw what file did you read for my first side question? one line, no tools"'`, `$C key Enter`, `sleep 20`, `$C shot btw-follow`. The answer names `omp/package.json`, the earlier turns show in the panel, and the Side question listing in `../SKILL.md` still shows the same single new `SideQuestion-*.jsonl` with every `<btw>` prompt.
+- Look and reader. After the follow-up, capture `$C shot btw-look`: the tag pill, the two-line question, the earlier turn as one folded line, the answer in the bright text color, and the footer reading `Private · the agent never sees this`. Press `$C key e` and capture `btw-reader`: Tern shows a centered popup titled `Side question · N turns · private`; classic shows a `/btw · N turns` sheet. `$C key Escape` closes the reader, and the panel is still in `$C tree`.
 - Cancel. Send `/btw read README.md and summarize every section in detail`. While the answer is running, press Esc with the empty composer focused. Capture `Cancelled`. Press Esc again; the panel goes away.
 - Tools. Run the [Keenable roster probe](#keenable-roster-probe).
 - Usage. Run the same helper with `VERIFY_PROBE=usage` on an available Codex model. Set `modelRoles.smol` to that exact model in the owned smoke config; the Side question otherwise defaults to a different model. Send one main prompt of about 20k tokens (`Reply with only: ok.` followed by the text of the `omp-tools` section of the root `README.md`, `AGENTS.md`, and the files in `omp/docs/agents/`). The helper asks two threads different questions. `usage.json` holds one entry with purpose `side-question` per Side request (two here); entries with purpose `side-question:<purpose>` are the mirror's own off-transcript calls (cache warms, the `unexpected-stop` judge). The first `side-question` entry's `cacheRead` is near 0, since a thread's first request cannot reuse the main prompt cache. The second one's `cacheRead` is at least the first one's prompt (`input + cacheRead + cacheWrite`) less the first question's length (a few hundred tokens): the second thread reuses the shared conversation, not just an identical prompt. Assert on these numbers, not on the cache-miss marker, which never shows on Codex.
@@ -84,9 +87,9 @@ In `tools.json`, `threads[0].tools` contains exactly `read`, `grep`, `glob`, `fi
 
 Run the [local Ask session](native-ask.md#local-native-ask-session) once in Tern and once with `PI_TUI_NATIVE=0`. Use fresh sessions. The open turn has a saved transcript, so skip the baseline prompt.
 
-1. Send `Call the ask tool for Side questions`. Move to Blue with Down and pick it with Space. Press `n`, type `PrivateNote-407`, and press Enter to save. Open **General note** with Alt+U, type `PrivateGeneral-963`, and save with Enter.
-2. Press Alt+/ and type `btw Read the local fixture` (the editor starts with `/`). Press Enter. Wait for `Local Side read answer.` and the folded tool-call row. Capture the Ask card and Side panel together.
-3. Use Alt+/ again and send `btw Check the follow-up`. Wait for `Local Side follow-up answer.`. Both turns remain in the panel. In Tern, use the Fold control and verify it becomes a one-line note; unfold it again.
+1. Send `Call the ask tool for Side questions`. Move to Blue with Down and pick it with Space. Press `n`, type `PrivateNote-407`, and press Enter to save. Open **General note** with Shift+N, type `PrivateGeneral-963`, and save with Enter.
+2. Press `?` and type `Read the local fixture` (the editor starts empty). Press Enter. Wait for `Local Side read answer.` and the folded tool-call row. Capture the Ask card and Side panel together.
+3. Open **General note** with Shift+N, press Alt+/, and send `Check the follow-up`; press Esc to keep the Note. Wait for `Local Side follow-up answer.`. Both turns remain in the panel. In Tern, use the Fold control and verify it becomes a one-line note; unfold it again.
 4. Tab to Submit and press Enter. Verify `color: blue`, the saved option Note and the General note in the `ask` result. Ask a follow-up from the restored composer and verify that it still sees the same thread.
 5. In `requests.jsonl`, the in-card Side requests have a pending `ask` call and the `PrivateNote-407` and `PrivateGeneral-963` markers in the draft, not in a submitted result. Neither Side question nor answer belongs in the main transcript. A later composer Side question gets no separate Ask draft.
 6. Repeat the in-card follow-up at 340 by 620 with a long, realistic

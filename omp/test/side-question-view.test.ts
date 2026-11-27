@@ -21,10 +21,10 @@ test("Tern renders the first question in the native note heading with a fold con
 		const heading = nodes[0]?.c.find(node => node.p.role === "omp.btw.note.head");
 		expect(heading?.c.find(node => node.p.role === "omp.btw.note.tag")?.p.spans).toEqual([{ s: "accent", t: "btw" }]);
 		expect(heading?.c.find(node => node.p.role === "omp.btw.note.question")?.p).toMatchObject({
-			lines: 1,
+			lines: 2,
 			spans: [{ t: "What changed? Does it affect my draft?" }],
 		});
-		expect(allNodes(heading?.c ?? []).find(node => node.p.title === "Fold to one line")?.p.actions).toEqual({
+		expect(allNodes(heading?.c ?? []).find(node => String(node.p.title).startsWith("Fold to one line"))?.p.actions).toEqual({
 			click: "btw-fold",
 		});
 		expect(nodes[0]?.c.find(node => node.p.role === "omp.btw.note.status")?.p.spans).toContainEqual({

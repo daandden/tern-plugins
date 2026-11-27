@@ -1,10 +1,11 @@
 import type { ExtensionAPI, ExtensionOverlayHandle, ExtensionUiHost } from "@oh-my-pi/pi-coding-agent";
-import { type KeyEvent, type UiNode, signal } from "@oh-my-pi/pi-tui";
+import { type KeyEvent, nativeRendering, type UiNode, signal } from "@oh-my-pi/pi-tui";
 import { stripControl } from "@oh-my-pi/pi-tui/text/sanitize";
 import { truncate, wrap } from "@oh-my-pi/pi-tui/text/width";
-import { type CoachMemory, type CoachPracticeTask, type CoachRuleDetail, type CoachSnapshot, type CoachTrend, openCoachMemory } from "./coach-memory";
+import { COACH_ROLE, coachHead, coachPage, date, percent, rankedRows, trendLabel } from "./coach-dashboard-view";
+import { type CoachMemory, type CoachPracticeTask, type CoachRuleDetail, type CoachSnapshot, openCoachMemory } from "./coach-memory";
 import { type RecordedCoachRule, coachRule, coachRuleLabel, unclassified } from "./coach-rules";
-import { el } from "./panel-layout";
+import { el, holdOverlay } from "./panel-layout";
 
 type Tone = "accent" | "muted" | "success" | "warning";
 interface Line {
@@ -12,24 +13,33 @@ interface Line {
 	tone?: Tone;
 }
 
-interface Home {
+export interface Home {
 	kind: "home";
 	snapshot: CoachSnapshot;
 	selected: number;
 	message?: string;
 }
 
-interface RulePage {
+export interface RulePage {
 	kind: "rule";
 	rule: RecordedCoachRule;
 	detail: CoachRuleDetail;
 	message?: string;
 }
 
-type Page = Home | RulePage
+export interface Feedback {
+	kind: "feedback";
+	task: CoachPracticeTask;
+	choice: 0 | 1;
+	correct: boolean;
+	answer: string;
+	explanation: string;
+	dueAt: number;
+}
+
+export type Page = Home | RulePage | Feedback
 	| { kind: "reset"; home: Home }
 	| { kind: "practice"; task: CoachPracticeTask; returnTo: RulePage }
-	| { kind: "feedback"; rule: RecordedCoachRule; generation: string; dueAt: number; lines: readonly Line[] }
 	| { kind: "unavailable" };
 
 interface Body {
@@ -38,21 +48,6 @@ interface Body {
 }
 
 const unavailable: Page = { kind: "unavailable" };
-const date = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
-const percent = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 });
-
-function trendLabel(trend: CoachTrend): string {
-	if (trend.kind === "small-sample") return "Too little data";
-	const rounded = Math.round(trend.percentagePoints * 10) / 10;
-	if (!rounded) return "0 pp";
-	return rounded < 0 ? `↓ ${-rounded} pp` : `↑ ${rounded} pp`;
-}
-
-function rankedRows(snapshot: CoachSnapshot) {
-	const { focus } = snapshot;
-	if (!focus?.pinned) return snapshot.rules.map(row => row.rule);
-	return [focus.rule, ...snapshot.rules.flatMap(row => row.rule === focus.rule ? [] : [row.rule])];
-}
 
 function homeBody(page: Home): Body {
 	const { snapshot, message } = page;
@@ -139,7 +134,11 @@ function body(page: Page): Body {
 			{ text: page.task.prompt }, { text: "" },
 			{ text: `1  ${page.task.choices[0]}` }, { text: `2  ${page.task.choices[1]}` },
 		] };
-		case "feedback": return { lines: [...page.lines, { text: `Next practice: ${date.format(page.dueAt)}`, tone: "muted" }] };
+		case "feedback": return { lines: [
+			page.correct ? { text: "Correct", tone: "success" } : { text: `Not quite. Answer: ${page.answer}.`, tone: "warning" },
+			{ text: page.explanation },
+			{ text: `Next practice: ${date.format(page.dueAt)}`, tone: "muted" },
+		] };
 		case "reset": return { lines: [
 			{ text: "Delete Coach memory?", tone: "warning" },
 			{ text: "This deletes your counts, examples, false-positive marks, pinned focus and practice in every pane. It does not change omp session files or provider records." },
@@ -188,7 +187,7 @@ function dashboard(ui: ExtensionUiHost, initial: Page, done: () => void, memory:
 			case "rule": return page.detail.generation;
 			case "reset": return page.home.snapshot.generation;
 			case "practice": return page.task.generation;
-			case "feedback": return page.generation;
+			case "feedback": return page.task.generation;
 			case "unavailable": return undefined;
 		}
 	}
@@ -225,7 +224,12 @@ function dashboard(ui: ExtensionUiHost, initial: Page, done: () => void, memory:
 						const selected = Math.max(0, Math.min(rules.length - 1, page.selected + (key === "up" ? -1 : 1)));
 						view.set({ page: { ...page, selected }, scroll: visible.offset, followSelection: true });
 					} else if (key === "enter" && rule !== undefined) rulePage(rule);
-					else if (key === "r") go({ kind: "reset", home: page });
+					else if (key === "p" && page.snapshot.focus) {
+						const focus = page.snapshot.focus.rule;
+						const target: RulePage = { kind: "rule", rule: focus, detail: memory.ruleDetail(focus) };
+						const task = target.detail.practice;
+						go(task && task.dueAt <= Date.now() ? { kind: "practice", task, returnTo: target } : target);
+					} else if (key === "r") go({ kind: "reset", home: page });
 					break;
 				}
 				case "rule": {
@@ -253,14 +257,11 @@ function dashboard(ui: ExtensionUiHost, initial: Page, done: () => void, memory:
 					else if ((key === "1" || key === "2") && input.kind === "press") {
 						const result = memory.answerPractice(page.task, key === "1" ? 0 : 1);
 						if (!result) rulePage(page.task.rule, "Practice changed in another pane.");
-						else go({ kind: "feedback", rule: page.task.rule, generation: page.task.generation, dueAt: result.dueAt, lines: [
-							result.correct ? { text: "Correct", tone: "success" } : { text: `Not quite. Answer: ${result.answer}.`, tone: "warning" },
-							{ text: result.explanation },
-						] });
+						else go({ kind: "feedback", task: page.task, choice: key === "1" ? 0 : 1, ...result });
 					}
 					break;
 				case "feedback":
-					if (key === "escape" || key === "enter") rulePage(page.rule);
+					if (key === "escape" || key === "enter") rulePage(page.task.rule);
 					break;
 				case "reset":
 					if (key === "escape") go(page.home);
@@ -276,34 +277,54 @@ function dashboard(ui: ExtensionUiHost, initial: Page, done: () => void, memory:
 		}
 		return true;
 	}
-	const node = el("col", {
-		role: "omp-tools.coach-dashboard",
-		onKey,
-		children: () => {
-			const { page, scroll, followSelection } = view();
-			const size = ui.size();
-			const indent = size.columns >= 30 ? "  " : "";
-			const width = Math.max(1, Math.min(78, size.columns - indent.length * 2));
-			const height = Math.max(1, size.rows - (size.rows >= 3 ? 2 : 1));
-			const { rows, offset, maxScroll } = visibleBody(body(page), width, height, scroll, followSelection);
-			visible = { offset, maxScroll, height };
-			const hints = page.kind === "home" ? "Esc Close · ↑↓ Select · Enter Open · R Reset"
-				: page.kind === "unavailable" ? "Esc Close" : "Esc Back";
-			const footer = page.kind === "reset" ? "Y Delete · Esc Keep"
-				: size.columns < 44
-					? page.kind === "home" ? "↑↓ · Enter · PgDn · Esc" : "Esc · ↑↓ · PgDn"
-					: maxScroll ? `${hints} · PgUp/PgDn Scroll` : hints;
-			const toNode = ({ text, tone }: Line): UiNode => el("text", {
-				lines: 1, truncate: "end",
-				spans: [{ t: indent + (text ? truncate(text, width) : " "), s: tone }],
-			});
-			return [
-				size.rows >= 3 && toNode({ text: "English coach", tone: "accent" }),
-				...rows.map(toNode),
-				size.rows >= 2 && toNode({ text: footer, tone: "muted" }),
-			];
-		},
-	});
+	// A key a click stands for: the popup's buttons send `key:<id>`, so a click does what its key does.
+	const press = (id: string) => onKey({ id, kind: "press", raw: "" } as KeyEvent);
+	const onAction = (act: string): void => {
+		if (act.startsWith("key:")) press(act.slice(4));
+		else if (act.startsWith("rule:")) {
+			const { page } = view.peek();
+			if (page.kind !== "home") return;
+			const selected = Number(act.slice(5));
+			view.set({ page: { ...page, selected }, scroll: 0, followSelection: false });
+			press("enter");
+		}
+	};
+	const node = nativeRendering()
+		? el("overlay", {
+			anchor: "center",
+			size: "lg",
+			modal: true,
+			head: () => coachHead(view().page),
+			children: el("col", { role: COACH_ROLE, onKey, onAction, children: () => coachPage(view().page) }),
+		})
+		: el("col", {
+			role: "omp-tools.coach-dashboard",
+			onKey,
+			children: () => {
+				const { page, scroll, followSelection } = view();
+				const size = ui.size();
+				const indent = size.columns >= 30 ? "  " : "";
+				const width = Math.max(1, Math.min(78, size.columns - indent.length * 2));
+				const height = Math.max(1, size.rows - (size.rows >= 3 ? 2 : 1));
+				const { rows, offset, maxScroll } = visibleBody(body(page), width, height, scroll, followSelection);
+				visible = { offset, maxScroll, height };
+				const hints = page.kind === "home" ? `Esc Close · ↑↓ Select · Enter Open${page.snapshot.focus ? " · P Practice" : ""} · R Reset`
+					: page.kind === "unavailable" ? "Esc Close" : "Esc Back";
+				const footer = page.kind === "reset" ? "Y Delete · Esc Keep"
+					: size.columns < 44
+						? page.kind === "home" ? "↑↓ · Enter · PgDn · Esc" : "Esc · ↑↓ · PgDn"
+						: maxScroll ? `${hints} · PgUp/PgDn Scroll` : hints;
+				const toNode = ({ text, tone }: Line): UiNode => el("text", {
+					lines: 1, truncate: "end",
+					spans: [{ t: indent + (text ? truncate(text, width) : " "), s: tone }],
+				});
+				return [
+					size.rows >= 3 && toNode({ text: "English coach", tone: "accent" }),
+					...rows.map(toNode),
+					size.rows >= 2 && toNode({ text: footer, tone: "muted" }),
+				];
+			},
+		});
 	return { node, refresh() {
 		try {
 			refreshGeneration();
@@ -322,12 +343,15 @@ export function registerCoachDashboard(pi: ExtensionAPI): void {
 			let refresh: ReturnType<typeof setInterval> | undefined;
 			let overlay: ExtensionOverlayHandle | undefined;
 			let initial: Page = unavailable;
+			let release: (() => void) | undefined;
 			try {
 				try {
 					memory = openCoachMemory();
 					initial = { kind: "home", snapshot: memory.snapshot(), selected: 0 };
 				} catch {
 				}
+				// Tern shows the dashboard as a popup over the session; a plain terminal gives it the screen.
+				release = holdOverlay();
 				await ctx.ui.custom<void>((ui, _theme, _keys, done) => {
 					const view = dashboard(ui, initial, done, memory);
 					refresh = setInterval(() => {
@@ -335,8 +359,9 @@ export function registerCoachDashboard(pi: ExtensionAPI): void {
 						else view.refresh();
 					}, 1000).unref();
 					return view.node;
-				}, { overlay: true, fullscreen: true, onHandle: handle => { overlay = handle; } });
+				}, { overlay: true, fullscreen: !nativeRendering(), onHandle: handle => { overlay = handle; } });
 			} finally {
+				release?.();
 				if (refresh !== undefined) clearInterval(refresh);
 				memory?.close();
 			}

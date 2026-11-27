@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import { type ExtensionAPI, type ExtensionCommandContext, type ExtensionUIContext, type ExtensionUiHost, Settings, initTheme } from "@oh-my-pi/pi-coding-agent";
-import { resolveChildren, type UiNode } from "@oh-my-pi/pi-tui";
+import { resolveChildren, setNativeRenderingForTest, type UiNode } from "@oh-my-pi/pi-tui";
 import { decodeInput } from "@oh-my-pi/pi-tui/driver/input/decoder";
 import { visibleWidth } from "@oh-my-pi/pi-tui/text/width";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -9,14 +9,14 @@ import { join, relative } from "node:path";
 import { registerCoachDashboard } from "../extensions/coach-dashboard";
 import { openCoachMemory } from "../extensions/coach-memory";
 import { coachRuleIds } from "../extensions/coach-rules";
-import { fakeContext, nodeTree } from "./support";
+import { allNodes, fakeContext, nodeTree, type PlainNode } from "./support";
 
 beforeAll(async () => {
 	await Settings.init({ inMemory: true });
 	initTheme();
 });
 
-function loadSession(columns: number, rows: number) {
+function loadSession(columns: number, rows: number, native = false) {
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	registerCoachDashboard({ registerCommand: (name, command) => { commands.set(name, command); } } as ExtensionAPI);
 	const command = commands.get("english-coach");
@@ -27,7 +27,7 @@ function loadSession(columns: number, rows: number) {
 		factory: (host: ExtensionUiHost, theme: never, keybindings: never, done: (value: T) => void) => unknown,
 		options?: Parameters<ExtensionUIContext["custom"]>[1],
 	) => {
-		expect(options).toMatchObject({ overlay: true, fullscreen: true });
+		expect(options).toMatchObject({ overlay: true, fullscreen: !native });
 		const result = Promise.withResolvers<T>();
 		const [root] = resolveChildren(await factory(host, undefined as never, undefined as never, result.resolve))();
 		if (!root) throw new Error("The Coach memory dashboard did not mount");
@@ -37,15 +37,15 @@ function loadSession(columns: number, rows: number) {
 	const ctx = Object.assign(fakeContext(), { mode: "tui", hasUI: true, ui: { custom } }) as ExtensionCommandContext;
 	const opened = command.handler("", ctx);
 	const node = () => Promise.race([mounted.promise, opened.then(() => { throw new Error("Dashboard closed before it mounted"); })]);
-	return {
-		opened,
-		async input(data: string) {
-			const root = await node();
-			for (const event of decodeInput(data, { kitty: true })) {
-				if (event.type === "key") root.handlers.onKey?.(event.key);
-				else if (event.type === "paste") root.handlers.onPaste?.(event.paste);
-			}
-		},
+	return { opened, node, async input(data: string) {
+		const root = await node();
+		// A Tern popup is an overlay whose first child takes the keys.
+		const keyed = root.kind === "overlay" ? root.children()[0]! : root;
+		for (const event of decodeInput(data, { kitty: true })) {
+			if (event.type === "key") keyed.handlers.onKey?.(event.key);
+			else if (event.type === "paste") keyed.handlers.onPaste?.(event.paste);
+		}
+	},
 		async lines() {
 			const [root] = nodeTree(await node());
 			return root?.c.flatMap(child => {
@@ -68,6 +68,66 @@ async function isolatedHome(run: (dir: string) => Promise<void>) {
 		rmSync(dir, { recursive: true, force: true });
 	}
 }
+
+test("in Tern, /english-coach is a popup whose cards, buttons and rows act like its keys", async () => {
+	setNativeRenderingForTest(true);
+	try {
+		await isolatedHome(async () => {
+			const memory = openCoachMemory();
+			const generation = memory.beginCheck();
+			const at = Date.now();
+			try {
+				memory.recordCheck({ id: "clean", generation, at, fixes: [] });
+				memory.recordCheck({ id: "issue", generation, at, fixes: [
+					{ rule: "articles", example: { before: "opened issue", after: "opened an issue" } },
+				] });
+				const session = loadSession(160, 50, true);
+				const tree = async () => allNodes(nodeTree(await session.node()));
+				const texts = async () => (await tree()).flatMap((node: PlainNode) => [
+					...(Array.isArray(node.p.spans) ? [node.p.spans.map((span: { t: string }) => span.t).join("")] : []),
+					...(typeof node.p.text === "string" ? [node.p.text] : []),
+				]).join("\n");
+				const act = async (action: string) => {
+					const root = await session.node();
+					root.children()[0]!.handlers.onAction!(action, { type: "action", key: "test", act: action, mods: [] });
+				};
+				try {
+					expect((await session.node()).kind).toBe("overlay");
+					expect(await texts()).toContain("English prompts in total");
+					expect(await texts()).toContain("1/2 prompts · 1 fix");
+					await act("rule:0");
+					expect(await texts()).toContain("singular count noun");
+					// The example shows the word the fix added.
+					expect((await tree()).some(node => node.p.spans?.some((span: { t: string; s?: string }) => span.t === "an" && span.s === "ins"))).toBe(true);
+					await act("key:f");
+					expect((await tree()).find(node => node.k === "button" && node.p.text === "Unpin focus")?.p.on).toBe(true);
+					await act("key:p");
+					expect(await texts()).toContain("I opened ___ issue");
+					await act("key:1");
+					expect(await texts()).toContain("Not quite. Answer: an.");
+					expect((await tree()).find(node => node.p.role === "omp-tools.coach.choice.right")?.p.text).toBe("an");
+					await session.input("\r");
+					expect(await texts()).toContain("singular count noun");
+					await session.input("\x1b");
+					expect(await texts()).toContain("Focus");
+				} finally {
+					// Esc steps back one page at a time; home closes the popup.
+					let closed = false;
+					void session.opened.finally(() => { closed = true; });
+					for (let step = 0; step < 4 && !closed; step++) {
+						await session.input("\x1b");
+						await Bun.sleep(0);
+					}
+					await session.opened;
+				}
+			} finally {
+				memory.close();
+			}
+		});
+	} finally {
+		setNativeRenderingForTest(false);
+	}
+});
 
 test("/english-coach shows recorded examples, practice feedback and confirmed reset", async () => {
 	await isolatedHome(async () => {

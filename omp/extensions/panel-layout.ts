@@ -15,9 +15,26 @@ export function interruptKeys(): readonly string[] {
 	return keys.length > 0 ? keys.filter(key => canonicalKeyId(key) !== "ctrl+c") : ["escape"];
 }
 
-/** Whether raw input is an interrupt key that a shown panel takes: the main editor is empty and no omp dialog waits. */
+// An omp-tools popup (the Side question reader, the coach dashboard) owns the keyboard while open, so
+// no panel takes its Esc. Shared across module loads, as each extension loads this file on its own.
+const OVERLAYS = Symbol.for("omp-tools.overlays");
+const overlayHost = globalThis as unknown as Record<symbol, { open: number } | undefined>;
+const overlays = overlayHost[OVERLAYS] ??= { open: 0 };
+
+/** Marks an omp-tools popup open until the returned release runs (idempotent). */
+export function holdOverlay(): () => void {
+	overlays.open++;
+	let held = true;
+	return () => {
+		if (!held) return;
+		held = false;
+		overlays.open--;
+	};
+}
+
+/** Whether raw input is an interrupt key that a shown panel takes: the main editor is empty and no omp dialog or omp-tools popup waits. */
 export function panelInterrupt(ctx: ExtensionContext, dialogOpen: () => boolean, data: string): boolean {
-	if (dialogOpen() || ctx.ui.getEditorText().trim()) return false;
+	if (overlays.open > 0 || dialogOpen() || ctx.ui.getEditorText().trim()) return false;
 	const ids = interruptKeys().map(key => canonicalKeyId(key));
 	return decodeInput(data, { kitty: terminalCapabilities().kittyKeyboard }).some(
 		event => event.type === "key" && event.key.kind !== "release" && ids.includes(event.key.id),
@@ -77,10 +94,11 @@ const LIST_ROWS_PER_LINE = 0.72;
 export const PANEL_BODY_ROLE = "omp-tools.panel-body";
 
 /**
- * The part of a capped body a terminal shows: its start, its end, or its end
- * moved up so the last item of the body's column shows from its first line.
+ * The part of a capped body a terminal shows: its start, its end, the end
+ * moved up so the last item of the body's column shows from its first line,
+ * or a row offset from the start (clamped to the end).
  */
-export type PanelBodyView = "start" | "end" | "lastItem";
+export type PanelBodyView = "start" | "end" | "lastItem" | { offset: number };
 
 interface PanelBodyTerm {
 	readonly lines: number;
@@ -100,6 +118,7 @@ export function scrollBox(content: UiNode, lines: () => number, key: string, vie
 
 function firstShownRow(node: UiNode, cx: PaintContext, rows: number, term: PanelBodyTerm): number {
 	const end = rows - term.lines;
+	if (typeof term.view === "object") return Math.min(Math.max(0, term.view.offset), end);
 	if (term.view === "start") return 0;
 	if (term.view === "end") return end;
 	const last = node.children()[0]?.children().at(-1);

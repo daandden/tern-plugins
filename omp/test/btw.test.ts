@@ -83,6 +83,7 @@ test("the Side question keys preserve Ask and composer input, and copy and fold 
 	btw({ on(event: string, handler: (event: ExtensionEvent, ctx: ExtensionContext) => unknown) { handlers.set(event, handler); } } as ExtensionAPI);
 	let draft = "";
 	let panel: UiNode | undefined;
+	let reader: { node: UiNode; options: { overlay?: boolean; signal?: AbortSignal } } | undefined;
 	let terminalInput: Parameters<ExtensionContext["ui"]["onTerminalInput"]>[0] | undefined;
 	let composerKey: ((key: KeyEvent) => boolean) | undefined;
 	const ui: ExtensionUiHost = { requestRender() {}, size: () => ({ rows: 100, columns: 160 }), suspend: run => run() };
@@ -95,6 +96,12 @@ test("the Side question keys preserve Ask and composer input, and copy and fold 
 			getEditorText: () => draft,
 			setWidget: (_key: string, factory: ((ui: ExtensionUiHost, theme: never) => UiNode) | undefined) => {
 				panel = factory?.(ui, {} as never);
+			},
+			custom: (factory: (ui: ExtensionUiHost, theme: never, keys: never, done: () => void) => UiNode, options: { overlay?: boolean; signal?: AbortSignal }) => {
+				const closed = Promise.withResolvers<void>();
+				options.signal?.addEventListener("abort", () => closed.reject(options.signal!.reason));
+				reader = { node: factory(ui, {} as never, {} as never, closed.resolve), options };
+				return closed.promise;
 			},
 		},
 	} as unknown as ExtensionContext;
@@ -175,6 +182,19 @@ test("the Side question keys preserve Ask and composer input, and copy and fold 
 		expect(render()).not.toContain("answered by main");
 		expect(press("f")).toBe(true);
 		expect(render()).toContain("answered by main");
+
+		expect(press("e")).toBe(true);
+		expect(reader?.options.overlay).toBe(true);
+		expect(JSON.stringify(nodeTree(reader!.node))).toContain("answered by main");
+		// The reader owns Esc while it is open; the note under it stays.
+		expect(key("\x1b")).toBeUndefined();
+		expect(reader!.node.handlers.onKey!({ id: "escape", kind: "press", raw: "\x1b" })).toBe(true);
+		await Bun.sleep(0);
+		expect(render()).toContain("answered by main");
+		expect(press("e")).toBe(true);
+		expect(reader!.options.signal?.aborted).toBe(false);
+		reader!.node.handlers.onKey!({ id: "q", kind: "press", raw: "q" });
+		await Bun.sleep(0);
 
 		setNativeRenderingForTest(true);
 		try {

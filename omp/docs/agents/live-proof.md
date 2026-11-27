@@ -2,6 +2,39 @@
 
 Dated results from the `verify-omp-tools` and `verify-tern-plugins` skills, newest first. Add an entry after each smoke: the host versions, what was driven, what was observed, and the evidence path.
 
+- 2026-11-27, omp 19.2.1 and headless Tern 0.9.36 (dark, `dark-catppuccin`,
+  IosevkaTerm Nerd Font Mono at 600), with the local coach provider. In the
+  Tern view, `/english-coach` opened as a centered popup with the Checked,
+  Clean, Weeks and Trend cards, the Articles focus card (Open, Practice `P`)
+  and three ranked rule rows. Enter opened Articles with its explanation and
+  the `add button` → `add the button` diff marking `the`; `p` showed the
+  two choice cards, and `2` marked `an` and showed `Correct` with the next
+  practice date. A `/btw` follow-up showed the tag pill, the earlier turn
+  folded to one line, the answer in the bright text color and the private
+  footer; `e` opened the `Side question · 2 turns · private` popup, and Esc
+  closed it and left the note. With `PI_TUI_NATIVE=0`, the dashboard stayed
+  full-screen text, the `/btw` box showed `e to read all`, `e` opened the
+  `/btw · 1 turn` sheet, and Esc closed it and left the box. Evidence:
+  `/private/tmp/coach-look-qqPD4Z/new-home.webp`, `new-rule.webp`,
+  `new-practice.webp`, `new-feedback.webp`, `btw-new2.webp`,
+  `btw-reader.webp`, `btw-after.webp` and `classic-*.webp`. After the
+  sheet fixes, `new-feedback2.webp` showed a correct choice on a green
+  card, and `new-home2.webp` labeled the Weeks rows `Nov 16` and `Nov 9`.
+- 2026-11-26, omp 19.2.1 and headless Tern 0.9.36: in the Ask card on an
+  option, the Tern view's General note button showed `⇧N` and Shift+N opened
+  the General note editor; with `PI_TUI_NATIVE=0` the footer read
+  `⇧N General note` and Shift+N opened the `General note` editor. Evidence:
+  `/private/tmp/ask-look-SjGXjE/classic-n0.webp` and `classic-n1.webp`.
+- 2026-11-26, omp 19.2.1 and headless Tern 0.9.36, checkout a98698e plus the
+  `?` change: in the Ask card's local Side-question form, `?` on an option opened
+  an empty Side question editor; `Read the local fixture` and Enter showed the
+  `btw` panel with one tool call and `Local Side read answer.` above the card,
+  which stayed open at 0 of 3 answered. With `PI_TUI_NATIVE=0`, the footer
+  read `? Side question`, `?` opened an empty `Side question` editor
+  (`Enter ask · Esc back`), and the same question showed the
+  `/btw Read the local fixture` box with `Local Side read answer.` above the
+  open card. Evidence: `/private/tmp/ask-look-SjGXjE/side-q.webp`,
+  `classic-side.webp` and `classic-answer.webp` there.
 - 2026-11-26, issue #48 on omp 19.2.1 and Tern 0.9.35. Both renderers
   opened the Ask card, then saved separate two-line option and General
   Notes with two WebP image blocks from pasted paths. `/tree` reopened

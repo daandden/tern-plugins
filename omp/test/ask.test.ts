@@ -128,7 +128,7 @@ test("the Ask card returns a multiline General note on a single-field form", asy
 	const ask = await loadTool();
 	const session = customSession();
 	const result = ask.execute("ask-1", { html: SINGLE }, undefined, undefined, session.ctx);
-	await session.input("\x1bu");
+	await session.input("N");
 	const root = await session.root;
 	const painted = paintNode({
 		theme: currentTheme,
@@ -241,6 +241,21 @@ test("picture paths return image blocks in marker order across picked Notes and 
 	}
 });
 
+test("Shift+N types into a text field, where Alt+U opens the General note", async () => {
+	const ask = await loadTool();
+	const session = customSession();
+	const html = '<form><label>Name <input type="text" name="name"></label></form>';
+	const result = ask.execute("ask-typed-n", { html }, undefined, undefined, session.ctx);
+	await session.input("N");
+	await session.input("\x1bu");
+	await session.input(paste("About the name"));
+	await session.input("\r");
+	await session.input("\r");
+	const answer = textOf(await result);
+	expect(answer).toContain('"name": "N"');
+	expect(answer).toContain("About the name");
+});
+
 test("deleting a picture marker drops the picture", async () => {
 	const ask = await loadTool();
 	const dir = await mkdtemp(join(tmpdir(), "ask-card-"));
@@ -249,7 +264,7 @@ test("deleting a picture marker drops the picture", async () => {
 		await Bun.write(file, encodePng(2, 2, () => [255, 0, 0, 255]));
 		const session = customSession({ cwd: dir });
 		const result = ask.execute("ask-4", { html: SINGLE }, undefined, undefined, session.ctx);
-		await session.input("\x1bu");
+		await session.input("N");
 		await session.input(paste(file));
 		await session.waitFor(nodes => nodes.some(node => node.k === "editor" && node.p.text === "[Image #1]"));
 		await session.input("\x7f".repeat("[Image #1]".length));
@@ -347,7 +362,7 @@ test("headless Ask delegates to the native tool without mounting an extension vi
 	expect(textOf(result)).toBe("Native Ask");
 });
 
-test("in-card /btw gets the current draft without submitting it to the main agent", async () => {
+test("Alt+/ in a Note asks a Side question with the unsaved draft without submitting it to the main agent", async () => {
 	const ask = await loadTool();
 	const request = Promise.withResolvers<unknown>();
 	const fixture = await sideQuestionFixture({ reply: body => {
@@ -360,7 +375,7 @@ test("in-card /btw gets the current draft without submitting it to the main agen
 		await session.input("\x1bu");
 		await session.input(paste("Current draft only\nNot submitted"));
 		await session.input("\x1b/");
-		await session.input(paste("btw Why choose A?"));
+		await session.input(paste("Why choose A?"));
 		await session.input("\r");
 		const payload = JSON.stringify(await request.promise);
 		expect(payload).toContain("Why choose A?");
@@ -372,6 +387,31 @@ test("in-card /btw gets the current draft without submitting it to the main agen
 		const answer = textOf(await result);
 		expect(answer).not.toContain("Current draft only");
 		expect(answer).not.toContain("Why choose A?");
+	} finally {
+		await fixture.dispose();
+	}
+});
+
+test("? on an option opens the Side question, and the question stays out of the answer", async () => {
+	const ask = await loadTool();
+	const request = Promise.withResolvers<unknown>();
+	const fixture = await sideQuestionFixture({ reply: body => {
+		request.resolve(body);
+		return "Side answer";
+	} });
+	try {
+		const session = customSession(fixture.ctx);
+		const result = ask.execute("ask-btw-question-mark", { html: SINGLE }, undefined, undefined, session.ctx);
+		await session.input("?");
+		await session.input(paste("Is A the safe pick?"));
+		await session.input("\r");
+		const payload = JSON.stringify(await request.promise);
+		expect(payload).toContain("Is A the safe pick?");
+		expect(payload).toContain("Option A");
+		await session.input("\r");
+		const answer = textOf(await result);
+		expect(answer).toContain('"choice": "a"');
+		expect(answer).not.toContain("Is A the safe pick?");
 	} finally {
 		await fixture.dispose();
 	}

@@ -4,7 +4,7 @@ import { computed, effect, nativeSupports, onCleanup, signal, UiNode, untrack, t
 import { defineRolePainter, type PaintContext } from "@oh-my-pi/pi-tui/term/paint";
 import { flattenLine } from "@oh-my-pi/pi-tui/text/sanitize";
 import { padTo, truncate, wrap } from "@oh-my-pi/pi-tui/text/width";
-import { type AskCard, GENERAL_NOTE_KEY } from "./ask-card";
+import { type AskCard, GENERAL_NOTE_KEY, SIDE_QUESTION_KEY, TYPING_GENERAL_NOTE_KEY } from "./ask-card";
 import { isDropdown, OTHER_ROW } from "./ask-form";
 import { formBody, formMedia } from "./ask-form-view";
 
@@ -55,7 +55,10 @@ function footerHint(card: AskCard, keys: KeybindingsManager): string {
 	const choose = field?.kind === "choice" && field.multi ? `${formatKeyHint("space")} toggle · ` : "";
 	const cancel = formatKeyHint(keys.keysFor("tui.select.cancel")[0] ?? "escape");
 	const open = card.dropdown() === undefined ? "" : ` · ${formatKeyHint("space")} choose`;
-	return `${choose}${enter} ${next}${open}${note} · ${formatKeyHint(GENERAL_NOTE_KEY)} General note · ↑/↓ move · ${cancel} cancel · /btw`;
+	const typing = card.typingInForm();
+	const side = formatKeyHint(typing ? SIDE_QUESTION_KEY : "?");
+	const general = formatKeyHint(typing ? TYPING_GENERAL_NOTE_KEY : GENERAL_NOTE_KEY);
+	return `${choose}${enter} ${next}${open}${note} · ${general} General note · ${side} Side question · ↑/↓ move · ${cancel} cancel`;
 }
 
 interface AskLook {
@@ -79,7 +82,7 @@ function paintAsk(node: UiNode, cx: PaintContext) {
 	const theme = cx.theme;
 	const extra: string[] = [];
 	if (editor) {
-		extra.push(...wrap(theme.fg("muted", side ? "Side question · /btw <question>" : note?.label ?? "Note"), inner));
+		extra.push(...wrap(theme.fg("muted", side ? "Side question" : note?.label ?? "Note"), inner));
 		extra.push(...cx.paint(editor.node, inner - 4).rows.map(row => `  ${theme.fg("accent", "│")} ${row}`));
 		const hints = side ? "Enter ask · Esc back" : noteHint(card, keybindings);
 		extra.push(...wrap(theme.fg("dim", editor.busy() ? `Pasting… · ${hints}` : hints), inner));
@@ -149,7 +152,7 @@ export function askCardView(card: AskCard, cwd: string, terminalRows: () => numb
 			const editor = side ?? note?.editor;
 			if (!editor) return [];
 			return new UiNode("col", { key: "ask-edit", role: "omp.ask.field", gap: "xs", children: [
-				new UiNode("text", { role: "omp.ask.note", wrap: "word", text: side ? "Side question · /btw <question>" : note?.label }),
+				new UiNode("text", { role: "omp.ask.note", wrap: "word", text: side ? "Side question" : note?.label }),
 				new UiNode("col", { role: "omp.field", children: editor.node }),
 				new UiNode("row", { key: ACTION_ROW, role: "omp.actions", align: "center", gap: "sm", children: [
 					new UiNode("text", { role: "omp.ask.note", wrap: "word", text: () => editor.busy() ? "Pasting…" : side ? "Private Side question" : noteHint(card, keybindings) }),
@@ -168,7 +171,7 @@ export function askCardView(card: AskCard, cwd: string, terminalRows: () => numb
 			new UiNode("spacer", { grow: 1 }),
 			button("cancel", "Cancel"),
 			noteKey !== false && button("note", "Note", noteKey?.split("+")),
-			button("general-note", "General note", GENERAL_NOTE_KEY.split("+"), false, saved ? "pick" : undefined),
+			button("general-note", "General note", (card.typingInForm() ? TYPING_GENERAL_NOTE_KEY : GENERAL_NOTE_KEY).split("+"), false, saved ? "pick" : undefined),
 			button("submit", "Submit", active === "submit" || card.sole ? (keybindings.keysFor("tui.select.confirm")[0] ?? "enter").split("+") : undefined, true),
 		] });
 	};
